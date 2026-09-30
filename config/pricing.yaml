@@ -1,0 +1,4 @@
+version: unverified
+currency: CNY
+models: {}
+note: "Coding Plan 额度和计费未验证，不能把未知费用记作零。"

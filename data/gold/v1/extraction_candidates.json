@@ -1,0 +1,246 @@
+{
+  "seed": 20260930,
+  "candidate_count": 30,
+  "items": [
+    {
+      "id": "candidate-001",
+      "relative_path": "百度秋招一面二面三面面经(三面挂)-炒肉多.md",
+      "source_hash": "87ea68de9083394204bb5d50c48ec57380f298d083efa7b2dbd365aa89c137b3",
+      "human_verified": false,
+      "split": "pending",
+      "annotation_status": "PENDING"
+    },
+    {
+      "id": "candidate-002",
+      "relative_path": "pdd服务端提前批1-4面-蓝莓蛋挞.md",
+      "source_hash": "55ef69d46e537cbfdbd3aed60abf5dfa574ffc0389181470baf07b9f87b2e081",
+      "human_verified": false,
+      "split": "pending",
+      "annotation_status": "PENDING"
+    },
+    {
+      "id": "candidate-003",
+      "relative_path": "Agent开发高频面试题（八股版）-三只松鼠.md",
+      "source_hash": "4f702b00272fa9516cecc34c4449115147bca7a770f53cb29f7a072ca5110a8f",
+      "human_verified": false,
+      "split": "pending",
+      "annotation_status": "PENDING"
+    },
+    {
+      "id": "candidate-004",
+      "relative_path": "得物-一面（回忆版）- 2026.9.22-明日香.md",
+      "source_hash": "f2fef7782129814d4d0b72b621d898b61b57d1a0fc20970bcd8af4134751a6a4",
+      "human_verified": false,
+      "split": "pending",
+      "annotation_status": "PENDING"
+    },
+    {
+      "id": "candidate-005",
+      "relative_path": "小红书-Java后端开发-1面面经-06.17-不知道起什么名字好～.md",
+      "source_hash": "c7e82494ad0deb0409ae0ecf0dae3fead11a7d6413ee6ccb5c9737d9fe507f21",
+      "human_verified": false,
+      "split": "pending",
+      "annotation_status": "PENDING"
+    },
+    {
+      "id": "candidate-006",
+      "relative_path": "小红书PE-产品工程师（社区内容）一面面经-想考上的方方.md",
+      "source_hash": "a536db2c54791dbe208c577b2f2b5a384b33c16667e46c257c9f75f49b3348ed",
+      "human_verified": false,
+      "split": "pending",
+      "annotation_status": "PENDING"
+    },
+    {
+      "id": "candidate-007",
+      "relative_path": "腾讯秋招Agent开发-一面面经-困了就睡.md",
+      "source_hash": "dd07e8442a7667dcfba12f2120b9a10e39eac70b67cd63fda7063ae8517e4594",
+      "human_verified": false,
+      "split": "pending",
+      "annotation_status": "PENDING"
+    },
+    {
+      "id": "candidate-008",
+      "relative_path": "4.7 腾讯视频一面-不许吃零食了.md",
+      "source_hash": "80d19637cdd01945f5df7d946644d36411ebbbe8886a75b78afffdbb36980441",
+      "human_verified": false,
+      "split": "pending",
+      "annotation_status": "PENDING"
+    },
+    {
+      "id": "candidate-009",
+      "relative_path": "字节跳动后端二面-Crimp.md",
+      "source_hash": "9d8c0147783dafe1a45c9922649f8818ddc3380ad399098e0c357f6d50c519be",
+      "human_verified": false,
+      "split": "pending",
+      "annotation_status": "PENDING"
+    },
+    {
+      "id": "candidate-010",
+      "relative_path": "字节面经-yorkei.md",
+      "source_hash": "e42e40eae1a125d7c6882946c79919fb1c53f049836c3cdc378471f02fb744ef",
+      "human_verified": false,
+      "split": "pending",
+      "annotation_status": "PENDING"
+    },
+    {
+      "id": "candidate-011",
+      "relative_path": "3.24 腾讯wxg后台开发-一面面经（过）-Mintshoot.md",
+      "source_hash": "d5edb7f1affca5ce98bc31d3e6f89fffe4fd456b3928fc5984ac4bef93989a3e",
+      "human_verified": false,
+      "split": "pending",
+      "annotation_status": "PENDING"
+    },
+    {
+      "id": "candidate-012",
+      "relative_path": "腾讯 S3hr与管理线 一面-ᝰꫛꫀꪝ.md",
+      "source_hash": "ac4dd87e78adedf18b389de2932b1b68a5a705758fc1a4fcc4c810358eb6533c",
+      "human_verified": false,
+      "split": "pending",
+      "annotation_status": "PENDING"
+    },
+    {
+      "id": "candidate-013",
+      "relative_path": "某厂Agent三面-无情道高手.md",
+      "source_hash": "4ba41a322255201008892880b5280f35ca28f097a3aa3f45b593efcadbe3178c",
+      "human_verified": false,
+      "split": "pending",
+      "annotation_status": "PENDING"
+    },
+    {
+      "id": "candidate-014",
+      "relative_path": "携程后端一面-算法与双吉汉堡.md",
+      "source_hash": "37d8c6fc14d89ffff97b0f64fb3daf4b8d87c0682deaf9c5edbbf26881fa68c8",
+      "human_verified": false,
+      "split": "pending",
+      "annotation_status": "PENDING"
+    },
+    {
+      "id": "candidate-015",
+      "relative_path": "恒生电子秋招-AI应用开发-AI面面经-困了就睡.md",
+      "source_hash": "a23d291b339769087c05d70608917e9e13c1219cd8c3758bde8aea8d028676ae",
+      "human_verified": false,
+      "split": "pending",
+      "annotation_status": "PENDING"
+    },
+    {
+      "id": "candidate-016",
+      "relative_path": "唯品会广州Java一二面面经-Asher.md",
+      "source_hash": "6d2b25ee4caccc939c025689f4f39f01d0ce466f7554f50c7903497a60861a0c",
+      "human_verified": false,
+      "split": "pending",
+      "annotation_status": "PENDING"
+    },
+    {
+      "id": "candidate-017",
+      "relative_path": "27秋招百度后端开发 二面-端妃你不要再喝红花了.md",
+      "source_hash": "afb36a5040431e1b1e31c1754c36d5876fa9b2f578cf6cf9fa48ad7bea58bd43",
+      "human_verified": false,
+      "split": "pending",
+      "annotation_status": "PENDING"
+    },
+    {
+      "id": "candidate-018",
+      "relative_path": "字节P5 985硕 AI Agent岗位 聊聊感受-会敲代码的泡.md",
+      "source_hash": "11b193529af8a3ab89827b680ca4b99e5cdbdb1834f71f5e4bd7a9c6543356de",
+      "human_verified": false,
+      "split": "pending",
+      "annotation_status": "PENDING"
+    },
+    {
+      "id": "candidate-019",
+      "relative_path": "腾讯 TEG 云架构平台 一面（二面已挂）-消除小胃袋.md",
+      "source_hash": "8ffa2b7e970707285001955772a52c8bb6c2e9a244a43417d0fbc85d82448a51",
+      "human_verified": false,
+      "split": "pending",
+      "annotation_status": "PENDING"
+    },
+    {
+      "id": "candidate-020",
+      "relative_path": "快手秋招Ai应用开发一面(三战)-有offer能做好人了.md",
+      "source_hash": "26ff947cf0639a8bd10e562846fc0e0b45896ac5abc77b77103f7d8d9226389a",
+      "human_verified": false,
+      "split": "pending",
+      "annotation_status": "PENDING"
+    },
+    {
+      "id": "candidate-021",
+      "relative_path": "Agent初创公司面经-JudyQzy.md",
+      "source_hash": "25f4988cee35228e7dd50a0ea4257051a6ae27cafc6e9e549d7f42d96ffd50dd",
+      "human_verified": false,
+      "split": "pending",
+      "annotation_status": "PENDING"
+    },
+    {
+      "id": "candidate-022",
+      "relative_path": "4.8字节头条ai全栈开发三面-Real.md",
+      "source_hash": "426bc499ff7b9a58cb78001fa7f5909ceb573a534ba70d1b449214f9f176d1ba",
+      "human_verified": false,
+      "split": "pending",
+      "annotation_status": "PENDING"
+    },
+    {
+      "id": "candidate-023",
+      "relative_path": "Agent 在电商场景下的落地-淮南txo.md",
+      "source_hash": "3e40db92343e92dc72859ae953730071e1edb06b960f78bab768c2aade22077e",
+      "human_verified": false,
+      "split": "pending",
+      "annotation_status": "PENDING"
+    },
+    {
+      "id": "candidate-024",
+      "relative_path": "字节一面-你饭吃了嘛.md",
+      "source_hash": "a8927c57f67ab6489656fd5b6894ed647f65b6d3dd9cd1960956406ed0472ef0",
+      "human_verified": false,
+      "split": "pending",
+      "annotation_status": "PENDING"
+    },
+    {
+      "id": "candidate-025",
+      "relative_path": "第一次感受到 multi-agent 的震撼-念远.md",
+      "source_hash": "79391dc8a41fee7a76ed0a28f1c998635c24fcd46419c1e834f7a32ee834ea06",
+      "human_verified": false,
+      "split": "pending",
+      "annotation_status": "PENDING"
+    },
+    {
+      "id": "candidate-026",
+      "relative_path": "1. 介绍一下你最近一段的实习经历-MCon.md",
+      "source_hash": "5ce430dd9be578b6d30dc3d99e0421827060303baf9d00bb0a49d6e5b3e3ccb5",
+      "human_verified": false,
+      "split": "pending",
+      "annotation_status": "PENDING"
+    },
+    {
+      "id": "candidate-027",
+      "relative_path": "百度秋招-后端开发-二面面经-困了就睡.md",
+      "source_hash": "22b689ef4d5851edd226004fe376dcb0980d18936848ec923693f0acf41e3a64",
+      "human_verified": false,
+      "split": "pending",
+      "annotation_status": "PENDING"
+    },
+    {
+      "id": "candidate-028",
+      "relative_path": "字节后端实习agent一面-Friday...md",
+      "source_hash": "23684672541787c6890119bb12125ddc8aea179666559576f0b2f98252248aca",
+      "human_verified": false,
+      "split": "pending",
+      "annotation_status": "PENDING"
+    },
+    {
+      "id": "candidate-029",
+      "relative_path": "腾讯IEG后端一面-春秋只转载要事.md",
+      "source_hash": "d9bbc33cc1f142bd10e2be5d09b68ea2e23d786d7d92790426f9962937ab941d",
+      "human_verified": false,
+      "split": "pending",
+      "annotation_status": "PENDING"
+    },
+    {
+      "id": "candidate-030",
+      "relative_path": "3.4腾讯后端一面凉经-牛弹琴.md",
+      "source_hash": "04b9dfb6a29139942b6052ca5c810816efe589eeb1c8b67f8342b0adbf793e89",
+      "human_verified": false,
+      "split": "pending",
+      "annotation_status": "PENDING"
+    }
+  ]
+}

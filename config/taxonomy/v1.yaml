@@ -1,0 +1,76 @@
+version: v1
+topics:
+  Java:
+    Java基础: java.basics
+    集合: java.collections
+    并发: java.concurrency
+    JVM: java.jvm
+    IO: java.io
+  数据库:
+    MySQL索引: database.mysql_index
+    MySQL事务: database.mysql_transaction
+    MVCC: database.mvcc
+    MySQL锁: database.mysql_lock
+    SQL优化: database.sql_optimization
+    数据库架构: database.architecture
+  Redis:
+    数据结构: redis.data_structures
+    持久化: redis.persistence
+    缓存问题: redis.cache_problems
+    高可用: redis.high_availability
+    分布式锁: redis.distributed_lock
+    性能优化: redis.performance
+  Spring:
+    IOC: spring.ioc
+    AOP: spring.aop
+    Spring事务: spring.transaction
+    SpringBoot: spring.boot
+    SpringMVC: spring.mvc
+  中间件:
+    Kafka: middleware.kafka
+    RocketMQ: middleware.rocketmq
+    消息可靠性: middleware.reliability
+    消息顺序: middleware.ordering
+    消息积压: middleware.backlog
+  分布式:
+    分布式事务: distributed.transaction
+    CAP与一致性: distributed.consistency
+    分布式ID: distributed.id
+    限流: distributed.rate_limit
+    服务治理: distributed.governance
+  计算机基础:
+    网络: fundamentals.network
+    操作系统: fundamentals.operating_systems
+    数据结构: fundamentals.data_structures
+    Linux: fundamentals.linux
+  系统设计:
+    高并发: system_design.concurrency
+    高可用: system_design.availability
+    缓存: system_design.cache
+    数据库设计: system_design.database
+    线上排障: system_design.incident
+  算法:
+    数组: algorithm.array
+    链表: algorithm.linked_list
+    树: algorithm.tree
+    图: algorithm.graph
+    动态规划: algorithm.dynamic_programming
+    搜索: algorithm.search
+    字符串: algorithm.string
+    大数据场景: algorithm.large_data
+  AI:
+    LLM: ai.llm
+    RAG: ai.rag
+    Agent: ai.agent
+    MCP: ai.mcp
+    Prompt: ai.prompt
+    AI系统设计: ai.system_design
+  项目:
+    项目深挖: project.deep_dive
+    系统设计: project.system_design
+    故障场景: project.incident
+    性能优化: project.performance
+  其他:
+    HR: other.hr
+    开放问题: other.open_question
+    UNKNOWN: other.unknown

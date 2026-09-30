@@ -1,0 +1,13 @@
+version: importance_v1
+frequency_weight: 0.5
+company_coverage_weight: 0.3
+recent_frequency_weight: 0.2
+recent_calendar_months: 3
+bands:
+  CORE: 0.7
+  COMMON: 0.3
+gap_weights:
+  WEAK: 1.0
+  UNSEEN: 0.8
+  REVIEWED: 0.4
+  MASTERED: 0.0

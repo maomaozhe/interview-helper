@@ -1,0 +1,5 @@
+version: v1
+families:
+  BACKEND: [后端, 后台, 服务端, Java后端, 后端开发, 服务端开发]
+  AI_APPLICATION: [AI应用开发, Agent开发, 大模型应用开发]
+  ALGORITHM: [算法, 算法工程师]

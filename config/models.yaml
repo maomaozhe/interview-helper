@@ -1,0 +1,16 @@
+version: ark_coding_v1
+provider: volcengine_ark_coding_plan
+base_url: https://ark.cn-beijing.volces.com/api/coding/v3
+extraction_model: ark-code-latest
+judge_model: ark-code-latest
+embedding_model: doubao-embedding-vision
+embedding_endpoint: embeddings/multimodal
+embedding_dimension: 1024
+embedding_instructions_version: v2
+reranker_model: ark-code-latest
+preflight_status: extraction_schema_and_embedding_verified
+max_in_flight: 1
+min_interval_seconds: 2
+request_timeout_seconds: 180
+extraction_stream: true
+note: "Use the user's selected Ark plan; serialize model requests across API and worker."

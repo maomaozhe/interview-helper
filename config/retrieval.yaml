@@ -1,0 +1,12 @@
+version: search_v1_jieba_whitespace
+default_pipeline: HYBRID
+bm25_candidates: 100
+dense_candidates: 100
+dense_num_candidates: 500
+rrf_k: 60
+fusion_candidates: 50
+default_top_k: 10
+max_eligible_canonical_ids: 50000
+bm25_fields:
+  search_tokens: 2
+  variants_tokens: 1

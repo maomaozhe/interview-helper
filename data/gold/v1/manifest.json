@@ -1,0 +1,9 @@
+{
+  "version": "v1",
+  "status": "draft",
+  "annotation_guide": "docs/annotation-guide.md",
+  "extraction": [],
+  "dedup": [],
+  "retrieval": [],
+  "routing": []
+}

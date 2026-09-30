@@ -1,0 +1,90 @@
+"""Serialize model requests across threads and cooperating local processes."""
+
+from __future__ import annotations
+
+import errno
+import math
+import os
+import threading
+import time
+from contextlib import contextmanager
+from pathlib import Path
+
+
+_THREAD_LOCKS: dict[str, threading.Lock] = {}
+_REGISTRY_LOCK = threading.Lock()
+
+
+class ModelCallGate:
+    """Hold a file lock during a request, with a quiet interval after completion.
+
+    API and worker processes must use the same mounted lock file. The OS releases
+    its lock if a process exits. The file stores only the last completion time.
+    """
+
+    def __init__(self, lock_path: Path | str = Path("data/model-call.lock"), *,
+                 minimum_interval_seconds: float = 2.0):
+        if not math.isfinite(minimum_interval_seconds) or minimum_interval_seconds < 0:
+            raise ValueError("minimum model call interval must be finite and non-negative")
+        self.lock_path = Path(lock_path).resolve()
+        self.minimum_interval_seconds = minimum_interval_seconds
+        with _REGISTRY_LOCK:
+            self._thread_lock = _THREAD_LOCKS.setdefault(str(self.lock_path), threading.Lock())
+
+    @contextmanager
+    def call(self):
+        self.lock_path.parent.mkdir(parents=True, exist_ok=True)
+        with self._thread_lock:
+            descriptor = os.open(self.lock_path, os.O_RDWR | os.O_CREAT, 0o600)
+            with os.fdopen(descriptor, "r+b") as lock_file:
+                if os.fstat(lock_file.fileno()).st_size == 0:
+                    lock_file.write(b"\0")
+                    lock_file.flush()
+                self._acquire(lock_file)
+                try:
+                    lock_file.seek(1)
+                    try:
+                        previous_completion = float(lock_file.read(64).decode("ascii"))
+                    except (ValueError, UnicodeDecodeError):
+                        previous_completion = 0.0
+                    # A clock correction must not produce an unbounded pause.
+                    remaining = min(self.minimum_interval_seconds,
+                                    previous_completion + self.minimum_interval_seconds - time.time())
+                    if remaining > 0:
+                        time.sleep(remaining)
+                    try:
+                        yield
+                    finally:
+                        lock_file.seek(1)
+                        lock_file.write(f"{time.time():.9f}".encode("ascii"))
+                        lock_file.truncate()
+                        lock_file.flush()
+                finally:
+                    self._release(lock_file)
+
+    @staticmethod
+    def _acquire(lock_file):
+        if os.name == "nt":
+            import msvcrt
+            while True:
+                lock_file.seek(0)
+                try:
+                    msvcrt.locking(lock_file.fileno(), msvcrt.LK_NBLCK, 1)
+                    return
+                except OSError as error:
+                    if error.errno not in (errno.EACCES, errno.EAGAIN, errno.EDEADLK):
+                        raise
+                    time.sleep(0.05)
+        else:
+            import fcntl
+            fcntl.flock(lock_file.fileno(), fcntl.LOCK_EX)
+
+    @staticmethod
+    def _release(lock_file):
+        if os.name == "nt":
+            import msvcrt
+            lock_file.seek(0)
+            msvcrt.locking(lock_file.fileno(), msvcrt.LK_UNLCK, 1)
+        else:
+            import fcntl
+            fcntl.flock(lock_file.fileno(), fcntl.LOCK_UN)
