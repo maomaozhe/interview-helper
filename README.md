@@ -4,7 +4,7 @@
 
 ## 当前状态
 
-代码已覆盖数据库、导入任务、结构化抽取适配、去重、统计、检索、题目详情、来源、复习记录、API、CLI 和评测脚手架。PostgreSQL 迁移、Elasticsearch 检索、已安装容器中的 API 和自动化测试已验证。**这仍不是完成验收的 V1**：190 篇文件尚未通过真实模型导入，人工 gold 尚未冻结，四路检索和路由也没有真实的 50 条查询评测。`data/gold/v1/extraction_candidates.json` 是待标注清单，不是 gold。
+代码已覆盖数据库、导入任务、结构化抽取适配、去重、统计、检索、题目详情、来源、复习记录、API、CLI 和评测脚手架。两篇真实文档试运行得到 1 场面试、8 次提问，并排除 1 篇题目汇总；来源追溯、四种检索和重复导入零新增模型调用均已验证。**这仍不是完成验收的 V1**：190 篇目录正在后台导入，人工 gold 尚未冻结，四路检索和路由也没有真实的 50 条查询评测。`data/gold/v1/extraction_candidates.json` 是待标注清单，不是 gold。
 
 按用户明确选择，模型接口使用火山方舟 `https://ark.cn-beijing.volces.com/api/coding/v3`，文本模型为 `ark-code-latest`，向量模型为 `doubao-embedding-vision`。实际预检已验证严格 JSON Schema 抽取和 1024 维向量。API 与 worker 共用文件锁，模型请求逐个执行，默认在上一次请求结束后等待 2 秒。抽取默认通过流式响应接收完整 JSON，完成和原文校验后才入库；响应中断不发布部分结果。密钥仅存放在被 Git 忽略的 `.env`。
 
@@ -39,7 +39,7 @@ uv run --locked --no-editable ii search "缓存击穿的追问"
 uv run --locked --no-editable ii chat "Redis 高频问题有哪些"
 ```
 
-API 文档在本机 `http://127.0.0.1:8000/docs`。导入是后台队列；重复请求必须复用相同幂等键。`GET /api/health` 区分数据库、索引和模型配置状态。没有完成索引同步时，搜索返回明确错误，SQL 统计仍可用。
+API 文档在本机 `http://127.0.0.1:8000/docs`。导入是后台队列；重复请求必须复用相同幂等键。`GET /api/health` 区分数据库、索引和模型配置状态。每篇成功导入后同步索引；尚未完成同步时，搜索返回明确错误，SQL 统计仍可用。快照按 `SNAPSHOT_ROOT` 下的 SHA-256 文件名定位，避免 Windows 和容器绝对路径不兼容。
 
 ## 数据口径和取舍
 

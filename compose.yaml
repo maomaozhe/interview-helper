@@ -43,6 +43,7 @@ services:
       DATABASE_URL: postgresql+psycopg://interview:localdev@postgres:5432/interview_intelligence
       ELASTICSEARCH_URL: http://elasticsearch:9200
       CORPUS_ROOT: /corpus
+      SNAPSHOT_ROOT: /app/data/snapshots
       MODEL_API_KEY: ${MODEL_API_KEY:-}
       MODEL_BASE_URL: ${MODEL_BASE_URL:-}
       EXTRACTION_MODEL: ${EXTRACTION_MODEL:-ark-code-latest}
@@ -81,6 +82,7 @@ services:
       DATABASE_URL: postgresql+psycopg://interview:localdev@postgres:5432/interview_intelligence
       ELASTICSEARCH_URL: http://elasticsearch:9200
       CORPUS_ROOT: /corpus
+      SNAPSHOT_ROOT: /app/data/snapshots
       MODEL_API_KEY: ${MODEL_API_KEY:-}
       MODEL_BASE_URL: ${MODEL_BASE_URL:-}
       EXTRACTION_MODEL: ${EXTRACTION_MODEL:-ark-code-latest}

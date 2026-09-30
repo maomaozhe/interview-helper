@@ -4,6 +4,9 @@ from interview_intelligence.api import create_app
 from interview_intelligence.config import Settings
 from test_analytics import seed_corpus
 from interview_intelligence.domain.models import CorpusState
+from interview_intelligence.domain.models import SourceRevision
+from sqlalchemy import select
+import hashlib
 
 
 def test_stats_detail_and_review_api_share_one_database():
@@ -77,3 +80,36 @@ def test_interactive_search_explicitly_reports_dense_degradation():
     assert response.json()["meta"]["requested_pipeline"] == "HYBRID"
     assert response.json()["meta"]["executed_pipeline"] == "BM25"
     assert response.json()["meta"]["degraded"] is True
+
+
+def test_source_snapshot_survives_a_host_path_change_and_normalizes_lines(tmp_path):
+    db, _, _ = seed_corpus()
+    raw = b"# Interview\r\nRedis question\r\n"
+    digest = hashlib.sha256(raw).hexdigest()
+    (tmp_path / f"{digest}.md").write_bytes(raw)
+    with db.session() as session:
+        with session.begin():
+            revision = session.scalar(select(SourceRevision))
+            revision.raw_file_hash = digest
+            revision.snapshot_path = r"Z:\old-host\snapshots\unavailable.md"
+        revision_id = revision.id
+    client = TestClient(create_app(db, Settings(database_url="sqlite+pysqlite:///:memory:",
+                                                snapshot_root=tmp_path)))
+    response = client.get(f"/api/sources/{revision_id}", params={"line_start": 2, "line_end": 2})
+    assert response.status_code == 200
+    assert response.json()["data"]["markdown"] == "Redis question"
+    (tmp_path / f"{digest}.md").write_bytes(b"changed")
+    response = client.get(f"/api/sources/{revision_id}")
+    assert response.status_code == 400
+    assert response.json()["error"]["code"] == "SOURCE_HASH_MISMATCH"
+
+
+def test_missing_snapshot_is_a_structured_unavailable_response(tmp_path):
+    db, _, _ = seed_corpus()
+    with db.session() as session:
+        revision_id = session.scalar(select(SourceRevision.id))
+    client = TestClient(create_app(db, Settings(database_url="sqlite+pysqlite:///:memory:",
+                                                snapshot_root=tmp_path)))
+    response = client.get(f"/api/sources/{revision_id}")
+    assert response.status_code == 503
+    assert response.json()["error"]["code"] == "SOURCE_SNAPSHOT_MISSING"

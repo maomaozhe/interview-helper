@@ -48,6 +48,25 @@ def test_worker_persists_batch_progress_and_does_not_repeat_completed_run():
         assert saved.processed_questions == 4
 
 
+def test_published_document_is_searchable_before_processing_next_document():
+    db = create_database("sqlite+pysqlite:///:memory:")
+    with db.session() as session:
+        with session.begin():
+            run = PipelineRun(pipeline_version="v1", extractor_version="v1", taxonomy_version="v1",
+                              embedding_version="v1", config_snapshot={"paths": ["a.md", "b.md"]}, status="QUEUED")
+            session.add(run)
+        run_id = run.id
+    synced = []
+    class Ingestor(StubIngestor):
+        def ingest_file(self, path):
+            if path == "b.md":
+                assert synced == ["a.md"], "first document must already be indexed"
+            return super().ingest_file(path)
+    ingestor = Ingestor()
+    assert process_queued_run(db, run_id, ingestor, lambda: synced.append(ingestor.paths[-1])) == "SUCCEEDED"
+    assert synced == ["a.md", "b.md"]
+
+
 def test_worker_keeps_failed_paths_for_targeted_retry():
     db = create_database("sqlite+pysqlite:///:memory:")
     with db.session() as session:

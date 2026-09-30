@@ -21,6 +21,7 @@ class Settings(BaseSettings):
     judge_model: str | None = "ark-code-latest"
     reranker_model: str | None = "ark-code-latest"
     corpus_root: Path = Path("./md")
+    snapshot_root: Path = Path("data/snapshots")
     local_user_id: str = "local"
     app_signing_key: str | None = None
     embedding_dimension: int | None = 1024

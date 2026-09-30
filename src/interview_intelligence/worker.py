@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import time
-from pathlib import Path
 
 from sqlalchemy import select, text
 import httpx
@@ -61,7 +60,7 @@ def build_worker_services(database, settings, run_id: str | None = None):
                                   on_call=record_call, budget=budget, call_gate=gate,
                                   timeout_seconds=settings.model_request_timeout_seconds)
     deduper = DedupService(encoder=encoder, judge=judge)
-    ingestor = IngestService(database, settings.corpus_root, Path("data/snapshots"),
+    ingestor = IngestService(database, settings.corpus_root, settings.snapshot_root,
                              extractor, deduper)
     reranker = (LLMReranker(model=settings.reranker_model, api_key=settings.model_api_key,
                             base_url=settings.model_base_url, budget=budget,
@@ -108,6 +107,25 @@ def process_queued_run(database, run_id: str, ingestor, indexer, calls: list[dic
             finished_paths = set(run.config_snapshot.get("finished_paths", []))
             mode = run.config_snapshot.get("mode", "changed")
     stopped = False
+    index_failed = False
+    synced_during_loop = False
+    def sync_index():
+        nonlocal index_failed, synced_during_loop
+        try:
+            indexer()
+            index_failed = False
+            synced_during_loop = True
+            with database.session() as session:
+                with session.begin():
+                    run = session.get(PipelineRun, run_id)
+                    run.config_snapshot = {key: value for key, value in run.config_snapshot.items()
+                                           if key != "index_error"}
+        except Exception as error:
+            index_failed = True
+            with database.session() as session:
+                with session.begin():
+                    run = session.get(PipelineRun, run_id)
+                    run.config_snapshot = {**run.config_snapshot, "index_error": type(error).__name__}
     for path_index, path in enumerate([] if mode == "reindex" else paths):
         if path in finished_paths:
             continue
@@ -128,6 +146,8 @@ def process_queued_run(database, run_id: str, ingestor, indexer, calls: list[dic
                     run.config_snapshot = {**run.config_snapshot,
                                            "finished_paths": [*run.config_snapshot.get("finished_paths", []), path]}
                     finished_paths.add(path)
+            if outcome.status == "SUCCEEDED":
+                sync_index()
         except Exception as error:
             status_code = (error.status_code if isinstance(error, APIStatusError)
                            else error.response.status_code if isinstance(error, httpx.HTTPStatusError)
@@ -150,17 +170,14 @@ def process_queued_run(database, run_id: str, ingestor, indexer, calls: list[dic
         finally:
             if calls is not None:
                 _persist_model_calls(database, run_id, calls)
-    try:
-        if stopped:
-            raise ValueError("MODEL_CALLS_STOPPED")
-        indexer()
-        index_failed = False
-    except Exception as error:
+    if stopped:
         index_failed = True
         with database.session() as session:
             with session.begin():
                 run = session.get(PipelineRun, run_id)
-                run.config_snapshot = {**run.config_snapshot, "index_error": type(error).__name__}
+                run.config_snapshot = {**run.config_snapshot, "index_error": "MODEL_CALLS_STOPPED"}
+    elif not synced_during_loop or index_failed:
+        sync_index()
     if calls is not None:
         _persist_model_calls(database, run_id, calls)
     with database.session() as session:

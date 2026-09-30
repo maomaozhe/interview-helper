@@ -6,7 +6,6 @@ import hashlib
 import json
 import secrets
 from datetime import date
-from pathlib import Path
 from typing import Annotated, Literal
 from uuid import uuid4
 from urllib.parse import quote
@@ -136,7 +135,7 @@ def create_app(database=None, settings: Settings | None = None, retriever=None) 
         code = message.split(":", 1)[0] if message.isupper() or ":" in message else "INVALID_OPERATION"
         status = 409 if code in {"IDEMPOTENCY_CONFLICT", "USER_STATE_VERSION_CONFLICT", "SNAPSHOT_CHANGED"} else 400
         if code in {"INDEX_NOT_READY", "EMBEDDING_NOT_READY", "RERANKER_NOT_READY",
-                    "MODEL_CONFIGURATION_INCOMPLETE", "MODEL_NOT_READY"}:
+                    "MODEL_CONFIGURATION_INCOMPLETE", "MODEL_NOT_READY", "SOURCE_SNAPSHOT_MISSING"}:
             status = 503
         return JSONResponse(status_code=status, content={"error": {
             "code": code, "message": message, "retryable": status == 503},
@@ -267,7 +266,13 @@ def create_app(database=None, settings: Settings | None = None, retriever=None) 
             revision = session.get(SourceRevision, revision_id)
             if revision is None:
                 raise KeyError("SOURCE_REVISION_NOT_FOUND")
-            raw = Path(revision.snapshot_path).read_bytes()
+            digest = revision.raw_file_hash
+            if len(digest) != 64 or any(character not in "0123456789abcdef" for character in digest):
+                raise ValueError("SOURCE_HASH_INVALID")
+            snapshot = settings.snapshot_root / f"{digest}.md"
+            if not snapshot.is_file():
+                raise ValueError("SOURCE_SNAPSHOT_MISSING")
+            raw = snapshot.read_bytes()
             if hashlib.sha256(raw).hexdigest() != revision.raw_file_hash:
                 raise ValueError("SOURCE_HASH_MISMATCH")
             text = decode_source(raw)
