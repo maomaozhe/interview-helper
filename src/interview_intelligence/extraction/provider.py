@@ -124,6 +124,20 @@ class OpenAICompatibleExtractor:
         self.stream = stream
         self.taxonomy = load_taxonomy()
 
+    @property
+    def cache_configuration(self) -> dict:
+        """Effective extraction inputs, excluding credentials and retry state."""
+        return {
+            "schema": DraftResult.model_json_schema(),
+            "response_format": {"type": "json_schema", "name": "interview_extraction_v1", "strict": True},
+            "temperature": 0,
+            "stream": self.stream,
+            "stream_options": {"include_usage": True} if self.stream else None,
+            "prompt_hash": hashlib.sha256(self.prompt.encode("utf-8")).hexdigest(),
+            "taxonomy": {"version": self.taxonomy.version, "topics": self.taxonomy.topics},
+            "base_url": str(getattr(self.client, "base_url", "")),
+        }
+
     def extract(self, *, text: str, revision_id: str) -> ExtractionResult:
         if len(text) > 20_000:
             raise ValueError("INPUT_TOO_LARGE: semantic sectioning required")

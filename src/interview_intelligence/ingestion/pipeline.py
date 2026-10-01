@@ -22,6 +22,7 @@ from interview_intelligence.domain.models import (
 from interview_intelligence.ingestion.identity import source_identity
 from interview_intelligence.ingestion.algorithm import parse_algorithm_match
 from interview_intelligence.ingestion.snapshot import decode_source, save_snapshot
+from interview_intelligence.ingestion.extraction_cache import ExtractionStageCache, extraction_config_hash
 from interview_intelligence.repository.corpus import publish_build
 from interview_intelligence.taxonomy import load_taxonomy
 
@@ -120,9 +121,8 @@ class IngestService:
                          f":{getattr(self.deduper.judge, 'model', '')}"
                          f":{getattr(self.deduper.judge, 'prompt_hash', '')}"
                          if self.deduper else "unconfigured")
-        extractor_identity = (f"{self.extractor.version}:{getattr(self.extractor, 'model', '')}"
-                              f":{getattr(self.extractor, 'prompt_hash', '')}")
-        fingerprint = _fingerprint(f"{extractor_identity}:{dedup_version}")
+        extract_config = extraction_config_hash(self.extractor, self.taxonomy)
+        fingerprint = _fingerprint(f"{extract_config}:{dedup_version}")
 
         with self.database.session() as session:
             with session.begin():
@@ -174,10 +174,17 @@ class IngestService:
                     return IngestOutcome("SKIPPED", run_id, source_id, corpus_revision)
 
         try:
-            result = self.extractor.extract(text=text, revision_id=revision_id)
-            if not isinstance(result, ExtractionResult):
-                result = ExtractionResult.model_validate(result)
-            self._validate_extraction(result, text, revision_id)
+            cache = ExtractionStageCache(self.database, self.snapshot_root, revision_id=revision_id,
+                                         source_hash=source_hash, config_hash=extract_config)
+            cached = cache.load(task_id, lambda result: self._validate_extraction(result, text, revision_id))
+            if cached is None:
+                result = self.extractor.extract(text=text, revision_id=revision_id)
+                # Revalidate model instances too: callers can mutate Pydantic values.
+                result = ExtractionResult.model_validate(
+                    result.model_dump(mode="json") if isinstance(result, ExtractionResult) else result)
+                self._validate_extraction(result, text, revision_id)
+                cached = cache.save(task_id, result, getattr(self.extractor, "resolved_model", None))
+            result = cached.result
             with self.database.session() as session:
                 with session.begin():
                     build = session.scalar(select(DocumentBuild).where(
@@ -194,7 +201,7 @@ class IngestService:
                             processing_state="READY", exclusion_reason=result.exclusion_reason,
                             config_snapshot={"extractor_prompt_hash": getattr(self.extractor, "prompt_hash", None),
                                              "extraction_model": getattr(self.extractor, "model", None),
-                                             "resolved_extraction_model": getattr(self.extractor, "resolved_model", None),
+                                             "resolved_extraction_model": cached.resolved_model,
                                              "dedup_version": dedup_version},
                         )
                         session.add(build)
@@ -237,17 +244,33 @@ class IngestService:
             raise
 
     def _validate_extraction(self, result: ExtractionResult, text: str, revision_id: str) -> None:
+        if result.schema_version != "v1":
+            raise ValueError("unsupported extraction schema version")
         if result.document_kind == "INTERVIEW_REPORT" and not result.interviews:
             raise ValueError("interview report has no sessions")
+        if result.document_kind == "INTERVIEW_REPORT" and not any(
+            question.evidence_kind == "INTERVIEW_QUESTION"
+            for interview in result.interviews for question in interview.questions
+        ):
+            raise ValueError("interview report has no eligible interview questions")
         def valid(spans):
             return all(span.revision_id == revision_id and span.matches(text) for span in spans)
+        session_ids = set()
         for interview in result.interviews:
+            if result.document_kind in {"INTERVIEW_REPORT", "MIXED"}:
+                if interview.local_id in session_ids:
+                    raise ValueError("duplicate local interview ID")
+                session_ids.add(interview.local_id)
             if not valid(interview.session_spans):
                 raise ValueError("session source span invalid")
             if not all(valid(spans) for spans in interview.metadata_evidence.values()):
                 raise ValueError("metadata source span invalid")
             question_ids = set()
             for question in interview.questions:
+                if bool(question.topic_l1) != bool(question.topic_l2):
+                    raise ValueError("taxonomy classification must provide both levels")
+                if question.topic_l1:
+                    self.taxonomy.resolve(question.topic_l1, question.topic_l2)
                 if question.local_id in question_ids:
                     raise ValueError("duplicate local question ID")
                 question_ids.add(question.local_id)
@@ -261,6 +284,14 @@ class IngestService:
                     raise ValueError("followup references unknown question")
                 if not valid(followup.evidence_spans):
                     raise ValueError("followup source span invalid")
+            if result.document_kind in {"INTERVIEW_REPORT", "MIXED"}:
+                eligible_order = {question.local_id: index for index, question in enumerate(interview.questions)
+                                  if question.evidence_kind == "INTERVIEW_QUESTION"}
+                for followup in interview.followups:
+                    source, target = followup.source_local_id, followup.target_local_id
+                    if (source != target and source in eligible_order and target in eligible_order
+                            and eligible_order[source] >= eligible_order[target]):
+                        raise ValueError("followup must point to a later question")
 
     def _materialize(self, session, build: DocumentBuild, result: ExtractionResult, text: str, revision_id: str) -> int:
         if build.decision != "INCLUDED":
