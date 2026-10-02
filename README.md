@@ -76,4 +76,4 @@ python -m eval.validate_gold --dataset data/gold/v1
 
 第一条运行自动化测试。第二条目前会拒绝草稿 gold，这是预期行为。人工标注至少需冻结 extraction 30 篇、dedup 150 对、retrieval 50 条和 routing 50 条独立 test 样本；之后才能使用 `python -m eval.run` 计算并保存真实指标。算法题号只接受原文明确编号或经题库/人工验证的编号，模糊描述保留为未匹配。
 
-当前明确的限制：长文档语义分段、分阶段缓存、生产级租约恢复和人工纠错流程仍需加强；自动化测试通过不能代替真实语料质量门槛。运行方式和观察到的故障见 [实施状态](docs/implementation-status.md)、[演示步骤](docs/demo.md) 和 [坏案例](docs/bad-cases.md)。
+当前明确的限制：长文档语义分段、分阶段缓存、生产级租约恢复和人工纠错流程仍需加强；自动化测试通过不能代替真实语料质量门槛。运行方式和观察到的故障见 [实施状态](docs/implementation-status.md)、[问题与处理记录](md/issue.md)、[演示步骤](docs/demo.md) 和 [坏案例](docs/bad-cases.md)。

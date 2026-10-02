@@ -75,3 +75,8 @@ API 与 worker 的共享串行锁迁入 Linux 原生 `model_runtime` 卷，三�
 实际前端状态筛选已修复：v111的已生效80、已排除7、尚未生效103与同版本API一致；等待更新的已有版本仍能找到并打开原文。JavaScript9项、Web接口20项通过；截图为`data/reports/20261002-ingest-included-filter-after-viewport.png`，报告`published-filter-ui-verification.json`。
 
 新增“无法冻结文档”追问的误合并已确认。v5判断规则的2次真实请求、5组开发对照通过，相关14项回归通过；生产旧构建仍有此错误，不能计为已修正。控制程序v8会在现有队列结束后应用已核验的新worker，保留现有Ark配置，仅重处理审计确认的来源，随后再做完整审计和4项检索烟测。当前普通worker未替换、全量未完成、人工gold未冻结。
+
+
+**2026-10-02 22:16 推送核对：** 本次 Python 完整回归为229通过、1跳过（真实 Elasticsearch 项未显式启用），前端9项通过。最新业务代码基线为65ffc80；md/issue.md此前被Git忽略，本次补入版本控制并在README中增加入口，验证细节见 `docs/verification/2026-10-02-code-push-check.md`。
+
+只读8000接口确认v193/v193、数据库和索引ready；190篇文件中157篇已有INCLUDED版本、11篇EXCLUDED、22篇尚无生效版本。导入/维护队列仍有RUNNING与QUEUED任务，历史故障、已确认语义问题及retry-failed空任务缺陷保留在issue.md，完整导入和正式人工质量门槛仍未完成。本次未修改服务运行参数或发起真实模型请求。
