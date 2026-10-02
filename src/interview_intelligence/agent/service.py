@@ -18,10 +18,11 @@ from interview_intelligence.search.service import search_questions
 
 
 class AgentService:
-    def __init__(self, database, retriever=None, *, user_id: str = "local"):
+    def __init__(self, database, retriever=None, *, user_id: str = "local", planner=None):
         self.database = database
         self.retriever = retriever
         self.user_id = user_id
+        self.planner = planner
         self.reviews = ReviewService(database)
 
     def _filters(self, message: str, *, group_by="question", sort="frequency", limit=20):
@@ -116,6 +117,9 @@ class AgentService:
                     "facts": {"questions": questions, "sample_counts": result["meta"]["sample_counts"]},
                     "answer": (f"找到 {len(questions)} 道范围内算法题；仅原文明确或经核验的题号可作为已识别编号。"
                                if questions else "当前范围没有可核实的算法题。")}
+        if self.planner and not any(word in message for word in (
+            "高频", "频率", "频次", "次数", "比例", "占比", "趋势", "分布", "知识点", "考点", "统计", "多少", "排名")):
+            return self._search(message, trace)
         group_by = "topic" if "知识点" in message or "考点" in message else "question"
         params = self._filters(message, group_by=group_by)
         with self.database.session() as session:
@@ -162,22 +166,38 @@ class AgentService:
         if self.retriever is None:
             raise ValueError("INDEX_NOT_READY")
         params = self._filters(message)
-        with self.database.session() as session:
-            state = session.get(CorpusState, 1)
-            if state.current_revision == 0 or state.current_revision != state.indexed_revision:
-                raise ValueError("INDEX_NOT_READY")
-            result = search_questions(session, self.retriever, message, params, top_k=10)
-            trace.append({"name": "search_questions", "parameters": {"query": message,
-                          "filters": params.model_dump(mode="json")}})
-            for item in result["data"][:5]:
-                detail = get_question_detail(session, item["canonical_question_id"], params)
-                item["observed_followups"] = detail["observed_followups"]
-                item["inferred_relations"] = detail["inferred_relations"]
-                trace.append({"name": "get_question_detail", "parameters": {
-                    "canonical_question_id": item["canonical_question_id"]}})
+        plan = self.planner.plan(message, params) if self.planner else None
+        if plan and plan.needs_clarification:
+            return {"intent": "SEARCH", "tool_trace": trace, "facts": {},
+                    "needs_clarification": True, "answer": plan.clarification}
+        query = plan.retrieval_query if plan else message[:500]
+        pipeline = "HYBRID_RERANK" if plan else "HYBRID"
+        for attempt in range(2):
+            with self.database.session() as session:
+                state = session.get(CorpusState, 1)
+                revision = state.current_revision
+                if revision == 0 or revision != state.indexed_revision:
+                    raise ValueError("INDEX_NOT_READY")
+                result = search_questions(session, self.retriever, query, params, pipeline=pipeline, top_k=10)
+                trace.append({"name": "search_questions", "parameters": {"query": query,
+                    "pipeline": pipeline, "filters": params.model_dump(mode="json")}, "attempt": attempt + 1})
+                for item in result["data"][:3]:
+                    detail = get_question_detail(session, item["canonical_question_id"], params)
+                    item["observed_followups"] = detail["observed_followups"]
+                    item["inferred_relations"] = detail["inferred_relations"]
+                    trace.append({"name": "get_question_detail", "parameters": {
+                        "canonical_question_id": item["canonical_question_id"]}, "attempt": attempt + 1})
+            with self.database.session() as latest:
+                if latest.get(CorpusState, 1).current_revision == revision:
+                    break
+        else:
+            raise ValueError("SNAPSHOT_CHANGED")
+        result["meta"]["corpus_revision"] = revision
         return {"intent": "SEARCH", "tool_trace": trace, "facts": result,
-                "answer": ("找到可核实的类似问法，详情及来源见结果。" if result["data"]
-                           else "没有找到符合条件的类似问法。")}
+                "planning": {"version": self.planner.version, "query": plan.query,
+                             "alternatives": plan.alternatives} if plan else None,
+                "answer": (f"找到 {len(result['data'])} 道有原文依据的相关问法；以下展示实际提问和来源。" if result["data"]
+                           else "当前已生效的面经中没有找到足够相关的问法。仍在导入的文件尚未参与检索。")}
 
     def _record(self, message: str, request_id: str | None, trace: list) -> dict:
         mapping = (("没答出", ReviewStatus.WEAK), ("答不好", ReviewStatus.WEAK),

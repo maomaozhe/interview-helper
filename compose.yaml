@@ -56,11 +56,11 @@ services:
       MODEL_MIN_INTERVAL_SECONDS: ${MODEL_MIN_INTERVAL_SECONDS:-2}
       MODEL_REQUEST_TIMEOUT_SECONDS: ${MODEL_REQUEST_TIMEOUT_SECONDS:-180}
       EXTRACTION_STREAM: ${EXTRACTION_STREAM:-true}
-      MODEL_LOCK_PATH: /app/data/model-call.lock
+      MODEL_LOCK_PATH: /app/runtime/model-call.lock
       LOCAL_USER_ID: local
       APP_SIGNING_KEY: ${APP_SIGNING_KEY:-local-development-only}
       API_ROOT_PATH: ${API_ROOT_PATH:-}
-    command: ["sh", "-c", "alembic upgrade head && uvicorn interview_intelligence.api:app --host 0.0.0.0 --port 8000"]
+    command: ["sh", "-c", "alembic upgrade head && exec uvicorn interview_intelligence.api:app --host 0.0.0.0 --port 8000"]
     ports:
       - "127.0.0.1:${API_BIND_PORT:-8000}:8000"
     depends_on:
@@ -74,6 +74,7 @@ services:
     volumes:
       - ./md:/corpus:ro
       - ./data:/app/data
+      - model_runtime:/app/runtime
 
   worker:
     build: .
@@ -95,7 +96,7 @@ services:
       MODEL_MIN_INTERVAL_SECONDS: ${MODEL_MIN_INTERVAL_SECONDS:-2}
       MODEL_REQUEST_TIMEOUT_SECONDS: ${MODEL_REQUEST_TIMEOUT_SECONDS:-180}
       EXTRACTION_STREAM: ${EXTRACTION_STREAM:-true}
-      MODEL_LOCK_PATH: /app/data/model-call.lock
+      MODEL_LOCK_PATH: /app/runtime/model-call.lock
       LOCAL_USER_ID: local
       APP_SIGNING_KEY: ${APP_SIGNING_KEY:-local-development-only}
     command: ["python", "-m", "interview_intelligence.worker"]
@@ -106,7 +107,9 @@ services:
     volumes:
       - ./md:/corpus:ro
       - ./data:/app/data
+      - model_runtime:/app/runtime
 
 volumes:
   postgres_data:
   elasticsearch_data:
+  model_runtime:

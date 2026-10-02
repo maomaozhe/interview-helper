@@ -233,3 +233,23 @@ def test_completed_calls_are_durable_before_document_finishes_and_resume_budget(
     resumed, _, _ = worker.build_worker_services(db, settings, run_id=run_id)
     assert resumed.extractor.budget.used_calls == 1
     assert resumed.extractor.budget.used_tokens == 70
+
+
+def test_failed_model_attempt_keeps_a_bounded_diagnostic_and_current_stage():
+    from interview_intelligence.worker import _persist_model_calls
+    db = create_database("sqlite+pysqlite:///:memory:")
+    with db.session() as session, session.begin():
+        run = PipelineRun(pipeline_version="v1", extractor_version="v1", taxonomy_version="v1",
+            embedding_version="v1", config_snapshot={"paths": ["a.md"], "current_path": "a.md"}, status="RUNNING")
+        session.add(run)
+        session.flush()
+        run_id = run.id
+    calls = [{"operation_type": "EXTRACTION", "model": "test", "prompt_version": "v1",
+        "input_tokens": 50, "output_tokens": 20, "latency_ms": 100, "status": "FAILED",
+        "retry_count": 0, "error_code": "ValueError", "error_detail": "quote not found"}]
+    _persist_model_calls(db, run_id, calls)
+    with db.session() as session:
+        config = session.get(PipelineRun, run_id).config_snapshot
+        assert config["current_stage"] == "EXTRACT"
+        assert config["model_failures"][0]["path"] == "a.md"
+        assert config["model_failures"][0]["error_detail"] == "quote not found"

@@ -63,7 +63,7 @@ def stats(company: str | None = None, topic_l1: str | None = None,
 
 
 @app.command()
-def search(query: str, company: str | None = None, pipeline: str = "HYBRID",
+def search(query: str, company: str | None = None, pipeline: str = "HYBRID_RERANK",
            top_k: int = 10, api_url: str = "http://127.0.0.1:8000"):
     """查找语义相近的面试题。"""
     _call("GET", "/api/questions/search", api_url=api_url,

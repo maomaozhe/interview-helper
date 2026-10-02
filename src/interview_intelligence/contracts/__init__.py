@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from datetime import date, datetime
 from enum import StrEnum
+import re
 from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
@@ -159,6 +160,23 @@ class ExtractedQuestion(StrictModel):
     topic_l2: str | None = None
     question_type: QuestionType | None = None
 
+    @model_validator(mode="after")
+    def reject_candidate_heading(self):
+        if self.evidence_kind == "INTERVIEW_QUESTION" and re.fullmatch(
+            r"(?:\d+[.、)）]\s*)?反问(?:环节)?[\s:：?？。.!！]*", self.raw_question
+        ):
+            raise ValueError("NON_QUESTION_HEADING: 反问是候选人环节标题，不能作为面试官提问；应排除或标记 CANDIDATE_QUESTION")
+        return self
+
+    @model_validator(mode="after")
+    def ai_knowledge_type_priority(self):
+        if (self.evidence_kind == "INTERVIEW_QUESTION" and self.topic_l1 == "AI"
+                and self.question_type in {QuestionType.KNOWLEDGE, QuestionType.PRINCIPLE}):
+            raise ValueError(
+                "AI_KNOWLEDGE_TYPE_PRIORITY: AI 专属知识题应标 AI；项目、系统设计、故障、"
+                "算法等具体任务仍保持各自类型，不能仅按知识领域改变任务类型")
+        return self
+
 
 class ExtractedFollowup(StrictModel):
     source_local_id: str
@@ -182,6 +200,12 @@ class ExtractionResult(StrictModel):
     document_kind: Literal["INTERVIEW_REPORT", "COMPILATION", "TUTORIAL", "MIXED", "OTHER", "UNKNOWN"]
     exclusion_reason: str | None = None
     interviews: list[ExtractedInterview] = Field(default_factory=list)
+
+    @model_validator(mode="after")
+    def explain_exclusion(self) -> ExtractionResult:
+        if self.document_kind in {"COMPILATION", "TUTORIAL", "OTHER"} and not self.exclusion_reason:
+            raise ValueError("EXCLUSION_REASON_REQUIRED: excluded documents must explain the decision")
+        return self
 
 
 class APIError(StrictModel):

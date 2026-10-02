@@ -30,6 +30,7 @@ class Settings(BaseSettings):
     model_min_interval_seconds: float = 2.0
     model_request_timeout_seconds: float = Field(default=180, gt=0)
     extraction_stream: bool = True
+    extraction_max_tokens: int | None = Field(default=None, gt=0)
     model_lock_path: Path = Path("data/model-call.lock")
     api_root_path: str = ""
 
@@ -43,6 +44,29 @@ def resolve_corpus_path(corpus_root: Path, relative_path: str) -> Path:
     if not candidate.is_relative_to(root):
         raise ValueError("path escapes corpus root")
     return candidate
+
+
+def resolve_corpus_document(corpus_root: Path, relative_path: str) -> Path:
+    candidate = resolve_corpus_path(corpus_root, relative_path)
+    if candidate.suffix.lower() != ".md":
+        raise ValueError("only Markdown corpus files can be ingested")
+    relative = candidate.relative_to(corpus_root.resolve())
+    if len(relative.parts) == 1 and relative.name.casefold() == "issue.md":
+        raise ValueError("RESERVED_OPERATIONAL_DOCUMENT: issue.md is the issue log")
+    return candidate
+
+
+def discover_corpus_documents(corpus_root: Path) -> list[Path]:
+    root = corpus_root.resolve()
+    documents = []
+    for path in root.rglob("*.md"):
+        try:
+            candidate = resolve_corpus_document(root, path.relative_to(root).as_posix())
+        except ValueError:
+            continue
+        if candidate.is_file():
+            documents.append(path)
+    return sorted(documents, key=lambda path: path.as_posix().casefold())
 
 
 def validate_model_preflight(

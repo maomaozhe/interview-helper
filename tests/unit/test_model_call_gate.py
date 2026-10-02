@@ -67,7 +67,7 @@ def test_embedding_and_rerank_hold_gate_during_network_request():
     def create_rerank(**kwargs):
         assert gate.active
         return SimpleNamespace(choices=[SimpleNamespace(message=SimpleNamespace(
-            content=json.dumps({"ordered_ids": ["a"]}),
+            content=json.dumps({"rankings": [{"candidate_id": "c0", "relevance_grade": 3}]}),
         ))])
 
     reranker = LLMReranker(
@@ -169,3 +169,45 @@ def test_gate_serializes_separate_processes(tmp_path):
         assert process.exitcode == 0
     for previous, current in zip(intervals, intervals[1:]):
         assert current[0] - previous[1] >= 0.045
+
+
+def test_transient_lock_open_denial_does_not_fail_or_bypass_serial_gate(tmp_path, monkeypatch):
+    module = importlib.import_module("interview_intelligence.providers.gate")
+    gate = module.ModelCallGate(tmp_path / "call.lock", minimum_interval_seconds=0)
+    original_open = module.os.open
+    attempts = []
+
+    def open_file(path, flags, mode=0o777):
+        if path == gate.lock_path:
+            attempts.append(path)
+            if len(attempts) <= 2:
+                raise PermissionError("temporary shared-filesystem denial")
+        return original_open(path, flags, mode)
+
+    monkeypatch.setattr(module.os, "open", open_file)
+    entered = 0
+    with gate.call():
+        entered += 1
+    assert entered == 1
+    assert len(attempts) == 3
+
+
+def test_permanent_lock_open_denial_never_runs_model_request(tmp_path, monkeypatch):
+    module = importlib.import_module("interview_intelligence.providers.gate")
+    gate = module.ModelCallGate(tmp_path / "call.lock", minimum_interval_seconds=0)
+    original_open = module.os.open
+    attempts = []
+
+    def open_file(path, flags, mode=0o777):
+        if path == gate.lock_path:
+            attempts.append(path)
+            raise PermissionError("permanent denial")
+        return original_open(path, flags, mode)
+
+    monkeypatch.setattr(module.os, "open", open_file)
+    entered = False
+    with pytest.raises(PermissionError):
+        with gate.call():
+            entered = True
+    assert not entered
+    assert len(attempts) == 5

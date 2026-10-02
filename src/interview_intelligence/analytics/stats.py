@@ -161,6 +161,7 @@ def query_question_stats(
             for state in session.scalars(select(UserQuestionState).where(UserQuestionState.user_id == user_id))
         }
     canonical_texts = {}
+    canonical_metadata = {}
     if request.group_by == "question" and raw_rows:
         ids = [row.group_key for row in raw_rows]
         canonical_texts = {
@@ -169,6 +170,9 @@ def query_question_stats(
                 CanonicalQuestion.id, CanonicalQuestion.canonical_text,
             ).where(CanonicalQuestion.id.in_(ids)))
         }
+        canonical_metadata = {item.id: {"topic_id": item.primary_topic_id,
+                                      "question_type": item.question_type}
+                              for item in session.scalars(select(CanonicalQuestion).where(CanonicalQuestion.id.in_(ids)))}
     data = []
     for row in raw_rows:
         frequency = math.log1p(row.occurrence_count) / math.log1p(highest_frequency) if highest_frequency else 0.0
@@ -192,6 +196,7 @@ def query_question_stats(
         if request.group_by == "question":
             item["canonical_question_id"] = row.group_key
             item["canonical_text"] = canonical_texts[row.group_key]
+            item.update(canonical_metadata[row.group_key])
             if request.sort == "gap":
                 status = user_states.get(row.group_key, "UNSEEN")
                 weight = {"WEAK": 1.0, "UNSEEN": 0.8, "REVIEWED": 0.4, "MASTERED": 0.0}[status]

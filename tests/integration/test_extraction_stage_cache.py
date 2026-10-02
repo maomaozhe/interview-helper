@@ -257,3 +257,48 @@ def test_production_extractor_exposes_effective_request_schema_and_parameters():
     assert config["temperature"] == 0
     assert config["stream"] is True
     assert config["taxonomy"]["topics"] == extractor.taxonomy.topics
+
+
+def test_transient_artifact_replace_denial_keeps_validated_extraction(tmp_path, monkeypatch):
+    from interview_intelligence.ingestion import extraction_cache as cache
+    original_replace = cache.os.replace
+    denied = []
+
+    def replace(source, target):
+        if str(target).endswith(".json") and len(denied) < 2:
+            denied.append(str(target))
+            raise PermissionError("transient shared-filesystem denial")
+        return original_replace(source, target)
+
+    monkeypatch.setattr(cache.os, "replace", replace)
+    db, service, extractor, deduper, _ = setup(tmp_path)
+    fail_downstream(service)
+    assert len(denied) == 2
+    artifact = artifact_record(db)
+    assert hashlib.sha256(artifact_path(tmp_path, artifact).read_bytes()).hexdigest() == artifact.output_hash
+    deduper.fail = False
+    assert service.ingest_file("post.md").status == "SUCCEEDED"
+    assert extractor.calls == 1
+
+
+def test_permanent_artifact_replace_denial_does_not_publish_or_claim_cached(tmp_path, monkeypatch):
+    from interview_intelligence.ingestion import extraction_cache as cache
+    original_replace = cache.os.replace
+    denied = []
+
+    def replace(source, target):
+        if str(target).endswith(".json"):
+            denied.append(str(target))
+            raise PermissionError("permanent shared-filesystem denial")
+        return original_replace(source, target)
+
+    monkeypatch.setattr(cache.os, "replace", replace)
+    db, service, _, deduper, _ = setup(tmp_path)
+    deduper.fail = False
+    with pytest.raises(PermissionError):
+        service.ingest_file("post.md")
+    assert len(denied) == 5
+    with db.session() as session:
+        assert session.scalar(select(func.count(StageArtifact.id))) == 0
+        assert session.scalar(select(func.count(DocumentBuild.id))) == 0
+    assert not list((tmp_path / "processed" / "extract").glob(".extract-*"))

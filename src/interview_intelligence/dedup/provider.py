@@ -157,7 +157,7 @@ class ArkMultimodalEncoder:
 
 
 class OpenAICompatibleJudge:
-    version = "dedup_judge_v3_bound_candidates"
+    version = "dedup_judge_v5_constraints"
 
     def __init__(
         self, *, client=None, model: str, api_key: str | None = None,

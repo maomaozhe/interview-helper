@@ -6,6 +6,7 @@ import hashlib
 import json
 import os
 import tempfile
+import time
 from pathlib import Path
 from typing import Callable, Literal
 
@@ -79,7 +80,14 @@ class ExtractionStageCache:
                 output.write(raw)
                 output.flush()
                 os.fsync(output.fileno())
-            os.replace(temporary_path, self.path)
+            for attempt in range(5):
+                try:
+                    os.replace(temporary_path, self.path)
+                    break
+                except PermissionError:
+                    if attempt == 4:
+                        raise
+                    time.sleep(0.2 * 2 ** attempt)
         finally:
             if os.path.exists(temporary_path):
                 os.unlink(temporary_path)

@@ -71,6 +71,84 @@ def test_extractor_retries_invalid_result_but_never_accepts_fabricated_quote():
     assert all(item["status"] == "FAILED" for item in calls)
 
 
+def test_validation_retry_explains_the_actual_grounding_error_and_preserves_source():
+    mod = importlib.import_module("interview_intelligence.extraction.provider")
+    client, completions = make_client([model_payload("原文没有的问题"), model_payload()])
+    logs = []
+    source = "# 字节一面\nRedis为什么快？"
+    extractor = mod.OpenAICompatibleExtractor(client=client, model="test-model", on_call=logs.append,
+                                              sleep=lambda _: None)
+    assert extractor.extract(text=source, revision_id="r1").interviews[0].questions[0].raw_question == "Redis为什么快？"
+    assert "quote not found" in logs[0]["error_detail"]
+    messages = completions.calls[1]["messages"]
+    assert messages[1]["content"] == source
+    assert "quote not found" in messages[2]["content"]
+    assert "逐字" in messages[2]["content"]
+
+
+def test_candidate_question_heading_cannot_be_published_as_interviewer_question():
+    mod = importlib.import_module("interview_intelligence.extraction.provider")
+    client, completions = make_client([model_payload("反问"), model_payload()])
+    logs = []
+    extractor = mod.OpenAICompatibleExtractor(client=client, model="test-model", on_call=logs.append,
+                                              sleep=lambda _: None)
+    result = extractor.extract(text="# 字节一面\nRedis为什么快？\n20.反问", revision_id="r1")
+    assert result.interviews[0].questions[0].raw_question == "Redis为什么快？"
+    assert len(completions.calls) == 2
+    assert "NON_QUESTION_HEADING" in logs[0]["error_detail"]
+    assert "NON_QUESTION_HEADING" in completions.calls[1]["messages"][2]["content"]
+
+
+def test_extractor_repairs_a_missing_exclusion_reason_before_acceptance():
+    mod = importlib.import_module("interview_intelligence.extraction.provider")
+    missing = {"document_kind":"COMPILATION", "exclusion_reason":None, "interviews":[]}
+    corrected = {**missing, "exclusion_reason":"按主题汇总多场面试题，没有具体场次。"}
+    client, completions = make_client([json.dumps(missing), json.dumps(corrected, ensure_ascii=False)])
+    logs = []
+    extractor = mod.OpenAICompatibleExtractor(client=client, model="test-model", on_call=logs.append,
+                                              sleep=lambda _: None)
+    result = extractor.extract(text="我把多场面试题按主题汇总。", revision_id="r1")
+    assert result.exclusion_reason == corrected["exclusion_reason"]
+    assert [call["status"] for call in logs] == ["FAILED", "SUCCEEDED"]
+    assert "EXCLUSION_REASON_REQUIRED" in completions.calls[1]["messages"][2]["content"]
+
+
+@pytest.mark.parametrize("wrong_type", ["KNOWLEDGE", "PRINCIPLE"])
+def test_extractor_repairs_ai_knowledge_task_priority_before_acceptance(wrong_type):
+    mod = importlib.import_module("interview_intelligence.extraction.provider")
+    quote = "了解skill吗，说一下你对skill的认识"
+    draft = json.loads(model_payload(quote))
+    question = draft["interviews"][0]["questions"][0]
+    question.update(normalized_question="请说一下你对 Agent skill 的认识。",
+                    topic_l1="AI", topic_l2="Agent", question_type=wrong_type)
+    wrong = json.dumps(draft, ensure_ascii=False)
+    question["question_type"] = "AI"
+    client, completions = make_client([wrong, json.dumps(draft, ensure_ascii=False)])
+    logs = []
+    extractor = mod.OpenAICompatibleExtractor(client=client, model="test-model", on_call=logs.append,
+                                              sleep=lambda _: None)
+    result = extractor.extract(text="# 字节一面\n" + quote, revision_id="r1")
+    actual = result.interviews[0].questions[0]
+    assert actual.question_type.value == "AI"
+    assert actual.raw_question == quote
+    assert [call["status"] for call in logs] == ["FAILED", "SUCCEEDED"]
+    assert "AI_KNOWLEDGE_TYPE_PRIORITY" in completions.calls[1]["messages"][2]["content"]
+
+
+@pytest.mark.parametrize("task_type", ["AI", "PROJECT", "SYSTEM_DESIGN", "SCENARIO", "ALGORITHM"])
+def test_ai_topic_preserves_the_specific_interview_task_type(task_type):
+    mod = importlib.import_module("interview_intelligence.extraction.provider")
+    quote = "介绍你做的Agent系统"
+    draft = json.loads(model_payload(quote))
+    draft["interviews"][0]["questions"][0].update(
+        normalized_question=quote, topic_l1="AI", topic_l2="Agent", question_type=task_type)
+    client, completions = make_client([json.dumps(draft, ensure_ascii=False)])
+    extractor = mod.OpenAICompatibleExtractor(client=client, model="test-model")
+    result = extractor.extract(text="# 字节一面\n" + quote, revision_id="r1")
+    assert result.interviews[0].questions[0].question_type.value == task_type
+    assert len(completions.calls) == 1
+
+
 def test_repeated_quote_without_position_is_ambiguous():
     mod = importlib.import_module("interview_intelligence.extraction.provider")
     client, _ = make_client([model_payload() for _ in range(3)])
@@ -120,3 +198,26 @@ def test_streamed_extraction_only_publishes_complete_grounded_json(finish_reason
     assert captured[0]["stream"] is True
     assert captured[0]["stream_options"] == {"include_usage": True}
     assert stream.closed
+
+
+def test_explicit_output_capacity_keeps_grounding_and_invalidates_incompatible_cache():
+    from interview_intelligence.extraction.provider import OpenAICompatibleExtractor
+    from interview_intelligence.ingestion.extraction_cache import extraction_config_hash
+    from interview_intelligence.taxonomy import load_taxonomy
+    client, completions = make_client([model_payload()])
+    large = OpenAICompatibleExtractor(client=client, model="test-model", max_tokens=32768)
+    result = large.extract(text="# 字节一面\nRedis为什么快？", revision_id="revision-1")
+    assert result.interviews[0].questions[0].source_spans[0].matches("# 字节一面\nRedis为什么快？")
+    assert completions.calls[0]["max_tokens"] == 32768
+    automatic = OpenAICompatibleExtractor(client=client, model="test-model", max_tokens=None)
+    assert "max_tokens" not in automatic.cache_configuration
+    assert extraction_config_hash(large, load_taxonomy()) != extraction_config_hash(automatic, load_taxonomy())
+
+
+@pytest.mark.parametrize("capacity", [0, -1])
+def test_invalid_output_capacity_fails_before_any_request(capacity):
+    from interview_intelligence.extraction.provider import OpenAICompatibleExtractor
+    client, completions = make_client([])
+    with pytest.raises(ValueError, match="output token limit must be positive"):
+        OpenAICompatibleExtractor(client=client, model="test-model", max_tokens=capacity)
+    assert completions.calls == []

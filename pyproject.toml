@@ -35,6 +35,7 @@ packages = ["src/interview_intelligence"]
 "config/taxonomy/v1.yaml" = "interview_intelligence/resources/config/taxonomy/v1.yaml"
 "prompts/extract_question_v1.md" = "interview_intelligence/resources/prompts/extract_question_v1.md"
 "prompts/dedup_judge_v1.md" = "interview_intelligence/resources/prompts/dedup_judge_v1.md"
+"prompts/search_plan_v1.md" = "interview_intelligence/resources/prompts/search_plan_v1.md"
 
 [tool.pytest.ini_options]
 pythonpath = ["src", "."]

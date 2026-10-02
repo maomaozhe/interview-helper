@@ -7,6 +7,9 @@ from interview_intelligence.domain.models import CorpusState
 from interview_intelligence.domain.models import SourceRevision
 from sqlalchemy import select
 import hashlib
+import httpx
+import pytest
+from openai import APITimeoutError, APIConnectionError
 
 
 def test_stats_detail_and_review_api_share_one_database():
@@ -75,7 +78,7 @@ def test_interactive_search_explicitly_reports_dense_degradation():
                     "meta": {"pipeline": pipeline}}
 
     client = TestClient(create_app(db, Settings(database_url="sqlite+pysqlite:///:memory:"), Retriever()))
-    response = client.get("/api/questions/search", params={"query": "Redis", "company": "字节"})
+    response = client.get("/api/questions/search", params={"query": "Redis", "company": "字节", "pipeline": "HYBRID"})
     assert response.status_code == 200
     assert response.json()["meta"]["requested_pipeline"] == "HYBRID"
     assert response.json()["meta"]["executed_pipeline"] == "BM25"
@@ -113,3 +116,24 @@ def test_missing_snapshot_is_a_structured_unavailable_response(tmp_path):
     response = client.get(f"/api/sources/{revision_id}")
     assert response.status_code == 503
     assert response.json()["error"]["code"] == "SOURCE_SNAPSHOT_MISSING"
+
+
+@pytest.mark.parametrize("error_type,code", [(APITimeoutError, "MODEL_PROVIDER_TIMEOUT"),
+                                            (APIConnectionError, "MODEL_PROVIDER_UNAVAILABLE")])
+def test_chat_provider_failure_is_retryable_json_with_request_id(error_type, code):
+    db, _, _ = seed_corpus()
+    with db.session() as session, session.begin():
+        session.get(CorpusState, 1).current_revision = 1
+        session.get(CorpusState, 1).indexed_revision = 1
+    class Retriever:
+        def retrieve(self, *args):
+            raise error_type(request=httpx.Request("POST", "https://model.example/v1"))
+    client = TestClient(create_app(db, Settings(database_url="sqlite+pysqlite:///:memory:"), Retriever()),
+                        raise_server_exceptions=False)
+    response = client.post("/api/agent/chat", json={"message": "内存泄漏的类似问法"},
+                           headers={"x-request-id": "provider-failure-test"})
+    assert response.status_code == 503
+    assert response.json()["error"]["code"] == code
+    assert response.json()["error"]["retryable"] is True
+    assert response.json()["request_id"] == "provider-failure-test"
+    assert "model.example" not in response.text

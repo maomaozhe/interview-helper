@@ -63,6 +63,12 @@ class ElasticsearchRetriever:
             raise ValueError("RERANKER_NOT_READY")
         if not eligible_ids:
             return {"data": [], "meta": {"pipeline": pipeline}}
+        # Waiting for the shared model gate can exceed a PIT's lifetime.
+        # Keep the ES snapshot only across the two ES retrieval requests.
+        vector = None
+        if pipeline in {"DENSE", "HYBRID", "HYBRID_RERANK"}:
+            vector = (self.encoder.embed_query(query) if hasattr(self.encoder, "embed_query")
+                      else self.encoder.embed(query))
         pit = self._request("post", f"/{self.alias}/_pit", params={"keep_alive": "1m"})["id"]
         try:
             filter_clause = {"terms": {"_id": eligible_ids}}
@@ -82,8 +88,6 @@ class ElasticsearchRetriever:
                 source_texts.update({hit["_id"]: hit.get("_source", {}).get("canonical_text", "") for hit in hits})
                 rankings.append([(hit["_id"], hit["_score"]) for hit in hits])
             if pipeline in {"DENSE", "HYBRID", "HYBRID_RERANK"}:
-                vector = (self.encoder.embed_query(query) if hasattr(self.encoder, "embed_query")
-                          else self.encoder.embed(query))
                 body = {
                     "pit": {"id": pit, "keep_alive": "1m"},
                     "size": 100,
@@ -94,22 +98,25 @@ class ElasticsearchRetriever:
                                      params={"allow_partial_search_results": "false"})["hits"]["hits"]
                 source_texts.update({hit["_id"]: hit.get("_source", {}).get("canonical_text", "") for hit in hits})
                 rankings.append([(hit["_id"], hit["_score"]) for hit in hits])
-            if pipeline in {"BM25", "DENSE"}:
-                data = [{"canonical_question_id": canonical_id, "score": score,
-                         "stage_scores": {pipeline.lower(): score}}
-                        for canonical_id, score in rankings[0][:top_k]]
-            else:
-                data = rrf(*rankings)[:50]
-                if pipeline == "HYBRID_RERANK":
-                    data = [{**item, "canonical_text": source_texts.get(item["canonical_question_id"], "")}
-                            for item in data]
-                    data = self.reranker.rerank(query, data)
-                data = data[:top_k]
-            return {"data": data, "meta": {"pipeline": pipeline,
-                    "index_schema_version": SCHEMA_VERSION,
-                    "embedding_version": self.encoder.version if self.encoder else None}}
         finally:
             self._request("delete", "/_pit", json={"id": pit})
+        if pipeline in {"BM25", "DENSE"}:
+            data = [{"canonical_question_id": canonical_id, "score": score,
+                     "stage_scores": {pipeline.lower(): score}}
+                    for canonical_id, score in rankings[0][:top_k]]
+        else:
+            data = rrf(*rankings)[:50]
+            candidate_count = len(data)
+            if pipeline == "HYBRID_RERANK":
+                data = [{**item, "canonical_text": source_texts.get(item["canonical_question_id"], "")}
+                        for item in data]
+                data = self.reranker.rerank(query, data)
+            data = data[:top_k]
+        return {"data": data, "meta": {"pipeline": pipeline,
+                "index_schema_version": SCHEMA_VERSION,
+                "reranker_version": self.reranker.version if pipeline == "HYBRID_RERANK" else None,
+                "candidate_count": candidate_count if pipeline in {"HYBRID", "HYBRID_RERANK"} else len(rankings[0]),
+                "embedding_version": self.encoder.version if self.encoder else None}}
 
 
 def rebuild_index(database, retriever: ElasticsearchRetriever) -> int:

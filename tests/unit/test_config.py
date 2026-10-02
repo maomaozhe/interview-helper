@@ -32,3 +32,17 @@ def test_model_preflight_accepts_user_selected_plan_endpoint():
     c.validate_backend_model_endpoint("https://ark.cn-beijing.volces.com/api/v3")
     with pytest.raises(ValueError, match="MODEL_BASE_URL_INVALID"):
         c.validate_backend_model_endpoint("missing-host")
+
+
+def test_corpus_discovery_keeps_issue_log_out_of_interview_sources(tmp_path):
+    c = config_module()
+    root = tmp_path / "md"
+    root.mkdir()
+    (root / "issue.md").write_text("Operational failures, not an interview", encoding="utf-8")
+    (root / "interview.md").write_text("Actual interview", encoding="utf-8")
+    (root / "notes.txt").write_text("Not Markdown", encoding="utf-8")
+    assert [path.name for path in c.discover_corpus_documents(root)] == ["interview.md"]
+    with pytest.raises(ValueError, match="RESERVED_OPERATIONAL_DOCUMENT"):
+        c.resolve_corpus_document(root, "issue.md")
+    with pytest.raises(ValueError, match="only Markdown"):
+        c.resolve_corpus_document(root, "notes.txt")

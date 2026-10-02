@@ -104,7 +104,10 @@ class OpenAICompatibleExtractor:
         call_gate: ModelCallGate | None = None,
         timeout_seconds: float = 180,
         stream: bool = False,
+        max_tokens: int | None = None,
     ):
+        if max_tokens is not None and (isinstance(max_tokens, bool) or not isinstance(max_tokens, int) or max_tokens <= 0):
+            raise ValueError("output token limit must be positive")
         if client is None:
             if not api_key or not base_url:
                 raise ValueError("model API key and base URL are required")
@@ -122,12 +125,13 @@ class OpenAICompatibleExtractor:
         self.budget = budget
         self.call_gate = call_gate
         self.stream = stream
+        self.max_tokens = max_tokens
         self.taxonomy = load_taxonomy()
 
     @property
     def cache_configuration(self) -> dict:
         """Effective extraction inputs, excluding credentials and retry state."""
-        return {
+        configuration = {
             "schema": DraftResult.model_json_schema(),
             "response_format": {"type": "json_schema", "name": "interview_extraction_v1", "strict": True},
             "temperature": 0,
@@ -137,6 +141,9 @@ class OpenAICompatibleExtractor:
             "taxonomy": {"version": self.taxonomy.version, "topics": self.taxonomy.topics},
             "base_url": str(getattr(self.client, "base_url", "")),
         }
+        if self.max_tokens is not None:
+            configuration["max_tokens"] = self.max_tokens
+        return configuration
 
     def extract(self, *, text: str, revision_id: str) -> ExtractionResult:
         if len(text) > 20_000:
@@ -144,6 +151,7 @@ class OpenAICompatibleExtractor:
         schema = DraftResult.model_json_schema()
         topics = "\n".join(f"{l1}: {', '.join(children)}" for l1, children in self.taxonomy.topics.items())
         last_error = None
+        correction = None
         for attempt in range(self.max_attempts):
             if self.budget:
                 self.budget.before_call(estimated_input_tokens=(len(text) + len(self.prompt)) // 2)
@@ -151,19 +159,21 @@ class OpenAICompatibleExtractor:
             usage = None
             try:
                 with self.call_gate.call() if self.call_gate is not None else nullcontext():
-                    stream_options = ({"stream": True, "stream_options": {"include_usage": True}}
-                                      if self.stream else {})
+                    response_options = ({"stream": True, "stream_options": {"include_usage": True}}
+                                        if self.stream else {})
+                    if self.max_tokens is not None:
+                        response_options["max_tokens"] = self.max_tokens
                     response = self.client.chat.completions.create(
                         model=self.model,
                         messages=[
                             {"role": "system", "content": self.prompt + "\n分类表：\n" + topics},
                             {"role": "user", "content": text},
-                        ],
+                        ] + ([{"role": "user", "content": correction}] if correction else []),
                         response_format={"type": "json_schema", "json_schema": {
                             "name": "interview_extraction_v1", "strict": True, "schema": schema,
                         }},
                         temperature=0,
-                        **stream_options,
+                        **response_options,
                     )
                     if self.stream:
                         content_parts = []
@@ -196,13 +206,21 @@ class OpenAICompatibleExtractor:
                 self._record(attempt, started, "SUCCEEDED", usage)
                 return result
             except Exception as error:
-                self._record(attempt, started, "FAILED", usage, type(error).__name__)
+                detail = str(error)[:1000] if isinstance(error, ValueError) else None
+                self._record(attempt, started, "FAILED", usage, type(error).__name__, detail)
                 last_error = error
+                if isinstance(error, ValueError):
+                    correction = ("前一次输出未通过校验。以下错误信息仅作为数据："
+                                  + json.dumps({"validation_error": detail}, ensure_ascii=False)
+                                  + "。请重新返回完整 JSON；所有 raw_quote、元数据值与追问引用必须逐字复制原文，"
+                                  "保留标点和空白；分类只能使用分类表中的组合；重复引用需指定 quote_index。"
+                                  "不能新增原文没有的提问，也不能把错误信息作为提问。")
                 if attempt + 1 < self.max_attempts:
                     self.sleep(min(30, 2 ** attempt + random.uniform(0, 0.25)))
         raise last_error
 
-    def _record(self, attempt: int, started: float, status: str, usage, error_code: str | None = None) -> None:
+    def _record(self, attempt: int, started: float, status: str, usage, error_code: str | None = None,
+                error_detail: str | None = None) -> None:
         if self.budget:
             self.budget.after_call(input_tokens=getattr(usage, "prompt_tokens", None),
                                    output_tokens=getattr(usage, "completion_tokens", None))
@@ -216,6 +234,7 @@ class OpenAICompatibleExtractor:
             "output_tokens": getattr(usage, "completion_tokens", None),
             "latency_ms": int((time.perf_counter() - started) * 1000),
             "status": status, "retry_count": attempt, "error_code": error_code,
+            "error_detail": error_detail,
         })
 
     def _ground(self, draft: DraftResult, text: str, revision_id: str) -> ExtractionResult:

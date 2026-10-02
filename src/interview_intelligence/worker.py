@@ -53,7 +53,8 @@ def build_worker_services(database, settings, run_id: str | None = None):
                                            base_url=settings.model_base_url,
                                            on_call=record_call, budget=budget, call_gate=gate,
                                            timeout_seconds=settings.model_request_timeout_seconds,
-                                           stream=settings.extraction_stream)
+                                           stream=settings.extraction_stream,
+                                           max_tokens=settings.extraction_max_tokens)
     judge = OpenAICompatibleJudge(model=settings.judge_model,
                                   api_key=settings.model_api_key,
                                   base_url=settings.model_base_url,
@@ -89,6 +90,17 @@ def _persist_model_calls(database, run_id: str, calls: list[dict]):
                 ))
                 run.input_tokens += entry["input_tokens"] or 0
                 run.output_tokens += entry["output_tokens"] or 0
+                config = dict(run.config_snapshot)
+                if config.get("current_path"):
+                    config["current_stage"] = {"EXTRACTION": "EXTRACT", "EMBEDDING": "DEDUP",
+                                               "DEDUP_JUDGE": "DEDUP"}.get(entry["operation_type"],
+                                                                          config.get("current_stage"))
+                if entry["status"] == "FAILED":
+                    failure = {"path": config.get("current_path"), "operation_type": entry["operation_type"],
+                               "retry_count": entry["retry_count"], "error_code": entry["error_code"],
+                               "error_detail": entry.get("error_detail"), "at": now_utc().isoformat()}
+                    config["model_failures"] = [*config.get("model_failures", []), failure][-20:]
+                run.config_snapshot = config
         calls.clear()
 
 
@@ -129,6 +141,9 @@ def process_queued_run(database, run_id: str, ingestor, indexer, calls: list[dic
     for path_index, path in enumerate([] if mode == "reindex" else paths):
         if path in finished_paths:
             continue
+        with database.session() as session, session.begin():
+            run = session.get(PipelineRun, run_id)
+            run.config_snapshot = {**run.config_snapshot, "current_path": path, "current_stage": "EXTRACT"}
         try:
             outcome = ingestor.ingest_file(path)
             with database.session() as session:
@@ -170,6 +185,10 @@ def process_queued_run(database, run_id: str, ingestor, indexer, calls: list[dic
         finally:
             if calls is not None:
                 _persist_model_calls(database, run_id, calls)
+            with database.session() as session, session.begin():
+                run = session.get(PipelineRun, run_id)
+                run.config_snapshot = {key: value for key, value in run.config_snapshot.items()
+                                       if key not in {"current_path", "current_stage"}}
     if stopped:
         index_failed = True
         with database.session() as session:

@@ -54,6 +54,8 @@ def search_questions(
         data.append({
             "canonical_question_id": canonical_id,
             "canonical_text": detail["canonical_text"],
+            "topic_id": detail["topic_id"],
+            "question_type": detail["question_type"],
             "variants": detail["variants"],
             "occurrence_count": detail["occurrence_count"],
             "sources": detail["sources"][:3],

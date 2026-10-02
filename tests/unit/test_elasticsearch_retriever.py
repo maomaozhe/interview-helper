@@ -65,3 +65,45 @@ def test_dense_requires_encoder():
     retriever = ElasticsearchRetriever("http://unused", None, client=FakeClient())
     with pytest.raises(ValueError, match="EMBEDDING_NOT_READY"):
         retriever.retrieve("Redis", ["a"], "DENSE", 10)
+
+
+@pytest.mark.parametrize("pipeline", ["DENSE", "HYBRID_RERANK"])
+def test_serial_model_waits_do_not_expire_search_snapshot(pipeline):
+    class ExpiringClient(FakeClient):
+        clock = 0
+        expires = None
+
+        def post(self, path, **kwargs):
+            if path.endswith("/_pit"):
+                self.expires = self.clock + 60
+            elif path == "/_search":
+                if self.clock >= self.expires:
+                    raise RuntimeError("PIT_EXPIRED")
+                self.expires = self.clock + 60
+            return super().post(path, **kwargs)
+
+        def delete(self, path, **kwargs):
+            if self.clock >= self.expires:
+                raise RuntimeError("PIT_EXPIRED")
+            self.expires = None
+            return super().delete(path, **kwargs)
+
+    client = ExpiringClient()
+
+    class SlowEncoder(Encoder):
+        def embed(self, text):
+            client.clock += 120  # A serial worker extraction can own the gate this long.
+            return super().embed(text)
+
+    class SlowReranker:
+        version = "test-reranker"
+
+        def rerank(self, query, candidates):
+            client.clock += 120
+            return candidates
+
+    retriever = ElasticsearchRetriever("http://unused", SlowEncoder(),
+                                       reranker=SlowReranker(), client=client)
+    result = retriever.retrieve("Redis", ["a", "b"], pipeline, 2)
+    assert result["data"]
+    assert client.expires is None

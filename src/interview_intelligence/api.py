@@ -5,15 +5,17 @@ from __future__ import annotations
 import hashlib
 import json
 import secrets
+from contextvars import ContextVar
 from datetime import date
 from typing import Annotated, Literal
 from uuid import uuid4
 from urllib.parse import quote
 import httpx
-from openai import APIError
+from openai import APIError, APITimeoutError
 
 from fastapi import FastAPI, HTTPException, Query, Request
 from fastapi.exceptions import RequestValidationError
+from fastapi.encoders import jsonable_encoder
 from fastapi.responses import JSONResponse
 from pydantic import Field, ValidationError
 from sqlalchemy import select
@@ -22,10 +24,11 @@ from interview_intelligence.analytics.detail import get_question_detail, list_oc
 from interview_intelligence.analytics.stats import query_question_stats
 from interview_intelligence.analytics.scope import sign_scope, verify_scope
 from interview_intelligence.agent.service import AgentService
-from interview_intelligence.config import Settings, load_settings, resolve_corpus_path, validate_backend_model_endpoint, validate_model_preflight
+from interview_intelligence.agent.planner import SearchPlanner
+from interview_intelligence.config import Settings, load_settings, resolve_corpus_document, discover_corpus_documents, validate_backend_model_endpoint, validate_model_preflight
 from interview_intelligence.contracts import FilterSpec, ReviewRequest, StatsRequest, StrictModel
 from interview_intelligence.domain.models import (
-    CanonicalQuestion, CorpusState, IdempotencyReceipt, PipelineRun,
+    CanonicalQuestion, CorpusState, IdempotencyReceipt, PipelineRun, ModelCall,
     SourceRevision, create_database,
 )
 from interview_intelligence.review.service import ReviewService
@@ -37,6 +40,10 @@ from interview_intelligence.providers.gate import ModelCallGate
 from interview_intelligence.ingestion.snapshot import decode_source
 from interview_intelligence.search.service import search_questions
 from interview_intelligence.taxonomy import load_taxonomy
+from interview_intelligence.web import register_web
+
+
+model_request_id = ContextVar("model_request_id", default="local-search")
 
 
 class IngestRequest(StrictModel):
@@ -55,8 +62,16 @@ class RetryRequest(StrictModel):
     idempotency_key: str = Field(min_length=1)
 
 
+class SearchRequest(FilterSpec):
+    query: str = Field(min_length=1, max_length=500)
+    top_k: int = Field(default=10, ge=1, le=50)
+    pipeline: Literal["BM25", "DENSE", "HYBRID", "HYBRID_RERANK"] = "HYBRID_RERANK"
+
+
 def _request_id(request: Request) -> str:
-    return request.headers.get("x-request-id") or str(uuid4())
+    if not getattr(request.state, "request_id", None):
+        request.state.request_id = (request.headers.get("x-request-id") or str(uuid4()))[:128]
+    return request.state.request_id
 
 
 def _prefix_source_urls(value, prefix: str):
@@ -88,6 +103,15 @@ def _response(request: Request, database, data, *, filters=None, status_code=200
 def create_app(database=None, settings: Settings | None = None, retriever=None) -> FastAPI:
     settings = settings or load_settings()
     database = database or create_database(settings.database_url)
+    planner = None
+    def record_api_call(entry):
+        with database.session() as session, session.begin():
+            session.add(ModelCall(request_id=model_request_id.get(), operation_type=entry["operation_type"],
+                model=entry["model"], model_revision=entry.get("model_revision"),
+                prompt_version=entry["prompt_version"], input_tokens=entry.get("input_tokens"),
+                output_tokens=entry.get("output_tokens"), latency_ms=entry["latency_ms"],
+                status=entry["status"], retry_count=entry["retry_count"], error_code=entry.get("error_code"),
+                usage_source="PROVIDER" if entry.get("input_tokens") is not None else "UNAVAILABLE"))
     if retriever is None and settings.elasticsearch_url:
         encoder = None
         reranker = None
@@ -104,23 +128,33 @@ def create_app(database=None, settings: Settings | None = None, retriever=None) 
                              else OpenAICompatibleEncoder)
             encoder = encoder_class(model=settings.embedding_model, dimension=settings.embedding_dimension,
                                     api_key=settings.model_api_key, base_url=settings.model_base_url,
-                                    budget=budget, call_gate=gate,
+                                    budget=budget, call_gate=gate, on_call=record_api_call,
                                     timeout_seconds=settings.model_request_timeout_seconds)
             if settings.reranker_model:
                 reranker = LLMReranker(model=settings.reranker_model,
                                        api_key=settings.model_api_key, base_url=settings.model_base_url,
-                                       budget=budget, call_gate=gate,
-                                       timeout_seconds=settings.model_request_timeout_seconds)
+                                       budget=budget, call_gate=gate, on_call=record_api_call,
+                                       timeout_seconds=settings.model_request_timeout_seconds, stream=True)
+                planner = SearchPlanner(client=reranker.client, model=settings.judge_model or settings.reranker_model,
+                                        budget=budget, call_gate=gate, on_call=record_api_call)
         retriever = ElasticsearchRetriever(settings.elasticsearch_url, encoder, reranker=reranker)
     review_service = ReviewService(database)
-    agent_service = AgentService(database, retriever, user_id=settings.local_user_id)
+    agent_service = AgentService(database, retriever, user_id=settings.local_user_id, planner=planner)
     signing_key = settings.app_signing_key or secrets.token_hex(32)
     app = FastAPI(title="Interview Intelligence", version="1.0.0", root_path=settings.api_root_path)
+
+    @app.middleware("http")
+    async def model_trace(request: Request, call_next):
+        token = model_request_id.set(_request_id(request))
+        try:
+            return await call_next(request)
+        finally:
+            model_request_id.reset(token)
 
     @app.exception_handler(RequestValidationError)
     async def validation_error(request: Request, error: RequestValidationError):
         return JSONResponse(status_code=422, content={"error": {
-            "code": "VALIDATION_ERROR", "message": "invalid request", "details": {"errors": error.errors()},
+            "code": "VALIDATION_ERROR", "message": "invalid request", "details": {"errors": jsonable_encoder(error.errors(), custom_encoder={ValueError: str})},
             "retryable": False}, "request_id": _request_id(request)})
 
     @app.exception_handler(KeyError)
@@ -135,10 +169,19 @@ def create_app(database=None, settings: Settings | None = None, retriever=None) 
         code = message.split(":", 1)[0] if message.isupper() or ":" in message else "INVALID_OPERATION"
         status = 409 if code in {"IDEMPOTENCY_CONFLICT", "USER_STATE_VERSION_CONFLICT", "SNAPSHOT_CHANGED"} else 400
         if code in {"INDEX_NOT_READY", "EMBEDDING_NOT_READY", "RERANKER_NOT_READY",
-                    "MODEL_CONFIGURATION_INCOMPLETE", "MODEL_NOT_READY", "SOURCE_SNAPSHOT_MISSING"}:
+                    "MODEL_CONFIGURATION_INCOMPLETE", "MODEL_NOT_READY", "SOURCE_SNAPSHOT_MISSING",
+                    "STREAM_INCOMPLETE", "MODEL_OUTPUT_TRUNCATED"}:
             status = 503
         return JSONResponse(status_code=status, content={"error": {
             "code": code, "message": message, "retryable": status == 503},
+            "request_id": _request_id(request)})
+
+    @app.exception_handler(APIError)
+    async def provider_error(request: Request, error: APIError):
+        code = "MODEL_PROVIDER_TIMEOUT" if isinstance(error, APITimeoutError) else "MODEL_PROVIDER_UNAVAILABLE"
+        return JSONResponse(status_code=503, content={"error": {
+            "code": code, "message": "模型请求未完成，请稍后重试。",
+            "retryable": getattr(error, "status_code", None) not in {400, 401, 403, 404, 422}},
             "request_id": _request_id(request)})
 
     @app.get("/api/health")
@@ -203,11 +246,9 @@ def create_app(database=None, settings: Settings | None = None, retriever=None) 
                                                "next_offset": result["next_offset"]}})
 
     @app.get("/api/questions/search")
-    def question_search(request: Request, query: str = Query(min_length=1, max_length=500),
-                        filters: Annotated[FilterSpec, Query()] = None,
-                        top_k: int = Query(10, ge=1, le=50),
-                        pipeline: Literal["BM25", "DENSE", "HYBRID", "HYBRID_RERANK"] = "HYBRID"):
-        filters = filters or FilterSpec()
+    def question_search(request: Request, params: Annotated[SearchRequest, Query()]):
+        query, pipeline, top_k = params.query, params.pipeline, params.top_k
+        filters = FilterSpec.model_validate(params.model_dump(exclude={"query", "pipeline", "top_k"}))
         for attempt in range(2):
             with database.session() as session:
                 if session.bind.dialect.name == "postgresql":
@@ -324,11 +365,11 @@ def create_app(database=None, settings: Settings | None = None, retriever=None) 
                                  max_tokens=settings.max_model_tokens)
         paths = ([] if payload.mode == "reindex" else
                  payload.paths if payload.paths is not None else
-                 [str(path.relative_to(settings.corpus_root))
-                  for path in settings.corpus_root.rglob("*.md")])
+                 [path.relative_to(settings.corpus_root.resolve()).as_posix()
+                  for path in discover_corpus_documents(settings.corpus_root)])
         paths = list(dict.fromkeys(paths))
         for path in paths:
-            if not resolve_corpus_path(settings.corpus_root, path).is_file():
+            if not resolve_corpus_document(settings.corpus_root, path).is_file():
                 raise ValueError(f"unknown corpus file: {path}")
         body = payload.model_dump(mode="json")
         body["paths"] = paths
@@ -393,6 +434,7 @@ def create_app(database=None, settings: Settings | None = None, retriever=None) 
         return ingest(request, IngestRequest(paths=paths, mode=mode,
                                             idempotency_key=payload.idempotency_key))
 
+    register_web(app, database, settings, _response)
     return app
 
 

@@ -33,6 +33,9 @@ class ReviewService:
                     "status": stored[canonical_id].status if canonical_id in stored else "UNSEEN",
                     "review_count": stored[canonical_id].review_count if canonical_id in stored else 0,
                     "binding_status": stored[canonical_id].binding_status if canonical_id in stored else "RESOLVED",
+                    "note": stored[canonical_id].note if canonical_id in stored else None,
+                    "last_score": stored[canonical_id].last_score if canonical_id in stored else None,
+                    "version": stored[canonical_id].version if canonical_id in stored else 0,
                 } for canonical_id in canonical_ids},
                 "user_state_revision": revision.state_revision if revision else 0,
             }

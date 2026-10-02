@@ -12,12 +12,13 @@ from typing import Protocol
 
 from sqlalchemy import select
 
-from interview_intelligence.config import resolve_corpus_path
+from interview_intelligence.config import resolve_corpus_document
 from interview_intelligence.contracts import ExtractionResult
 from interview_intelligence.domain.models import (
     AlgorithmMatch, CanonicalAssignment, CanonicalQuestion, CorpusState, DocumentBuild, Interview,
     PipelineRun, PipelineTask, QuestionOccurrence, QuestionRelation,
     SourceDocument, SourceRevision, Database,
+    now_utc,
 )
 from interview_intelligence.ingestion.identity import source_identity
 from interview_intelligence.ingestion.algorithm import parse_algorithm_match
@@ -112,7 +113,7 @@ class IngestService:
         self.taxonomy = load_taxonomy()
 
     def ingest_file(self, relative_path: str) -> IngestOutcome:
-        path = resolve_corpus_path(self.corpus_root, relative_path)
+        path = resolve_corpus_document(self.corpus_root, relative_path)
         raw_bytes = path.read_bytes()
         text = decode_source(raw_bytes)
         source_hash, snapshot = save_snapshot(raw_bytes, self.snapshot_root)
@@ -162,13 +163,14 @@ class IngestService:
                 session.add(run)
                 session.flush()
                 task = PipelineTask(run_id=run.id, source_document_id=source.id, revision_id=revision.id,
-                                    stage="EXTRACT", task_key=hashlib.sha256(f"{identity}:{source_hash}:{fingerprint}".encode()).hexdigest())
+                                    stage="EXTRACT", state="RUNNING", task_key=hashlib.sha256(f"{identity}:{source_hash}:{fingerprint}".encode()).hexdigest())
                 session.add(task)
                 session.flush()
                 source_id, revision_id, run_id, task_id = source.id, revision.id, run.id, task.id
                 if source.active_build_id and existing and source.active_build_id == existing.id:
                     task.state = "SKIPPED"
                     run.status = "SUCCEEDED"
+                    run.end_time = now_utc()
                     run.skipped_documents = 1
                     corpus_revision = session.get(CorpusState, 1).current_revision
                     return IngestOutcome("SKIPPED", run_id, source_id, corpus_revision)
@@ -185,6 +187,10 @@ class IngestService:
                 self._validate_extraction(result, text, revision_id)
                 cached = cache.save(task_id, result, getattr(self.extractor, "resolved_model", None))
             result = cached.result
+            with self.database.session() as session, session.begin():
+                session.get(PipelineTask, task_id).stage = (
+                    "DEDUP" if self.deduper and result.document_kind in {"INTERVIEW_REPORT", "MIXED"}
+                    else "PUBLISH")
             with self.database.session() as session:
                 with session.begin():
                     build = session.scalar(select(DocumentBuild).where(
@@ -221,6 +227,7 @@ class IngestService:
                     task.state = "SUCCEEDED"
                     run = session.get(PipelineRun, run_id)
                     run.status = "NEEDS_REVIEW" if build.decision == "NEEDS_REVIEW" else "SUCCEEDED"
+                    run.end_time = now_utc()
                     run.processed_documents = 0 if build.decision == "NEEDS_REVIEW" else 1
                     run.processed_questions = question_count
                     if build.decision == "EXCLUDED":
@@ -240,6 +247,7 @@ class IngestService:
                     task.error_detail = str(error)[:2000]
                     run = session.get(PipelineRun, run_id)
                     run.status = "FAILED"
+                    run.end_time = now_utc()
                     run.failed_documents = 1
             raise
 

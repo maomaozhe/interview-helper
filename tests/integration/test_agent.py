@@ -55,3 +55,40 @@ def test_composite_rejects_revision_change_during_tool_chain(changed):
     agent.reviews.get_states = change_after_read
     with pytest.raises(ValueError, match="SNAPSHOT_CHANGED"):
         agent.chat("按复习缺口给我冲刺清单")
+
+
+@pytest.mark.parametrize("message", ["oom的常见问法有哪些", "OOM 有哪些面试题", "内存泄漏有哪些问题",
+    "线上内存一直涨，怎么定位且不影响业务", "怎么排查CPU占用很高", "为何请求延迟突然变大"])
+def test_semantic_search_planning_keeps_implicit_topic_unfiltered(message):
+    from interview_intelligence.agent.planner import SearchPlan
+    db, question_id, _ = seed_corpus()
+    with db.session() as session, session.begin():
+        session.get(CorpusState, 1).current_revision = 1
+        session.get(CorpusState, 1).indexed_revision = 1
+    class Planner:
+        version = "test-plan"
+        def plan(self, original, filters):
+            assert original == message
+            assert filters.topic_l1 is None and filters.topic_l2 is None
+            return SearchPlan(query="OOM 内存溢出", alternatives=["内存泄漏 排查"],
+                              needs_clarification=False, clarification=None)
+    class Retriever:
+        def retrieve(self, query, eligible_ids, pipeline, top_k):
+            assert query == "OOM 内存溢出 内存泄漏 排查"
+            assert pipeline == "HYBRID_RERANK"
+            return {"data": [{"canonical_question_id": question_id}], "meta": {"pipeline": pipeline}}
+    result = AgentService(db, Retriever(), planner=Planner()).chat(message)
+    assert result["intent"] == "SEARCH"
+    assert result["planning"]["version"] == "test-plan"
+    assert result["tool_trace"][0]["parameters"]["filters"]["topic_l1"] is None
+    assert result["facts"]["data"][0]["sources"]
+
+
+def test_explicit_frequency_query_keeps_sql_statistics_with_planner_enabled():
+    db, _, _ = seed_corpus()
+    class Planner:
+        def plan(self, *args):
+            raise AssertionError("Frequency must come from SQL, not a retrieval sample")
+    result = AgentService(db, planner=Planner()).chat("最近三个月 Redis 高频题有哪些？")
+    assert result["intent"] == "ANALYTICS"
+    assert result["facts"]["sample_counts"]["occurrences"] == 2

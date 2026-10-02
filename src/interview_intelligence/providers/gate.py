@@ -35,7 +35,14 @@ class ModelCallGate:
     def call(self):
         self.lock_path.parent.mkdir(parents=True, exist_ok=True)
         with self._thread_lock:
-            descriptor = os.open(self.lock_path, os.O_RDWR | os.O_CREAT, 0o600)
+            for attempt in range(5):
+                try:
+                    descriptor = os.open(self.lock_path, os.O_RDWR | os.O_CREAT, 0o600)
+                    break
+                except PermissionError:
+                    if attempt == 4:
+                        raise
+                    time.sleep(0.2 * 2 ** attempt)
             with os.fdopen(descriptor, "r+b") as lock_file:
                 if os.fstat(lock_file.fileno()).st_size == 0:
                     lock_file.write(b"\0")
