@@ -1,4 +1,14 @@
 .venv/
+node_modules/
+vendor/pi/**/dist/
+data/pi-v1.0.2.tar.gz
+data/*.tgz
+data/*.env
+data/*.dump
+data/pi-smoke.json
+data/decision-*.json
+data/export-decision-eval.py
+data/stop-annotation-between-calls.py
 __pycache__/
 .pytest_cache/
 .ruff_cache/

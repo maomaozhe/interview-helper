@@ -1,5 +1,7 @@
 .git
 .venv
+node_modules
+vendor/pi/**/dist
 .pytest_cache
 dist
 __pycache__

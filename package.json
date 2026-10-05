@@ -1,0 +1,15 @@
+{
+  "name": "interview-intelligence-agent",
+  "version": "0.1.0",
+  "private": true,
+  "engines": {"node": ">=22.19.0"},
+  "workspaces": ["vendor/pi/packages/telemetry", "vendor/pi/packages/ai", "vendor/pi/packages/agent"],
+  "scripts": {
+    "build:pi": "node scripts/build-pi.mjs",
+    "check": "node --check services/pi-agent/runtime.mjs && node --check services/pi-agent/server.mjs",
+    "test:agent": "node --test tests/node/pi-runtime.test.mjs",
+    "start:agent": "node services/pi-agent/server.mjs"
+  },
+  "dependencies": {"@earendil-works/pi-agent-core": "1.0.2", "@earendil-works/pi-ai": "1.0.2", "typebox": "1.3.27"},
+  "devDependencies": {"typescript": "7.0.2", "@types/node": "22.19.19"}
+}
