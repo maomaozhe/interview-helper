@@ -2,6 +2,8 @@
 
 本指南用于建立人工确认的评测集。每条标注必须引用原始 Markdown 的 SHA-256、文件相对路径、不可变快照中的字符跨度与行号；不得根据标题、模型回答或常识补写原文没有的公司、轮次和日期。
 
+查询任务分类现在区分 `NEEDS_REVIEW`（机器分类待核验）、`VERIFIED`（人工确认）和 `UNKNOWN`。在“分类核验”页面打开不可变原文、核对作答形式和任务焦点、填写判断依据，先保存草稿，再勾选发布。发布批次校验原文指纹与标注 revision，在同一事务更新标签和 revision；任何来源过期则整批不发布。`MIXED` occurrence 同时满足工程和算法筛选，所有筛选必须落在同一 occurrence。`KNOWN` 允许临时机器分类且显示提示，正式默认 `VERIFIED`。人工修正数据仍需另行冻结评测划分，不能直接当成独立测试金标。
+
 ## 文档与场次
 
 先标文档类型：真实面经、题目汇总、教程、混合、其他或未知。只有能归属具体面试场次的面试官提问才作为真实 occurrence。多轮帖按明确标题拆场次；题目无法分配到某轮时，轮次记 null。候选人反问、答案里的疑问句和教程例题只作为排除样本。
@@ -11,6 +13,14 @@
 每个独立提问标一个 gold_question_id。raw_question 对应逐字原文 span；normalized_question 可以补充省略主语，但不得增添新的事实或约束。同一事件被正文和 OCR 重复记录时是一条问题的多个 span；明确不同场次出现的同题是多条 occurrence。
 
 逐题标 Topic L1/L2、Question Type 和 evidence_kind。Topic 只能使用 `config/taxonomy/v1.yaml`；不确定的 topic 选“其他/UNKNOWN”。Type 遵循 spec 第 5 节的优先级。日期另标 interview_date_raw 与 publish_date_raw、证据和精度；缺年份时 date=null。
+
+新增独立任务标签，旧 `question_type` 不替代它们：
+
+- `response_form`：VERBAL 为口头解释 / 设计，CODE 为明确要求代码，SQL 为写 SQL，UNKNOWN 为证据不足。“如果让你实现，你会怎么做”通常是口头方案；“解释后手写代码”仍为 CODE。
+- `coding_focus`：ALGORITHM 为算法求解，ENGINEERING 为工程组件 / 语言功能实现，MIXED 需明确同时包含两种任务，NONE 为没有编程任务，UNKNOWN 为不足以裁定。SQL 归 ENGINEERING；算法原理讨论不因算法词汇自动变成求解任务。
+- 手写线程池、单例、并发任务处理器、工程 LRU 为 CODE/ENGINEERING；明确 LeetCode 146 或算法题环节的 LRU 为 CODE/ALGORITHM；不能用裸词“手撕”或旧 ALGORITHM 标签替代证据。
+
+任务回填保存 occurrence ID、输入 hash、producer 版本、置信度和原文关联。低置信度保留 UNKNOWN，完整列表显示待处理与不确定数量。模型标注没有人工审核时不能称为 human gold。
 
 ## 追问与算法
 

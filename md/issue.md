@@ -1,6 +1,8 @@
 # 面经项目问题记录与处理
 
-更新：2026-10-02。本文件记录真实运行中遇到的问题；不属于面经语料，扫描和显式导入均应排除它。
+更新：2026-10-05。本文件记录真实运行中遇到的问题；不属于面经语料，扫描和显式导入均应排除它。
+
+记录约定：后续实现遇到问题，按“现象 → 定位证据 → 原因 → 处理与取舍 → 验证 → 剩余边界”追加；保留失败过程，区分真实复现、测试覆盖和待验证事项，不记录密钥或密码。本轮 Pi / SQL / 开源决策模型记录见文末，面试讲述提纲见 [查询 Agent 实施复盘](../docs/retrospectives/2026-10-04-query-agent.md)。历史状态按各条日期理解，不覆盖成最终成功。
 
 验收入口：<http://localhost:8000/#ingest>。事实以 PostgreSQL 的当前生效构建为准；检索索引为可重建的派生数据。模型调用按用户要求串行执行。
 
@@ -1540,3 +1542,200 @@ EXTRACT ValueError "followup references unknown question"（attempt=1，run 1a52
 做法：只将 md/issue.md 纳入版本控制，README 加入入口；其他运行文件保留既有忽略规则，IDE 配置和本机任务锁使用明确忽略规则。提交前扫描已跟踪文件和该日志，未发现本机密钥值、Ark 密钥格式或私钥内容，.env 未被跟踪。
 
 本次重新运行 Python 全套测试 229 通过、1 跳过（真实 Elasticsearch 项需显式启用），前端 9 项通过。8000 服务健康，v193/v193；190 篇中157篇 INCLUDED、11篇 EXCLUDED、22篇尚无生效版本，重处理/维护队列仍在运行。代码推送与完整导入/语义验收分开记录，未将历史故障或待修复项写成已解决。
+
+## 2026-10-02 22:24 保活空窗导致 distro 重启（第二次）
+- 现象：6h keepalive（sleep 21600）自然到期后、新保活启动前的几十秒空窗内，WSL 2.1.5 终止了整个 distro（/proc/uptime 8h 未变 → VM 没重启，是 distro 级 init 重启）；dockerd 于 22:22:42 与 22:24:39 连启两次，全部容器（含无关的 pc/mysql-dev/greptimedb）随之重启。
+- 影响：2 条 pipeline_task 被标记 WORKER_RESTART（DEDUP 阶段），断点续跑自动接管，extraction cache 命中无需重抽，无数据损失。
+- 结论修正：此前认为"只有交互式 wsl 会话能保活"仍成立，但被杀的是 distro 进程树而非 VM；换期空窗=必死。
+- 对策：keepalive 改为 `sleep infinity`（后台任务 bqzh1f1rc），只要 Claude 会话存活即不再有空窗；不再使用定时长 sleep 轮换。
+
+## 2026-10-03 00:30 抽取误拒第 8 例：唯品会校招java二面-Ds重剑
+- 失败：ValueError "interview report has no eligible interview questions"（EXTRACT 阶段）
+- 核实：文件含约 20 个明确面试问题（实习拷打、线程池参数、JVM GC/调优、JDK 版本差异等），误拒无疑
+- 处置：已 reprocess 重enqueue（run f851b9ab-28aa-4f55-9607-410b808a9f98，idempotency-key reprocess-20261003-vipshop-false-reject）
+- 模式累计：抽取误拒已达 8 例（美团×2、IEG、sky、MeGuMin、奶龙/Mintshoot、唯品会），均单发 retry 成功率高；后续应做 prompt 鲁棒性评估（gold set 回归）
+
+## 2026-10-03 01:55 新错误类型：duplicate local question ID（腾讯软件开发一面-lulululu）
+- 失败：ValueError "duplicate local question ID"（EXTRACT 阶段，模型输出重复的问题局部 ID，校验拒绝）
+- 核实：文件 2.4KB，含分库分表/深分页/MySQL/Redis/MQ 等约 15 个明确问题，内容正常
+- 处置：已 reprocess 重enqueue（run f2e135ea，idempotency-key reprocess-20261003-tencent-lulululu-dupqid）
+- 备注：与 "no eligible questions" 误拒不同，这是模型生成端的 ID 冲突，retry 换 sample 通常可过；若反复出现需在 prompt 强调 ID 唯一性或后处理去重
+
+## 2026-10-03 02:30 抽取误拒第 9 例：8.10号字节后端一面-临风
+- 失败：ValueError "interview report has no eligible interview questions"（EXTRACT 阶段）
+- 核实：文件 724B，OCR 内容含 7 个明确问题（分布式 ID、redis 为什么快、慢 SQL 排查、LRU 手撕等），误拒无疑
+- 处置：已 reprocess 重enqueue（run d9514825，idempotency-key reprocess-20261003-bytedance-linfeng）
+- 模式累计：误拒 9 例；注意到短文件/OCR 图片转录类占比高，prompt 对"图片内容（OCR）"章节识别可能偏弱
+
+## 2026-10-03 02:55 两例 EXTRACT 失败（Agent 类面经）
+1. Agent 在电商场景下的落地-淮南txo：ValueError "followup references unknown question"（追问指向了不存在的问题 ID，模型输出的 followup 锚点幻觉）；文件 2.7KB，淘天二面业务向问答，内容正常
+2. Agent评测一面面经-：ValueError "no eligible interview questions"（误拒第 10 例）；文件 2.3KB，编号 1-14 的明确问题列表，误拒无疑
+- 处置：两篇已一并 reprocess 重enqueue（run c88b3b64，idempotency-key reprocess-20261003-agent-2files）
+- 模式累计：误拒 10 例 + followup 锚点幻觉 2 例 + dup ID 1 例；均为单发 retry 可解的模型生成不稳定，建议后续统一做 prompt/后处理加固
+
+## 2026-10-03 14:47 Windows 休眠导致 worker 卡死（boss java一面 DEDUP 停滞 11.7h）
+- 现象：03:04→14:47 监控空窗（Windows 休眠，WSL VM 挂起，/proc/uptime 仅 +265s）；唤醒后 DEDUP 任务 RUNNING 但 updated_at 停滞 11h41m，近 30 分钟 0 次模型调用，worker 日志静默
+- 根因：挂起时 worker 正持有到 ark:443 的在飞连接；唤醒后 VM NAT/conntrack 状态丢失，socket 本地仍 ESTABLISHED 但对端已死，无流量无重传 → recv 无限阻塞（180s 请求超时的计时基准在挂起期间同样冻结，且超时只在有计时事件时触发）
+- 处置：docker compose restart worker；挂起任务标记 WORKER_RESTART，断点续跑自动接管（extraction cache 命中），DEDUP 恢复 RUNNING
+- 教训：监控脚本应把"RUNNING 任务 updated_at 停滞 >30min 且 model_call 静默"也列为 ALERT 条件；长时挂机场景建议给 OpenAI client 增加读超时之外的 heartbeat/TCP keepalive
+
+## 2026-10-03 15:17 抽取误拒第 11 例：pdd提前批agent面经-小熊饼干_
+- 失败：ValueError "interview report has no eligible interview questions"（EXTRACT 阶段）
+- 核实：文件 1.2KB，含 6 个明确 agent 设计问题（Skill 自进化冲突、shell 安全、主子 agent 信息共享、工具阻塞、JSON schema 错误等），误拒无疑
+- 处置：已 reprocess 重enqueue（run 36e69667，idempotency-key reprocess-20261003-pdd-xiaoxiong）
+- 模式累计：误拒 11 例；观察：emoji 编号（1️⃣2️⃣）+ 短文的组合出现多次，prompt 对非标准编号格式识别偏弱
+
+## 2026-10-03 16:30 抽取误拒第 12 例：双非26届微派网络贪吃蛇部门-山羊算法
+- 失败：ValueError "interview report has no eligible interview questions"（EXTRACT 阶段）
+- 核实：文件 2KB，含 13+ 个明确 java 八股问题（hashmap、多态、ThreadLocal、单例、innodb RR、B+树、HTTPS 握手等），emoji 编号格式，误拒无疑
+- 处置：已 reprocess 重enqueue（run 4e09cc0f，idempotency-key reprocess-20261003-weipai-shanyang）
+- 模式累计：误拒 12 例，emoji 编号（1️⃣）+ 短文体特征再次命中，prompt 加固优先级进一步提高
+
+## 2026-10-03 17:04 抽取误拒第 13 例：唯品会广州Java一二面面经-Asher
+- 失败：ValueError "interview report has no eligible interview questions"（EXTRACT 阶段）
+- 核实：文件 1.5KB，含一面 11+ 个明确 java 问题（volatile、sync/ReentrantLock、ThreadLocal、线程池、AOP 等），标准数字编号，误拒无疑
+- 处置：已 reprocess 重enqueue（run 6ee97493，idempotency-key reprocess-20261003-vipshop-gz-asher）
+- 模式累计：误拒 13 例；本例为标准数字编号，说明不仅是 emoji 编号问题，短文件整体召回偏弱
+
+## 2026-10-03 20:43 抽取误拒第 14、15 例（字节两篇）
+1. 字节后端开发飞书安全实习一面凉经-VAVAV：文件 1.8KB，含 tcp 模型/三次握手/线程进程区别/内存排查等 8+ 个明确问题，误拒无疑
+2. 字节国际化广告crm后端一面-Eversse：文件 847B，OCR 段含线程池核心参数/MySQL 隔离级别/索引/手撕等 6+ 个明确问题，误拒无疑（OCR 短文特征再次命中）
+- 处置：两篇已一并 reprocess 重enqueue（run 3f632760，idempotency-key reprocess-20261003-bytedance-2files）
+- 模式累计：误拒 15 例
+
+## 2026-10-03 21:10 用户决策：反复失败的文档跳过不再重试（共 11 篇）
+用户指示"异常重试无效的跳过"。以下文档失败 ≥2 次且从未成功，正式标记为跳过，不再 re-enqueue：
+
+**持续 ValueError（模型反复拒抽/校验不过，5+1 篇）**
+- 美团AI后端开发实习一面凉经-钱多多.md（3 次）
+- 百度后端开发一面凉经-辰溪.md（3 次）
+- 得物大模型一面面经-Offer面试官.md（3 次）
+- 美团 AI Agent开发 一面面经-Devs.md（3 次）
+- 小红书-Java后端开发-1面面经-06.17-不知道起什么名字好～.md（2 次）
+
+**持续 ReadTimeout（模型调用反复超时，5 篇；文件均 ≤10.6KB 非超大，疑似生成端打转）**
+- 研一年前一周速通大厂实习面经总结-Friday...md（3 次）
+- 小米完整面经-27面面面到厌倦.md（3 次）
+- 小米Java二面-1.md（3 次）
+- 字节飞书后端一面凉经-Shinichi.md（3 次）
+- 百度秋招一面二面三面面经(三面挂)-炒肉多.md（3 次）
+- 字节面经（已offer）-焦糖咖啡星冰乐.md（3 次）
+
+影响：终点审计以 190-11=179 篇为成功基线；后续 NEW_FAIL 若属此名单或已重试过 1 次仍失败，直接记录跳过不再重enqueue。长期建议：抽取 prompt/超时加固后可用 reprocess 模式整体回补这 11 篇。
+
+## 2026-10-03 23:55 两例 EXTRACT 失败
+1. 得物-一面（回忆版）-明日香：误拒第 16 例（577B 短文含 hashmap/CAS/volatile/链表等 8 个明确问题），首败，已按策略重试 1 次（run d4b82923）
+2. 得物大模型一面面经-Offer面试官：跳过名单内文档再次失败（累计 4 次 ValueError），按用户决策不再重试，仅记录
+
+## 2026-10-04 02:35 【阻断】火山方舟 Coding Plan 订阅过期
+- 现象：IEG/sky/MeGuMin 三篇最终重试全部瞬间失败 BadRequestError 400 InvalidSubscription；直接探测 ark API 确认："Your account (2119709964) does not have a valid CodingPlan subscription, or your subscription has expired"
+- 影响：所有模型调用（抽取/判重/嵌入/搜索 rerank/agent）全部不可用，导入无法继续；控制台续费入口：https://console.volcengine.com/ark/region:ark+cn-beijing/openManagement?OpenModelVisible=false&tab=CodingPlan
+- 待续费后回补：腾讯IEG-春秋只转载要事、腾讯暑期-sky、MeGuMin 三篇 reprocess 即可；另 6 篇跳过名单（钱多多、辰溪、Offer面试官、Devs、炒肉多、Friday）建议 prompt 加固后再回补
+
+## 2026-10-04 02:44 订阅阻断解除 + 终点审计
+- 用户提供新 API key（同账号 ark-...-22398），.env 更换 + recreate api/worker 后模型调用恢复 200
+- 此前因订阅过期失败的三篇全部重试成功：腾讯IEG-春秋只转载要事、腾讯暑期-sky、MeGuMin
+- 终点状态：docs=190/190 注册，rev=293/293，occurrences=4338，canonical=2668，任务队列清零
+- 最终未导入仅 6 篇（用户决策跳过，均重试 3-4 次失败）：钱多多、辰溪、Offer面试官、Devs、研一Friday、炒肉多（百度一二三面）；待 prompt 加固后可 reprocess 回补
+
+## 2026-10-04 查询 MVP：Pi、SQL 列表与开源决策模型
+
+本轮验收口径是当前生效且可用于分析的真实提问：172 个来源、185 场面试、2,771 次提问、2,452 道归并题，语料 / 索引均 revision 293。这个查询范围与历史日志中的总量不能直接比较；本轮没有重新导入或重做归并。详细实现见 [spec 第16节](../docs/plans/2026-10-04-pi-agent-spec.md#16-查询-mvp-实施记录)，数据与计时见 [部署报告](../docs/plans/2026-10-04-open-system-one-deployment.md#查询-mvp-的最终验证)。
+
+### Q01. 类别枚举被当成检索 Top K，数量与排名语义不正确
+
+- 现象：用户查询“手撕代码有哪些题目”只得到 20 条；“前40个频率最高的算法题”需要完整范围的频次排名，检索候选和页面截断无法保证这个结果。
+- 原因：完整类别列表与语义相似候选共用检索路径，数量限制和排序范围混在一起。向量相似度不能证明全库频次最高。
+- 处理与取舍：模型只生成受限查询计划；SQL 在有效 occurrence 范围内筛选，按 canonical 聚合真实提问次数，再做全局 Top N 和分页。同频用 ID 稳定排序，明确区分匹配总数、Top N 结果数和本页返回数。类别列表、显式筛选和按钮翻页不调用 Embedding / Rerank。
+- 验证：真实自然语言返回全部 40 道，顺序与独立 PostgreSQL 聚合查询一致；20 + 20 分页一致且无重复。页面已显示 40 行、匹配总数 134。
+- 证据：[SQL 列表实现](../src/interview_intelligence/analytics/listing.py)、[独立验收脚本](../scripts/verify-query-mvp.py)、[集成测试](../tests/integration/test_query_agent.py)。排名正确仍以当前机器标签和生效语料为前提，不代表完整人工金标准确率。
+
+### Q02. “手撕代码”与“算法题”混淆，旧标签不能直接用于新需求
+
+- 现象：旧 question_type=ALGORITHM 同时覆盖算法求解、部分手写工程代码及 SQL，用户期望的工程实现列表混入算法题。
+- 原因：一个题型字段混合了技术主题、作答方式和任务焦点；同一标准题在不同来源中可能只要求解释，也可能要求现场实现。
+- 处理与取舍：在 occurrence 层增加独立 response_form 与 coding_focus；“手撕代码”在本项目默认解释为 ENGINEERING + CODE，显式算法查询使用 ALGORITHM。保留旧标签与 canonical 身份，不通过旧 ALGORITHM 批量推导新标签。
+- 验证：2,771 次提问全部完成处理，2,703 次明确分类、68 次 UNKNOWN、0 待处理；当前 ENGINEERING + CODE 匹配 18 道，算法焦点匹配 134 道。低置信度不进入明确分类榜单，页面说明未知数量。
+- 边界：机器回填尚未经过完整人工金标评估；例如 LRU 的工程组件实现与指定算法题号需看具体来源，不能只凭关键词判断。
+- 证据：[标注指南](../docs/annotation-guide.md)、[新任务标注提示词](../prompts/task_annotation_v4.md)。
+
+### Q03. 回填让模型复写 UUID 与原文，增加输出成本并触发严格校验失败
+
+- 现象：早期回填输出较长；实际出现作答方式误填 MIXED、输出结构不符、引用被改写等失败，失败批次不能提交。
+- 原因：分类任务同时要求模型承担记录身份映射、原文复述与标签生成；两套标签枚举还容易混用。改写后的“意思相同”引文不能通过逐字证据校验。
+- 处理与取舍：v4 只让模型输出批内序号 i、作答形式 f、焦点 c、置信度 p；宿主恢复 immutable occurrence ID 与已有原文，记录 quote_origin=host_original、输入 hash 和 producer_version。完整校验后批次原子提交，已提交批次可跳过续跑；格式错误最多一次修复，所有失败 / 成功调用计入预算并保留日志。
+- 验证：非法引文会拒绝整个批次；错误枚举经一次修复后才落库；重复执行不改旧 occurrence / corpus revision。v4 最后一段处理 2,131 次提问，22 次模型调用、242,604 tokens；这些数字不包含此前版本的调用，不能当作整个回填总成本。
+- 证据：[回填实现](../src/interview_intelligence/agent/task_annotation.py)、[回填测试](../tests/integration/test_task_annotation.py)。宿主关联的原文证明来源绑定，不证明模型标签语义必然正确。
+
+### Q04. 模型只输出工具名，默认参数掩盖了会话范围丢失
+
+- 现象：真实多轮验收“手撕代码”后接“只看二面”，模型有时只给出 LIST 动作；默认空 filters 将其补成全库查询，造成结果范围错误。
+- 定位：独立 SQL 对照发现预期工程代码二面 4 道与实际结果不一致，进一步检查工具参数发现筛选字段缺失。
+- 处理与取舍：区分客户端请求默认值和模型输出契约。query_agent_v2 要求模型显式给出 action、完整 filters、sort、top_n、page_size 以及动作必需参数；null 是明确无筛选，缺字段则是错误。Pi / 主机校验失败后先做有界修复，成功前不执行工具。新话题同时重置旧 Top N，避免算法 Top 40 限制泄漏到工程列表。
+- 验证：Node 测试中第一次缺参数、第二次修复，宿主只收到一次完整调用；真实多轮保留 ENGINEERING + CODE 并应用 SECOND，返回 4 道。全部五组真实接口验收通过。
+- 证据：[模型输出契约](../src/interview_intelligence/agent/query_contract.py)、[真实 Pi 核心测试](../tests/node/pi-runtime.test.mjs)。修复次数、deadline 有界，不通过无限重试保证表面成功。
+
+### Q05. 页面分页、Agent 指代与会话版本需要保持同一个范围
+
+- 本轮集成处理的问题：按钮翻到第二页后，后续“第一题”应指向新页面；读详情不应抹掉列表游标。快速修改筛选会取消旧 HTTP 请求，但旧请求可能已提交会话，客户端版本随后变旧。
+- 处理：结构化 POST /api/questions/list 同步 PG 当前页和范围，GET 保留只读查询。NEXT 从服务端保存的 list_request 派生；详情 / 复习状态读取保留列表状态。新显式 SQL 范围读取主机最新版本，保留正在执行请求的冲突保护，并只对 QUERY_IN_PROGRESS 作有界重试；游标翻页仍携带预期版本。
+- 验证：实际连续 SQL 翻页后“查看第一题来源”正确指向第二页首题，读详情后“下一页”继续原列表；浏览器连续切换工程方向和代码形式成功返回 18 道，model_attempts=0。
+- 同时覆盖的防范项：请求 ID / 内容绑定防重复执行，签名游标绑定筛选、用户及语料 / 分类 / 复习版本；旧游标版本失效明确报错。这些是测试覆盖，不宣称已完成生产并发压测。
+- 证据：[会话服务](../src/interview_intelligence/agent/query_service.py)、[页面调用](../src/interview_intelligence/web/assets/app.js)、[状态与分页测试](../tests/integration/test_query_agent.py)。
+
+### Q06. Laya 选项预算导致候选丢失，接口成功加载不等于能正确决策
+
+- 现象：首次把 65 个公司选项交给 Laya 时，其固定问题头预算使选项合并，适配器检测后返回 422。这批请求属于集成失败，不纳入分类准确率。
+- 处理：检查 truncated 及 options 的 distinct / total；上下文截断或选项丢失一律拒绝，不静默裁掉候选。公司决策缩为 NONE / INHERIT / FALLBACK，新公司实体交给 Pi。
+- 随后实测：L20 上 20 个中文用例共 65 个预标注关键字段，完整用例正确 1/20，关键字段 29/65；一组 10 个决策中位 19.415 ms。所有字段都达到 0.85 的用例为 0/20，不能从“没有高置信错误”推出可用快路径。
+- 取舍：当前默认关闭开源决策调用，正式路由使用 Pi；保留可替换适配器和影子模式，未校准 Laya 即便配置 active 也不能接管。部署的是独立开源 Laya，不是官方 Jev 权重。
+- 计时纠正：评测脚本按 nearest-rank 计算 p95，20 样本为 20.32 ms，最大值是 21.15 ms；GPU 推理时间不包含 SSH、模型队列及页面请求，不能宣称生产端到端 p95。
+- 证据：[服务适配器](../services/jev-gateway/laya_server.py)、[决策回退](../src/interview_intelligence/agent/jev.py)、[原始评测结果](../evals/query-routing/results/laya-l20-20261004.json)。
+
+### Q07. 耗时归因遗漏工具内模型调用，HTTP 回调不会自动继承 ContextVar
+
+- 现象：早期查询统计能看到 Pi 规划耗时，但内部工具调用中的 Embedding 等模型阶段未完整计入该请求汇总。
+- 原因：Pi → Python 的工具回调是新的 HTTP 请求，原自然语言请求的 ContextVar 不会跨网络传播；只恢复 request ID 仍不能恢复累计计时和预算所属的 run。
+- 处理：回调按 run ID 找到宿主运行，恢复 model_request_id 与 query_run_context；统一收集 queue_ms、interval_ms、provider_ms，工具内模型调用遵守剩余 deadline 和共享 gate。网关已有显式累计时避免重复相加。
+- 验证与收益：集成测试覆盖直接检索和真实内部回调的 trace / provider 汇总。最终 Top 40 HTTP 为 6,327 ms，规划 6,231 ms、provider 5,924 ms、SQL 工具 57 ms；直接 SQL 111 ms。工程代码自然语言样本含 1,770 ms 的串行间隔等待。
+- 边界：以上是单次开发样本，不是“优化后整体快几十倍”的生产指标；当前网关缓冲完整响应再适配 Pi SSE，尚未完成上游 TTFT 透传。
+- 证据：[请求计时与预算](../src/interview_intelligence/providers/runtime.py)、[API 回调上下文](../src/interview_intelligence/api.py)、[阶段计时测试](../tests/integration/test_query_agent.py)。
+
+### Q08. Windows 模型锁首字节初始化也需要放在临界区
+
+- 现象：全套测试中的多进程竞争偶发 PermissionError，失败点在新锁文件的初次 write / flush，不是实际模型请求阶段。
+- 原因：锁文件为空时，各进程在获得文件锁之前写入首字节；另一个进程已锁住该区域，Windows 会拒绝这次预初始化写入。只锁模型调用仍遗漏共享元数据的初始化。
+- 处理：先获得操作系统文件锁，再初始化首字节和读取完成时间；保留线程锁、可取消等待、退出释放和调用后 2 秒间隔。
+- 验证：gate 专项和最终全套回归通过。真实 API / worker 继续使用同一 Linux 原生命名卷中的模型锁；Windows 测试通过不代表 Windows 与 Linux 各自的锁机制可以直接互斥。
+- 证据：[模型门实现](../src/interview_intelligence/providers/gate.py)、[多进程测试](../tests/unit/test_model_call_gate.py)、[取消与 deadline 测试](../tests/unit/test_query_gate_limits.py)。
+
+### Q09. Pi 源码快照缺生成资源，安装通过仍不保证可离线构建
+
+- 现象：固定 Pi 的 GitHub 源码快照未含上游忽略的模型目录 JSON，编译 / 运行所需资源缺失；npm 10 的可选 peer 依赖解析还造成安装冲突。
+- 处理：保持 v1.0.2 固定源码不改，从完全同版本 npm 发布包补齐模型资源，记录来源与 SHA256；只构建 telemetry → ai → agent，业务 hooks 放在自身服务。使用锁文件、npm ci --ignore-scripts --legacy-peer-deps，构建脚本离线复制固定资源，不在构建时拉取最新目录。
+- 验证：本地构建、Docker sidecar、真实上游模型兼容烟测以及 4 个真实 Pi 核心测试通过。Node 最低版本与安装命令写入文档。
+- 证据：[源码来源记录](../vendor/PI-SOURCE.md)、[构建脚本](../scripts/build-pi.mjs)。该安装参数是已验证的当前 workaround，不等于上游依赖问题已根治。
+
+### Q10. 真实 PostgreSQL 和 WSL 部署暴露了样本环境未覆盖的差异
+
+- 已遇到：PostgreSQL 对 bigint 计数再次 SUM 的返回值是 Decimal，接口序列化前需显式转 int；WSL Docker 默认构建网络 DNS 失败，使用 host 网络构建成功；跨 Windows / WSL 拼接 SSH 命令时变量展开影响执行，改用已保存的隧道脚本。
+- 处理与验证：实际 PostgreSQL Top N 接口与容器部署验收通过；模型服务只监听服务器 loopback，经私有 SSH 隧道给本地 Docker 访问，未开放公网模型端口。SSH / token 配置不进入问题日志。
+- 边界：服务器目前是 nohup 开发部署，重启后需恢复；系统守护、负载与长时稳定性未验收。样本 SQLite、模型服务 ready 或容器健康均不能单独替代真实业务正确性验收。
+
+### 本轮验证终点与后续记录
+
+- Python：250 通过、1 跳过；跳过项需显式启用真实 ES。真实 API 烟测另行验证了本机 ES HYBRID 路径。
+- Node / 前端：13 通过，其中 4 项运行固定 Pi 核心；五组真实查询烟测通过；浏览器验证 Top 40、工程代码列表和 SQL 分页。
+- 仍需后续记录：人工标签审计与完整金标、其他开源模型对照、接受覆盖率 / 错误率校准、生产守护和压力测试、真实复习写入端到端、跨进程运行恢复、长期偏好。以上不因本轮测试通过而记作完成。
+
+## 2026-10-05 查询 spec 功能补齐与提交前整理
+
+本条衔接上一轮 MVP，保留 Q01–Q10 的当时状态。最新实现与证据见 [验收报告](../docs/plans/2026-10-05-query-spec-verification.md) 和 [状态与分类政策决策](../docs/decisions/2026-10-05-query-state-and-annotation-policy.md)。
+
+- 处理：补齐持久 run / 事件流、取消与原请求恢复、显式偏好、分类草稿核验、顺序多步骤工具、稳定写 action ID、整轮 token 预算与真实流式 TTFT；完整 SQL 排名增加 importance / gap 与分组游标，并明确 Top N 前后复习筛选。迁移为 `c21d4857a941`，升级前备份保存在被忽略的本机文件。
+- 分类口径：生产默认 VERIFIED，当前人工核验为0；开发明确使用 KNOWN，要求任务焦点和作答形式均非 UNKNOWN，因此算法唯一题从首轮134收窄到132，工程代码仍为18。两道作答形式未知的题被排除，不能将口径变化解释为数据丢失或分类质量提升。
+- 验证：Python 全量266通过 / 1跳过，真实 ES 单独1通过；后续受影响回归通过；Node / 前端14通过。真实自然语言 Top40 的ID、次数和顺序与独立完整 PG SQL 一致；importance / gap 前100题各经37+37+26分页对照独立公式，无重复。
+- 写入与恢复：隔离用户由真实 Pi 标记当前页3题，原请求重放及验证 API 重建后仍仅3条业务事件，没有新增模型调用，普通用户复习状态不变。浏览器取消后可恢复原请求，分组第二页刷新可还原。
+- 计时：100次 SQL 请求、并发4，HTTP P50 164.665ms / P95 246.022ms，ModelCall增加0；未清空缓存，也未模拟同时导入或多用户模型排队。自然语言仍主要耗时于模型和共享门间隔，不能将 SQL 分位数当成问答整体耗时。
+- 服务：Laya 已交给用户 systemd，enabled / active / ready，linger 原已开启；未重启整台服务器，SSH 隧道仍由开发脚本管理。其中文质量不足，正式 decision 路由继续关闭，不能称为部署了官方 Jev。
+- 剩余边界：完整人工分类 / 路由金标、置信度校准、检索四路消融、生产混合负载及完整 V1 出口尚未完成；功能与开发验收完成不代表生产质量达标。

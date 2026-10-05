@@ -224,6 +224,8 @@ PipelineRun 状态：QUEUED/RUNNING/SUCCEEDED/PARTIAL_FAILED/FAILED/CANCELLED；
 
 类型标注优先识别提问任务：手写代码/SQL 为 ALGORITHM；真实个人项目追问为 PROJECT；独立系统设计为 SYSTEM_DESIGN；故障情境为 SCENARIO；HR 为 HR。剩余 AI 专属知识为 AI；普通原理解释为 PRINCIPLE；概念或使用方法为 KNOWLEDGE；无法确定为 OTHER。topic 是领域，type 是任务，二者不能相互替代。上述规则须写入标注指南，真实含混样本人工裁决。
 
+2026-10-04 查询层增补：上述旧 `question_type` 保持历史兼容；准确编码类别改用 occurrence 的 `response_form=VERBAL/CODE/SQL/UNKNOWN` 与 `coding_focus=ALGORITHM/ENGINEERING/MIXED/NONE/UNKNOWN`，不能再通过旧 ALGORITHM 直接回答“手撕代码”或“算法题”列表。独立标签、可续跑回填和覆盖率见 [Pi 查询 spec](plans/2026-10-04-pi-agent-spec.md#16-查询-mvp-实施记录)。
+
 ### 5.2 模型输出
 
 所有模型结构化结果使用 Pydantic 校验并导出 JSON Schema；`extra=forbid`，禁止解析自然语言、Markdown 代码块或正则截取 JSON 作为成功结果。provider 必须支持受约束结构化输出，或返回可直接验证的 JSON 工具参数；能力不满足时在预检失败。
@@ -489,6 +491,9 @@ API 的默认 pipeline 由 dev 集结果确定；在最终验证前可临时使�
 | GET /api/topics | 当前 taxonomy_version 和完整树 |
 | GET /api/topics/{id}/overview | get_topic_overview |
 | GET /api/questions/stats | query_question_stats |
+| GET /api/questions/list | 同 occurrence 范围的 SQL 完整计数、Top N 与版本绑定游标；不调用模型 |
+| POST /api/questions/list | body={list_request,conversation_id?,expected_version?,request_id}；SQL 执行并同步当前页 / 筛选到 PG 会话；幂等重放不增加版本 |
+| POST /api/questions/query | body={message,filters?,page_size?,pipeline?,conversation_id?,expected_version?,request_id}；模型规划 QuerySpec，宿主校验执行 |
 | GET /api/questions/search | search_questions；为评测另有受控 pipeline 参数 |
 | GET /api/questions/{id} | get_question_detail；旧 canonical redirect 在响应中明确返回 |
 | GET /api/questions/{id}/occurrences | 同 FilterSpec 的完整来源分页 |
@@ -496,7 +501,7 @@ API 的默认 pipeline 由 dev 集结果确定；在最终验证前可临时使�
 | GET /api/sources/{revision_id} | immutable Markdown 与 hash；可用 line_start/line_end 定位 |
 | GET /api/review/state | get_user_question_state |
 | POST /api/review | record_review；创建返回 201，幂等重放返回原结果 |
-| POST /api/agent/chat | message、可选最近 ≤10 条对话上下文、request_id；返回路由/工具轨迹摘要/事实引用/回复 |
+| POST /api/agent/chat | message、request_id、conversation_id / expected_version；查询层开启时复用 Pi QueryService，PG 会话为可信状态；旧 context 字段仍兼容 |
 | GET /api/health | 数据库、索引与模型配置就绪信息；不返回凭据 |
 
 静态路径 stats/search 必须先于动态 `{id}` 注册。API 服务仅绑定本机回环地址；V1 是单用户应用，user_id 从本地配置获得。若将来公开部署，须先另立鉴权/权限设计，不默认把本机服务暴露到互联网。
@@ -832,3 +837,5 @@ README 必须回答原需求的工程问题：Occurrence/Canonical 为什么分�
 本文已给出可执行默认值，不留统计口径或数据关系给模型临时决定。更改计数口径、taxonomy、alias、canonical 归属策略、score、时间规则、检索参数或 gold，必须写入 `docs/decisions/`、提升相关版本，并运行受影响的回归和评测；禁止为了分数提升静默修改 test 集。
 
 本规范起初作为开发前契约；后续实施状态记录在 [implementation-status.md](implementation-status.md)。所有质量数字都是验收目标，不能从自动化样例测试推断真实语料达标。最初检查的输入规模为 190 个 Markdown 文件。
+
+2026-10-05 查询补充按 [Pi spec 第17节](plans/2026-10-04-pi-agent-spec.md#17-spec-功能补齐2026-10-05) 与 [实现决策](decisions/2026-10-05-query-state-and-annotation-policy.md) 执行：独立任务分类可信度、明确偏好、持久事件 / run receipt、取消与恢复、SQL keyset、Top N 集合顺序及整轮预算已落地。复习管理 API 单批仍最多20题；Agent 对当前页最多100题分成20题批次，并保存稳定action回执，部分完成不会报为整轮成功。原有 V1 人工质量门槛保持不变。
