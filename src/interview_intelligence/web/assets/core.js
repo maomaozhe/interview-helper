@@ -1,7 +1,7 @@
 (function (root) {
   "use strict";
   const filterKeys = ["company", "position", "job_family", "language", "topic_l1", "topic_l2",
-    "question_type", "round", "start_date", "end_date", "date_basis"];
+    "question_type", "response_form", "coding_focus", "annotation_status", "round", "start_date", "end_date", "date_basis"];
   function pickFilters(source) {
     return Object.fromEntries(filterKeys.filter(key => source?.[key] !== undefined
       && source[key] !== null && source[key] !== "").map(key => [key, source[key]]));

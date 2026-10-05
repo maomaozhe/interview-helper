@@ -21,6 +21,8 @@
       <button class="nav-item" data-page="chat"><span class="nav-icon">◌</span>面经问答<span class="nav-arrow">›</span></button>
       <button class="nav-item" data-page="ingest"><span class="nav-icon">⇧</span>导入与状态<span class="nav-arrow">›</span></button>
       <button class="nav-item" data-page="feedback"><span class="nav-icon">⚑</span>问题记录<span class="nav-arrow">›</span></button>
+      <button class="nav-item" data-page="preferences"><span class="nav-icon">◇</span>查询偏好<span class="nav-arrow">›</span></button>
+      <button class="nav-item" data-page="annotations"><span class="nav-icon">✓</span>分类核验<span class="nav-arrow">›</span></button>
     </nav>
     <div class="sidebar-bottom"><div class="connection"><i id="connection-dot"></i><span id="connection-text">正在连接本机服务</span></div><p>每一道题，都能回到原文。</p><a href="docs" target="_blank" rel="noopener">接口文档 ↗</a></div>
   </aside>
@@ -36,18 +38,19 @@
           <div class="search-line"><span class="search-symbol" aria-hidden="true">⌕</span><input id="query" name="query" maxlength="500" autocomplete="off" placeholder="搜索技术点、题目或场景，比如 OOM 如何排查"><button class="button primary" id="search-button" type="submit">搜索题目 <span>→</span></button></div>
           <div class="query-examples"><span>试试看</span><button type="button" data-query="Redis 缓存击穿">Redis 缓存击穿</button><button type="button" data-query="JVM 垃圾回收">JVM 垃圾回收</button><button type="button" data-query="oom有哪些常见的问法？">OOM 的常见问法</button><button type="button" id="browse-button">浏览高频题 ↗</button></div>
           <div class="filter-line"><label>知识主题<select id="filter-topic"><option value="">全部主题</option></select></label><label>细分主题<select id="filter-subtopic"><option value="">全部细分主题</option></select></label><label>公司<select id="filter-company"><option value="">全部公司</option></select></label><label>轮次<select id="filter-round"><option value="">全部轮次</option><option value="FIRST">一面</option><option value="SECOND">二面</option><option value="THIRD">三面</option><option value="FOURTH_PLUS">四面及以后</option><option value="HR">HR 面</option></select></label><button type="button" class="text-button clear-filters" id="reset-filters">重置</button></div>
-          <details class="advanced"><summary>检索方式与更多筛选</summary><div class="advanced-controls"><label>检索方式<select id="search-pipeline"><option value="HYBRID">混合检索</option><option value="BM25">关键词检索 · 较快</option><option value="DENSE">语义检索</option><option value="HYBRID_RERANK" selected>混合检索 + 重排 · 默认</option></select></label><label>题型<select id="filter-type"><option value="">全部题型</option><option value="KNOWLEDGE">知识</option><option value="PRINCIPLE">原理</option><option value="SCENARIO">场景</option><option value="SYSTEM_DESIGN">系统设计</option><option value="PROJECT">项目</option><option value="ALGORITHM">算法</option><option value="AI">AI</option><option value="HR">HR</option></select></label><label>浏览排序<select id="browse-sort"><option value="frequency">出现频次</option><option value="importance">重要性</option><option value="gap">复习缺口</option></select></label><label>结果数量<select id="result-limit"><option value="20">20 条</option><option value="10">10 条</option><option value="50">50 条</option></select></label></div><p>搜索结果按相关度排列；清空搜索后，按真实提问频次或复习缺口浏览题库。</p></details>
+          <details class="advanced"><summary>检索方式与更多筛选</summary><div class="advanced-controls"><label>检索方式<select id="search-pipeline"><option value="HYBRID" selected>混合检索 · 默认</option><option value="BM25">关键词检索 · 较快</option><option value="DENSE">语义检索</option><option value="HYBRID_RERANK">混合检索 + 重排</option></select></label><label>题型<select id="filter-type"><option value="">全部题型</option><option value="KNOWLEDGE">知识</option><option value="PRINCIPLE">原理</option><option value="SCENARIO">场景</option><option value="SYSTEM_DESIGN">系统设计</option><option value="PROJECT">项目</option><option value="ALGORITHM">算法</option><option value="AI">AI</option><option value="HR">HR</option></select></label><label>任务焦点<select id="filter-coding"><option value="">全部任务</option><option value="ENGINEERING">工程代码实现</option><option value="ALGORITHM">算法题</option><option value="MIXED">混合任务</option></select></label><label>作答方式<select id="filter-response"><option value="">全部方式</option><option value="CODE">写代码</option><option value="SQL">写 SQL</option><option value="VERBAL">口头回答</option></select></label><label>浏览排序<select id="browse-sort"><option value="frequency">出现频次</option><option value="importance">重要性</option><option value="gap">复习缺口</option></select></label><label>复习状态<select id="filter-review"><option value="">全部状态</option><option value="UNMASTERED">未掌握</option><option value="WEAK">薄弱</option><option value="MASTERED">已掌握</option></select></label><label>筛选顺序<select id="review-order"><option value="BEFORE_TOP_N">先筛状态，再取前 N</option><option value="AFTER_TOP_N">先取前 N，再筛状态</option></select></label><label>结果数量<select id="result-limit"><option value="20">20 条</option><option value="10">10 条</option><option value="40">40 条</option><option value="50">50 条</option><option value="100">100 条</option></select></label></div><p>类别列表按所选方式排序，场景搜索按相关度排列。结果数量是每页大小，可以继续翻页。</p></details>
         </form>
       </div>
       <div class="results-heading"><div><h2 id="results-title">高频题目</h2><span id="results-caption">正在读取题库…</span></div><button class="text-button" id="report-results">结果有问题？</button></div>
-      <div id="results-notice" class="notice" role="status" hidden></div>
-      <div id="results" class="question-list" aria-live="polite"></div>
+      <label>分类可信度<select id="filter-annotation"><option value="">使用服务默认策略</option><option value="VERIFIED">仅人工核验分类</option><option value="KNOWN">明确的机器或人工分类</option><option value="NEEDS_REVIEW">待核验分类</option><option value="UNKNOWN">未知分类</option></select></label>
+      <div id="results-notice" class="notice" role="status" hidden></div><button type="button" id="query-cancel" class="text-button" hidden>取消查询</button><button type="button" id="query-retry" class="text-button" hidden>恢复本次查询</button>
+      <div id="results" class="question-list" aria-live="polite"></div><button id="results-next" class="button secondary" hidden>下一页 →</button>
       <details id="search-diagnostics" class="card diagnostics" hidden><summary>查看本次检索过程 <span>查询、筛选、执行方式与请求编号</span></summary><button class="text-button" id="copy-diagnostics">复制排查信息</button><pre id="diagnostics-content"></pre></details>
     </section>
     <section class="page" id="page-chat" hidden>
       <div class="page-heading"><div><div class="eyebrow">带着问题，看真实面经</div><h1>面经问答<span class="heading-dot">.</span></h1><p>了解高频考点、类似问法，或按复习情况找准备方向。</p></div></div>
       <div class="card chat-intro"><span class="chat-orb">◌</span><h2>从一个具体问题开始</h2><p>回答来自当前已生效语料。点开题目，可以核对原文与来源。</p><div class="chat-examples"><button data-chat="Redis 高频问题有哪些？">Redis 高频问题有哪些？ ↗</button><button data-chat="oom有哪些常见的问法？">OOM 有哪些常见问法？ ↗</button><button data-chat="字节 Java 后端二面，按面经和复习记录给我冲刺清单">按我的复习情况做冲刺清单 ↗</button></div></div>
-      <div id="chat-messages" class="chat-messages" aria-live="polite"></div>
+      <button id="chat-reset" class="text-button">开始新会话</button><button type="button" id="chat-cancel" class="text-button" hidden>取消当前问答</button><button type="button" id="chat-retry" class="text-button" hidden>恢复本次问答</button><div id="chat-messages" class="chat-messages" aria-live="polite"></div>
       <form id="chat-form" class="card chat-composer"><label class="sr-only" for="chat-input">向面经题库提问</label><textarea id="chat-input" maxlength="2000" rows="2" placeholder="输入你的问题，例如：最近 Redis 的高频考点有哪些？" required></textarea><div><span>Enter 发送 · Shift + Enter 换行</span><button class="button primary" id="chat-button" type="submit">发送问题 ↑</button></div></form>
     </section>
     <section class="page" id="page-ingest" hidden>
@@ -62,6 +65,16 @@
     <section class="page" id="page-feedback" hidden>
       <div class="page-heading"><div><div class="eyebrow">把问题留下来，再逐个解决</div><h1>问题记录<span class="heading-dot">.</span></h1><p>偏题、标签、归并和来源问题，都可以带着当时的上下文保存。</p></div><button class="button secondary" id="export-feedback">↓ 导出记录</button></div>
       <div class="feedback-actions"><button class="button primary" id="new-feedback">＋ 记录一个问题</button><button class="text-button" id="refresh-feedback">↻ 刷新</button></div><div id="feedback-list" class="feedback-list" aria-live="polite"></div>
+    </section>
+    <section class="page" id="page-annotations" hidden>
+      <div class="page-heading"><div><div class="eyebrow">根据原始提问核对分类</div><h1>分类核验<span class="heading-dot">.</span></h1><p>机器分类先进入待核验列表。查看原文，填写判断依据，保存草稿后再发布；发布批次会原子更新分类版本。</p></div></div>
+      <div id="annotations-notice" class="notice" role="status" hidden></div>
+      <button id="annotations-refresh" class="button secondary">刷新待核验</button><button id="annotations-publish" class="button primary" disabled>发布已勾选草稿</button>
+      <div id="annotations-list"></div><button id="annotations-next" class="button secondary" hidden>下一页待核验 →</button>
+    </section>
+    <section class="page" id="page-preferences" hidden>
+      <div class="page-heading"><div><div class="eyebrow">只记住你明确选择的默认值</div><h1>查询偏好<span class="heading-dot">.</span></h1><p>用于自然语言查询；这次明确指定的条件和会话中的筛选优先。临时搜索不会自动保存为偏好。</p></div></div>
+      <div class="card"><form id="preferences-form"><label for="preference-key">偏好项目</label><select id="preference-key"><option value="coding_focus">手撕代码方向</option><option value="language">准备语言</option><option value="job_family">岗位方向</option><option value="pipeline">默认检索方式</option><option value="page_size">每页数量</option></select><label for="preference-value">默认值</label><select id="preference-value"></select><button class="button primary" type="submit">保存长期偏好</button></form><div id="preferences-notice" class="notice" role="status" hidden></div><div id="preferences-list"></div></div>
     </section>
     <footer class="footer"><span>面经研习 · 从原文到准备</span><span id="footer-revision">正在读取数据版本</span></footer>
   </main>

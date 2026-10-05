@@ -3,6 +3,8 @@ from types import SimpleNamespace
 import pytest
 
 from interview_intelligence.dedup.provider import ArkMultimodalEncoder, OpenAICompatibleEncoder
+from interview_intelligence.providers.runtime import RequestLimits, current_limits
+import time
 
 
 class Response:
@@ -60,3 +62,25 @@ def test_embedding_records_failed_requests_without_masking_exception(kind):
     assert logs[0]["status"] == "FAILED"
     assert logs[0]["error_code"] == "RuntimeError"
     assert logs[0]["input_tokens"] is None
+
+
+@pytest.mark.parametrize("kind", ["openai", "ark"])
+def test_search_embedding_uses_remaining_request_time_and_records_phases(kind):
+    requests, logs = [], []
+    def provider(*args, **kwargs):
+        requests.append(kwargs)
+        return (Response() if kind == "ark" else SimpleNamespace(
+            data=[SimpleNamespace(embedding=[.6,.8])], usage=None, model="test"))
+    if kind == "ark":
+        encoder = ArkMultimodalEncoder(model="test", dimension=2, api_key="test",
+            client=SimpleNamespace(post=provider), on_call=logs.append)
+    else:
+        encoder = OpenAICompatibleEncoder(model="test", dimension=2,
+            client=SimpleNamespace(embeddings=SimpleNamespace(create=provider)), on_call=logs.append)
+    token = current_limits.set(RequestLimits(time.monotonic() + 1))
+    try:
+        assert encoder.embed("Redis") == [.6,.8]
+    finally:
+        current_limits.reset(token)
+    assert 0 < requests[0]["timeout"] <= 1
+    assert all(type(logs[0][key]) is int for key in ("queue_ms", "interval_ms", "provider_ms"))

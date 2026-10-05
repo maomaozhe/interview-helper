@@ -18,7 +18,7 @@ from interview_intelligence.domain.models import (
     AlgorithmMatch, CanonicalAssignment, CanonicalQuestion, CorpusState, DocumentBuild, Interview,
     PipelineRun, PipelineTask, QuestionOccurrence, QuestionRelation,
     SourceDocument, SourceRevision, Database,
-    now_utc,
+    now_utc, OccurrenceTaskAnnotation,
 )
 from interview_intelligence.ingestion.identity import source_identity
 from interview_intelligence.ingestion.algorithm import parse_algorithm_match
@@ -373,6 +373,12 @@ class IngestService:
                 )
                 session.add(occurrence)
                 session.flush()
+                if question.response_form != "UNKNOWN" and question.coding_focus != "UNKNOWN":
+                    session.add(OccurrenceTaskAnnotation(occurrence_id=occurrence.id,
+                        classification_status="UNKNOWN" if "UNKNOWN" in {
+                            question.response_form,question.coding_focus} else "NEEDS_REVIEW",
+                        response_form=question.response_form, coding_focus=question.coding_focus,
+                        producer_version="extraction_task_v1", evidence={"source_spans": occurrence.source_spans}))
                 if question_type == "ALGORITHM" or any(word in question.raw_question for word in ("手撕", "lc", "力扣", "LeetCode")):
                     match = parse_algorithm_match(question.raw_question)
                     session.add(AlgorithmMatch(occurrence_id=occurrence.id, **match))

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+from typing import Literal
 from urllib.parse import urlparse
 
 from pydantic import Field
@@ -33,6 +34,24 @@ class Settings(BaseSettings):
     extraction_max_tokens: int | None = Field(default=None, gt=0)
     model_lock_path: Path = Path("data/model-call.lock")
     api_root_path: str = ""
+    query_router_enabled: bool = False
+    pi_agent_enabled: bool = False
+    pi_agent_url: str = "http://pi-agent:8787"
+    internal_agent_token: str | None = None
+    query_model: str | None = None
+    query_deadline_seconds: float = Field(default=60, gt=0, le=180)
+    query_max_model_calls: int = Field(default=3, ge=1, le=6)
+    query_max_tokens: int = Field(default=65536, ge=4096, le=128000)
+    task_filters_enabled: bool = True
+    task_annotation_policy: Literal["VERIFIED","KNOWN"] = "VERIFIED"
+    jev_decision_enabled: bool = False
+    jev_provider: str = "typesafe"
+    jev_decision_mode: Literal["shadow", "active"] = "shadow"
+    jev_base_url: str = "https://api.typesafe.ai/v1"
+    jev_api_key: str | None = None
+    jev_model: str = "jev-1.13.0"
+    jev_confidence_threshold: float = Field(default=0.85, ge=0, le=1)
+    jev_timeout_seconds: float = Field(default=5, gt=0, le=30)
 
 
 def resolve_corpus_path(corpus_root: Path, relative_path: str) -> Path:

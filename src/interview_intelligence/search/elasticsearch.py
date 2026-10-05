@@ -100,6 +100,8 @@ class ElasticsearchRetriever:
                 rankings.append([(hit["_id"], hit["_score"]) for hit in hits])
         finally:
             self._request("delete", "/_pit", json={"id": pit})
+        rerank_status="NOT_REQUESTED"
+        executed=pipeline
         if pipeline in {"BM25", "DENSE"}:
             data = [{"canonical_question_id": canonical_id, "score": score,
                      "stage_scores": {pipeline.lower(): score}}
@@ -110,9 +112,19 @@ class ElasticsearchRetriever:
             if pipeline == "HYBRID_RERANK":
                 data = [{**item, "canonical_text": source_texts.get(item["canonical_question_id"], "")}
                         for item in data]
-                data = self.reranker.rerank(query, data)
+                try:
+                    data = self.reranker.rerank(query, data)
+                    rerank_status="COMPLETED"
+                except Exception as e:
+                    from openai import APIError
+                    from pydantic import ValidationError
+                    if isinstance(e,ValueError) and str(e) in {"QUERY_CANCELLED","QUERY_DEADLINE_EXCEEDED"}: raise
+                    budget=isinstance(e,ValueError) and str(e) in {"QUERY_TOKEN_BUDGET_EXCEEDED","QUERY_MODEL_BUDGET_EXCEEDED"}
+                    if not budget and not isinstance(e,(httpx.HTTPError,APIError,ValidationError)): raise
+                    rerank_status="SKIPPED_BUDGET" if budget else "FAILED"
+                    executed="HYBRID"
             data = data[:top_k]
-        return {"data": data, "meta": {"pipeline": pipeline,
+        return {"data": data, "meta": {"pipeline": executed,"rerank_status":rerank_status,
                 "index_schema_version": SCHEMA_VERSION,
                 "reranker_version": self.reranker.version if pipeline == "HYBRID_RERANK" else None,
                 "candidate_count": candidate_count if pipeline in {"HYBRID", "HYBRID_RERANK"} else len(rankings[0]),

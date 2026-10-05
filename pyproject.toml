@@ -34,8 +34,16 @@ packages = ["src/interview_intelligence"]
 [tool.hatch.build.targets.wheel.force-include]
 "config/taxonomy/v1.yaml" = "interview_intelligence/resources/config/taxonomy/v1.yaml"
 "prompts/extract_question_v1.md" = "interview_intelligence/resources/prompts/extract_question_v1.md"
+"prompts/extract_question_v2.md" = "interview_intelligence/resources/prompts/extract_question_v2.md"
 "prompts/dedup_judge_v1.md" = "interview_intelligence/resources/prompts/dedup_judge_v1.md"
 "prompts/search_plan_v1.md" = "interview_intelligence/resources/prompts/search_plan_v1.md"
+"prompts/query_agent_v1.md" = "interview_intelligence/resources/prompts/query_agent_v1.md"
+"prompts/query_agent_v2.md" = "interview_intelligence/resources/prompts/query_agent_v2.md"
+"prompts/query_agent_v3.md" = "interview_intelligence/resources/prompts/query_agent_v3.md"
+"prompts/task_annotation_v1.md" = "interview_intelligence/resources/prompts/task_annotation_v1.md"
+"prompts/task_annotation_v2.md" = "interview_intelligence/resources/prompts/task_annotation_v2.md"
+"prompts/task_annotation_v3.md" = "interview_intelligence/resources/prompts/task_annotation_v3.md"
+"prompts/task_annotation_v4.md" = "interview_intelligence/resources/prompts/task_annotation_v4.md"
 
 [tool.pytest.ini_options]
 pythonpath = ["src", "."]

@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
+from contextlib import contextmanager, nullcontext
+from threading import RLock
 from datetime import date, datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -141,6 +143,97 @@ class QuestionOccurrence(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now_utc, nullable=False)
 
 
+class OccurrenceTaskAnnotation(Base):
+    """Orthogonal task labels; canonical identity and legacy taxonomy stay stable."""
+    __tablename__ = "occurrence_task_annotation"
+    occurrence_id: Mapped[str] = mapped_column(ForeignKey("question_occurrence.id"), primary_key=True)
+    response_form: Mapped[str] = mapped_column(String(16), nullable=False, index=True)
+    coding_focus: Mapped[str] = mapped_column(String(16), nullable=False, index=True)
+    producer_version: Mapped[str] = mapped_column(String(64), nullable=False)
+    classification_status: Mapped[str] = mapped_column(String(16),default="NEEDS_REVIEW",nullable=False,index=True)
+    evidence: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now_utc, nullable=False)
+
+
+class TaskAnnotationDraft(Base):
+    __tablename__="task_annotation_draft"
+    occurrence_id: Mapped[str]=mapped_column(ForeignKey("question_occurrence.id"),primary_key=True)
+    reviewer_id: Mapped[str]=mapped_column(String(128),nullable=False)
+    payload: Mapped[dict[str,Any]]=mapped_column(JSON,nullable=False)
+    evidence: Mapped[dict[str,Any]]=mapped_column(JSON,nullable=False)
+    created_at: Mapped[datetime]=mapped_column(DateTime(timezone=True),default=now_utc,nullable=False)
+
+
+class AgentConversation(Base):
+    __tablename__ = "agent_conversation"
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=new_id)
+    user_id: Mapped[str] = mapped_column(String(128), nullable=False, index=True)
+    version: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    state: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now_utc, nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now_utc, onupdate=now_utc, nullable=False)
+
+
+class AgentTurn(Base):
+    __tablename__ = "agent_turn"
+    __table_args__ = (UniqueConstraint("user_id", "request_id"),)
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=new_id)
+    conversation_id: Mapped[str] = mapped_column(ForeignKey("agent_conversation.id"), nullable=False, index=True)
+    user_id: Mapped[str] = mapped_column(String(128), nullable=False)
+    request_id: Mapped[str] = mapped_column(String(128), nullable=False)
+    payload_hash: Mapped[str] = mapped_column(String(64), nullable=False)
+    message: Mapped[str] = mapped_column(Text, nullable=False)
+    status: Mapped[str] = mapped_column(String(16), nullable=False)
+    response: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now_utc, nullable=False)
+    owner_id: Mapped[str | None] = mapped_column(String(36))
+    lease_until: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    request_payload: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict, nullable=False)
+    state_before: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict, nullable=False)
+    state_after: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict, nullable=False)
+    event_sequence: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    cancel_requested: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    error_code: Mapped[str | None] = mapped_column(String(128))
+    finished_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+
+class AgentEvent(Base):
+    __tablename__ = "agent_event"
+    __table_args__ = (UniqueConstraint("run_id", "sequence"),)
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=new_id)
+    run_id: Mapped[str] = mapped_column(ForeignKey("agent_turn.id"), nullable=False, index=True)
+    sequence: Mapped[int] = mapped_column(Integer, nullable=False)
+    kind: Mapped[str] = mapped_column(String(32), nullable=False)
+    payload: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now_utc, nullable=False)
+
+
+class ToolInvocation(Base):
+    __tablename__ = "agent_tool_invocation"
+    __table_args__ = (UniqueConstraint("run_id", "ordinal"),)
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=new_id)
+    run_id: Mapped[str] = mapped_column(ForeignKey("agent_turn.id"), nullable=False, index=True)
+    ordinal: Mapped[int] = mapped_column(Integer, nullable=False)
+    tool_name: Mapped[str] = mapped_column(String(64), nullable=False)
+    payload_hash: Mapped[str] = mapped_column(String(64), nullable=False)
+    arguments: Mapped[dict[str, Any]] = mapped_column(JSON, nullable=False)
+    status: Mapped[str] = mapped_column(String(16), nullable=False)
+    result: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict, nullable=False)
+
+
+class UserPreference(Base):
+    __tablename__ = "user_preference"
+    user_id: Mapped[str] = mapped_column(String(128), primary_key=True)
+    key: Mapped[str] = mapped_column(String(64), primary_key=True)
+    value: Mapped[Any] = mapped_column(JSON, nullable=True)
+    source_message: Mapped[str] = mapped_column(Text, nullable=False)
+    version: Mapped[int] = mapped_column(Integer, default=1, nullable=False)
+    deleted: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now_utc, nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now_utc, onupdate=now_utc, nullable=False)
+
+
 class CanonicalAssignment(Base):
     __tablename__ = "canonical_assignment"
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=new_id)
@@ -258,6 +351,7 @@ class CorpusState(Base):
     indexed_revision: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
     taxonomy_version: Mapped[str] = mapped_column(String(64), default="v1", nullable=False)
     canonical_revision: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    task_annotation_revision: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
 
 
 class CorpusRevision(Base):
@@ -330,6 +424,8 @@ class ModelCall(Base):
     __tablename__ = "model_call"
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=new_id)
     request_id: Mapped[str] = mapped_column(String(128), nullable=False)
+    query_run_id: Mapped[str | None] = mapped_column(ForeignKey("agent_turn.id"),index=True)
+    token_budget_charge: Mapped[int | None] = mapped_column(Integer)
     run_id: Mapped[str | None] = mapped_column(ForeignKey("pipeline_run.id"))
     task_id: Mapped[str | None] = mapped_column(ForeignKey("pipeline_task.id"))
     operation_type: Mapped[str] = mapped_column(String(32), nullable=False)
@@ -339,6 +435,10 @@ class ModelCall(Base):
     input_tokens: Mapped[int | None] = mapped_column(Integer)
     output_tokens: Mapped[int | None] = mapped_column(Integer)
     latency_ms: Mapped[int] = mapped_column(Integer, nullable=False)
+    queue_ms: Mapped[int | None] = mapped_column(Integer)
+    interval_ms: Mapped[int | None] = mapped_column(Integer)
+    provider_ms: Mapped[int | None] = mapped_column(Integer)
+    ttft_ms: Mapped[int | None] = mapped_column(Integer)
     status: Mapped[str] = mapped_column(String(16), nullable=False)
     retry_count: Mapped[int] = mapped_column(Integer, nullable=False)
     estimated_cost: Mapped[float | None] = mapped_column(Float)
@@ -362,9 +462,15 @@ class IndexSyncTask(Base):
 class Database:
     engine: Any
     session_factory: sessionmaker
+    session_lock: Any = field(default_factory=RLock)
 
+    @contextmanager
     def session(self):
-        return self.session_factory()
+        # In-memory SQLite's StaticPool shares one connection across threads.
+        # Keep independent query/event sessions from rolling back each other.
+        lock=self.session_lock if isinstance(self.engine.pool,StaticPool) else nullcontext()
+        with lock, self.session_factory() as session:
+            yield session
 
 
 def create_database(url: str, *, create_tables: bool = True) -> Database:

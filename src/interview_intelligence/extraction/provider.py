@@ -23,7 +23,7 @@ from interview_intelligence.resources import resource_path
 from interview_intelligence.providers.gate import ModelCallGate
 
 
-DEFAULT_PROMPT = resource_path("prompts/extract_question_v1.md")
+DEFAULT_PROMPT = resource_path("prompts/extract_question_v2.md")
 
 
 class DraftMetadata(StrictModel):
@@ -44,6 +44,8 @@ class DraftQuestion(StrictModel):
     question_type: QuestionType
     evidence_kind: Literal["INTERVIEW_QUESTION", "CANDIDATE_QUESTION", "ANSWER", "SUMMARY", "OTHER", "UNCERTAIN"]
     confidence: float = Field(ge=0, le=1)
+    response_form: Literal["VERBAL", "CODE", "SQL", "UNKNOWN"] = "UNKNOWN"
+    coding_focus: Literal["ALGORITHM", "ENGINEERING", "MIXED", "NONE", "UNKNOWN"] = "UNKNOWN"
 
 
 class DraftFollowup(StrictModel):
@@ -94,7 +96,7 @@ def _source_span(text: str, quote: str, revision_id: str, quote_index: int | Non
 
 
 class OpenAICompatibleExtractor:
-    version = "extract_question_v1"
+    version = "extract_question_v2"
 
     def __init__(
         self, *, client=None, model: str, api_key: str | None = None,
@@ -255,6 +257,7 @@ class OpenAICompatibleExtractor:
                     source_spans=[span], evidence_kind=question.evidence_kind,
                     confidence=question.confidence, topic_l1=question.topic_l1,
                     topic_l2=question.topic_l2, question_type=question.question_type,
+                    response_form=question.response_form, coding_focus=question.coding_focus,
                 ))
             followups = []
             for relation in session.followups:

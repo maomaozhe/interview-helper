@@ -11,6 +11,21 @@ import typer
 app = typer.Typer(help="Interview Intelligence 本地命令")
 
 
+@app.command("annotate-tasks")
+def annotate_tasks_command(limit: int = 1000, batch_size: int = 40,
+                           max_calls: int = 30, max_tokens: int = 300000,
+                           dry_run: bool = False):
+    """增量补齐任务标签，不重跑抽取与归并；模型调用使用共享锁。"""
+    from interview_intelligence.agent.task_annotation import annotate_tasks
+    from interview_intelligence.config import load_settings
+    from interview_intelligence.domain.models import create_database
+    settings = load_settings()
+    result = annotate_tasks(create_database(settings.database_url), settings,
+                            limit=limit, batch_size=batch_size, max_calls=max_calls,
+                            max_tokens=max_tokens, dry_run=dry_run)
+    typer.echo(json.dumps(result, ensure_ascii=False, indent=2))
+
+
 def _call(method: str, path: str, *, api_url: str, params=None, body=None):
     if params is not None:
         params = {key: value for key, value in params.items() if value is not None}
@@ -94,10 +109,12 @@ def source(revision_id: str, line_start: int | None = None, line_end: int | None
 
 @app.command()
 def chat(message: str, request_id: str | None = None,
+         conversation_id: str | None = None, expected_version: int | None = None,
          api_url: str = "http://127.0.0.1:8000"):
     """根据语料回答问题，显式复习指令可以记录个人状态。"""
     _call("POST", "/api/agent/chat", api_url=api_url,
-          body={"message": message, "request_id": request_id})
+          body={"message": message, "request_id": request_id,
+                "conversation_id":conversation_id,"expected_version":expected_version})
 
 
 @app.command()

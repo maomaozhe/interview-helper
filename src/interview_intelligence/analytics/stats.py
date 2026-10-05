@@ -7,13 +7,13 @@ import math
 from collections import Counter, defaultdict
 from datetime import date, timedelta
 
-from sqlalchemy import String, and_, case, cast, distinct, func, select
+from sqlalchemy import String, and_, or_, case, cast, distinct, func, select
 from sqlalchemy.orm import Session
 
 from interview_intelligence.contracts import DateBasis, StatsRequest
 from interview_intelligence.domain.models import (
     CanonicalQuestion, CorpusState, DocumentBuild, Interview,
-    QuestionOccurrence, SourceDocument, SourceRevision, UserQuestionState,
+    QuestionOccurrence, SourceDocument, SourceRevision, UserQuestionState, OccurrenceTaskAnnotation,
 )
 from interview_intelligence.taxonomy import load_taxonomy
 
@@ -78,6 +78,27 @@ def _conditions(request: StatsRequest, *, include_time: bool = True):
         conditions.append(QuestionOccurrence.topic_id.in_(ids))
     if request.question_type:
         conditions.append(QuestionOccurrence.question_type == request.question_type.value)
+    if request.response_form:
+        conditions.append(select(OccurrenceTaskAnnotation.occurrence_id).where(
+            OccurrenceTaskAnnotation.occurrence_id == QuestionOccurrence.id,
+            OccurrenceTaskAnnotation.response_form == request.response_form).exists())
+    if request.coding_focus:
+        conditions.append(select(OccurrenceTaskAnnotation.occurrence_id).where(
+            OccurrenceTaskAnnotation.occurrence_id == QuestionOccurrence.id,
+            OccurrenceTaskAnnotation.coding_focus.in_([request.coding_focus, "MIXED"] if request.coding_focus in {"ENGINEERING","ALGORITHM"} else [request.coding_focus])).exists())
+    if request.annotation_status:
+        terms=[OccurrenceTaskAnnotation.occurrence_id==QuestionOccurrence.id]
+        if request.annotation_status=="KNOWN":
+            terms.extend([OccurrenceTaskAnnotation.response_form!="UNKNOWN",OccurrenceTaskAnnotation.coding_focus!="UNKNOWN"])
+        elif request.annotation_status=="UNKNOWN":
+            terms.append(or_(OccurrenceTaskAnnotation.classification_status=="UNKNOWN",
+                OccurrenceTaskAnnotation.response_form=="UNKNOWN",OccurrenceTaskAnnotation.coding_focus=="UNKNOWN"))
+        else: terms.append(OccurrenceTaskAnnotation.classification_status==request.annotation_status)
+        annotated=select(OccurrenceTaskAnnotation.occurrence_id).where(*terms).exists()
+        if request.annotation_status=="UNKNOWN":
+            annotated=or_(annotated,~select(OccurrenceTaskAnnotation.occurrence_id).where(
+                OccurrenceTaskAnnotation.occurrence_id==QuestionOccurrence.id).exists())
+        conditions.append(annotated)
     if request.round:
         conditions.append(Interview.round == request.round)
     if include_time:
@@ -108,7 +129,7 @@ def _group_key(request: StatsRequest):
 
 def query_question_stats(
     session: Session, request: StatsRequest, *, as_of: date | None = None,
-    user_id: str = "local",
+    user_id: str = "local", offset: int = 0, limit: int | None = None,
 ) -> dict:
     as_of = as_of or date.today()
     source = _active_from()
@@ -207,7 +228,7 @@ def query_question_stats(
     data.sort(key=lambda item: (-item[sort_key], str(item["key"])))
     state = session.get(CorpusState, 1)
     return {
-        "data": data[:request.limit],
+        "data": data[offset:offset + (request.limit if limit is None else limit)],
         "meta": {
             "corpus_revision": state.current_revision,
             "as_of": as_of.isoformat(),
@@ -216,5 +237,6 @@ def query_question_stats(
                               "source_documents": total[2] or 0, "known_companies": known_companies},
             "date_coverage": {"unknown_date_count": unknown_dates, "publish_fallback_count": fallback_count},
             "scoring_versions": {"importance": "importance_v1", "gap": "gap_v1"},
+            "total_groups": len(data),
         },
     }

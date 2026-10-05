@@ -17,6 +17,7 @@ import httpx
 from interview_intelligence.contracts import StrictModel
 from interview_intelligence.resources import resource_path
 from interview_intelligence.providers.gate import ModelCallGate
+from interview_intelligence.providers.runtime import measured_model_call, request_timeout
 
 
 DEFAULT_JUDGE_PROMPT = resource_path("prompts/dedup_judge_v1.md")
@@ -37,7 +38,7 @@ class BatchJudgeResult(StrictModel):
 
 
 def _record_embedding(adapter, started: float, status: str, input_tokens: int | None,
-                      model_revision: str | None, error_code: str | None = None) -> None:
+                      model_revision: str | None, error_code: str | None = None, *, timings=None) -> None:
     if adapter.budget:
         adapter.budget.after_call(input_tokens=input_tokens, output_tokens=None)
     if adapter.on_call is not None:
@@ -46,6 +47,7 @@ def _record_embedding(adapter, started: float, status: str, input_tokens: int | 
             "model_revision": model_revision, "prompt_version": adapter.version,
             "input_tokens": input_tokens, "output_tokens": None,
             "latency_ms": int((time.perf_counter() - started) * 1000),
+            **(timings or {}),
             "status": status, "retry_count": 0, "error_code": error_code,
         })
 
@@ -69,15 +71,18 @@ class OpenAICompatibleEncoder:
         self.budget = budget
         self.call_gate = call_gate
         self.on_call = on_call
+        self.timeout_seconds = timeout_seconds
 
     def embed(self, text: str) -> list[float]:
         if self.budget:
             self.budget.before_call(estimated_input_tokens=len(text) // 2)
         started = time.perf_counter()
         input_tokens = model_revision = None
+        phase = {}
         try:
-            with self.call_gate.call() if self.call_gate is not None else nullcontext():
-                response = self.client.embeddings.create(model=self.model, input=[text], dimensions=self.dimension)
+            with measured_model_call(self.call_gate, phase,token_upper_bound=len(text.encode("utf-8"))+256):
+                response = self.client.embeddings.create(model=self.model, input=[text], dimensions=self.dimension,
+                    timeout=request_timeout(self.timeout_seconds))
             input_tokens = getattr(getattr(response, "usage", None), "prompt_tokens", None)
             model_revision = getattr(response, "model", None)
             vector = list(response.data[0].embedding)
@@ -85,10 +90,10 @@ class OpenAICompatibleEncoder:
                 raise ValueError(f"embedding dimension mismatch: expected {self.dimension}, got {len(vector)}")
             if not all(math.isfinite(value) for value in vector):
                 raise ValueError("embedding contains non-finite values")
-            _record_embedding(self, started, "SUCCEEDED", input_tokens, model_revision)
+            _record_embedding(self, started, "SUCCEEDED", input_tokens, model_revision, timings=phase)
             return vector
         except Exception as error:
-            _record_embedding(self, started, "FAILED", input_tokens, model_revision, type(error).__name__)
+            _record_embedding(self, started, "FAILED", input_tokens, model_revision, type(error).__name__, timings=phase)
             raise
 
 
@@ -116,6 +121,7 @@ class ArkMultimodalEncoder:
         self.budget = budget
         self.call_gate = call_gate
         self.on_call = on_call
+        self.timeout_seconds = timeout_seconds
         self.client = client or httpx.Client(
             base_url=base_url.rstrip("/"), timeout=timeout_seconds, trust_env=False,
             headers={"Authorization": f"Bearer {api_key}"},
@@ -134,13 +140,14 @@ class ArkMultimodalEncoder:
             self.budget.before_call(estimated_input_tokens=(len(text) + len(instructions)) // 2)
         started = time.perf_counter()
         input_tokens = model_revision = None
+        phase = {}
         try:
-            with self.call_gate.call() if self.call_gate is not None else nullcontext():
+            with measured_model_call(self.call_gate, phase,token_upper_bound=len((text+instructions).encode("utf-8"))+256):
                 response = self.client.post("/embeddings/multimodal", json={
                     "model": self.model, "input": [{"type": "text", "text": text}],
                     "dimensions": self.dimension, "encoding_format": "float",
                     "instructions": instructions,
-                })
+                }, timeout=request_timeout(self.timeout_seconds))
             response.raise_for_status()
             payload = response.json()
             input_tokens = payload.get("usage", {}).get("prompt_tokens")
@@ -149,10 +156,10 @@ class ArkMultimodalEncoder:
             vector = list(data["embedding"])
             if len(vector) != self.dimension or not all(math.isfinite(value) for value in vector):
                 raise ValueError("embedding dimension mismatch or non-finite values")
-            _record_embedding(self, started, "SUCCEEDED", input_tokens, model_revision)
+            _record_embedding(self, started, "SUCCEEDED", input_tokens, model_revision, timings=phase)
             return vector
         except Exception as error:
-            _record_embedding(self, started, "FAILED", input_tokens, model_revision, type(error).__name__)
+            _record_embedding(self, started, "FAILED", input_tokens, model_revision, type(error).__name__, timings=phase)
             raise
 
 

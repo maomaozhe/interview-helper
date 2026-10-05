@@ -9,6 +9,7 @@ import threading
 import time
 from contextlib import contextmanager
 from pathlib import Path
+from interview_intelligence.providers.runtime import current_limits
 
 
 _THREAD_LOCKS: dict[str, threading.Lock] = {}
@@ -33,8 +34,19 @@ class ModelCallGate:
 
     @contextmanager
     def call(self):
+        limits = current_limits.get()
+        if limits:
+            limits.attempt()
+        started = time.perf_counter()
+        timings = {"queue_ms": 0, "interval_ms": 0}
+        def check():
+            if limits:
+                limits.check()
         self.lock_path.parent.mkdir(parents=True, exist_ok=True)
-        with self._thread_lock:
+        while not self._thread_lock.acquire(timeout=0.05):
+            check()
+        try:
+            check()
             for attempt in range(5):
                 try:
                     descriptor = os.open(self.lock_path, os.O_RDWR | os.O_CREAT, 0o600)
@@ -44,11 +56,15 @@ class ModelCallGate:
                         raise
                     time.sleep(0.2 * 2 ** attempt)
             with os.fdopen(descriptor, "r+b") as lock_file:
-                if os.fstat(lock_file.fileno()).st_size == 0:
-                    lock_file.write(b"\0")
-                    lock_file.flush()
-                self._acquire(lock_file)
+                self._acquire(lock_file, check)
                 try:
+                    # The first byte must also be initialized under the lock.
+                    # Windows permits locking beyond EOF, but another process's
+                    # lock can reject a pre-acquisition write to an empty file.
+                    if os.fstat(lock_file.fileno()).st_size == 0:
+                        lock_file.write(b"\0")
+                        lock_file.flush()
+                    timings["queue_ms"] = int((time.perf_counter() - started) * 1000)
                     lock_file.seek(1)
                     try:
                         previous_completion = float(lock_file.read(64).decode("ascii"))
@@ -58,9 +74,15 @@ class ModelCallGate:
                     remaining = min(self.minimum_interval_seconds,
                                     previous_completion + self.minimum_interval_seconds - time.time())
                     if remaining > 0:
-                        time.sleep(remaining)
+                        interval_start = time.perf_counter()
+                        until = time.monotonic() + remaining
+                        while time.monotonic() < until:
+                            check()
+                            time.sleep(min(0.05, max(0, until - time.monotonic())))
+                        timings["interval_ms"] = int((time.perf_counter() - interval_start) * 1000)
+                    check()
                     try:
-                        yield
+                        yield timings
                     finally:
                         lock_file.seek(1)
                         lock_file.write(f"{time.time():.9f}".encode("ascii"))
@@ -68,9 +90,11 @@ class ModelCallGate:
                         lock_file.flush()
                 finally:
                     self._release(lock_file)
+        finally:
+            self._thread_lock.release()
 
     @staticmethod
-    def _acquire(lock_file):
+    def _acquire(lock_file, check=lambda: None):
         if os.name == "nt":
             import msvcrt
             while True:
@@ -81,10 +105,17 @@ class ModelCallGate:
                 except OSError as error:
                     if error.errno not in (errno.EACCES, errno.EAGAIN, errno.EDEADLK):
                         raise
+                    check()
                     time.sleep(0.05)
         else:
             import fcntl
-            fcntl.flock(lock_file.fileno(), fcntl.LOCK_EX)
+            while True:
+                try:
+                    fcntl.flock(lock_file.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+                    return
+                except BlockingIOError:
+                    check()
+                    time.sleep(0.05)
 
     @staticmethod
     def _release(lock_file):

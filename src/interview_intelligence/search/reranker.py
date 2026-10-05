@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from contextlib import closing, nullcontext
+from contextlib import closing
 import json
 import time
 from types import SimpleNamespace
@@ -13,6 +13,7 @@ import httpx
 
 from interview_intelligence.contracts import StrictModel
 from interview_intelligence.providers.gate import ModelCallGate
+from interview_intelligence.providers.runtime import measured_model_call, request_timeout, current_limits
 
 
 class CandidateRank(StrictModel):
@@ -42,6 +43,7 @@ class LLMReranker:
         self.call_gate = call_gate
         self.on_call = on_call
         self.stream = stream
+        self.timeout_seconds = timeout_seconds
 
     def rerank(self, query: str, candidates: list[dict]) -> list[dict]:
         if not candidates:
@@ -60,10 +62,12 @@ class LLMReranker:
             self.budget.before_call(estimated_input_tokens=(len(query) + sum(len(item["question"]) for item in payload)) // 2)
         started, response, error = time.perf_counter(), None, None
         usage, resolved_model = None, None
+        phase = {}
         try:
-            with self.call_gate.call() if self.call_gate is not None else nullcontext():
+            with measured_model_call(self.call_gate, phase,token_upper_bound=8192+len(json.dumps(payload,ensure_ascii=False).encode("utf-8"))+len(query.encode("utf-8"))):
                 response = self.client.chat.completions.create(
                     model=self.model,
+                    timeout=request_timeout(self.timeout_seconds),
                     messages=[
                         {"role": "system", "content": (
                             "按与查询的面试题语义相关性从高到低排序。只使用给定候选 ID，每个 ID 恰好一次。"
@@ -89,6 +93,8 @@ class LLMReranker:
                     parts, finish_reason = [], None
                     with closing(response):
                         for chunk in response:
+                            if current_limits.get():
+                                current_limits.get().check()
                             usage = getattr(chunk, "usage", None) or usage
                             resolved_model = getattr(chunk, "model", None) or resolved_model
                             if chunk.choices:
@@ -126,5 +132,6 @@ class LLMReranker:
                     "input_tokens": getattr(usage, "prompt_tokens", None),
                     "output_tokens": getattr(usage, "completion_tokens", None),
                     "latency_ms": int((time.perf_counter() - started) * 1000),
+                    **phase,
                     "status": "FAILED" if error else "SUCCEEDED", "retry_count": 0,
                     "error_code": type(error).__name__ if error else None})

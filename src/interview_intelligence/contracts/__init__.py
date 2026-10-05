@@ -50,6 +50,9 @@ class FilterSpec(StrictModel):
     ] | None = None
     topic_l2: str | None = None
     question_type: QuestionType | None = None
+    response_form: Literal["VERBAL", "CODE", "SQL", "EXPLANATION","DESIGN","OTHER","UNKNOWN"] | None = None
+    annotation_status: Literal["KNOWN","VERIFIED","NEEDS_REVIEW","UNKNOWN"] | None = None
+    coding_focus: Literal["ALGORITHM", "ENGINEERING", "MIXED", "NONE", "UNKNOWN"] | None = None
     round: Literal["FIRST", "SECOND", "THIRD", "FOURTH_PLUS", "HR", "OTHER"] | None = None
     start_date: date | None = None
     end_date: date | None = None
@@ -159,6 +162,8 @@ class ExtractedQuestion(StrictModel):
     topic_l1: str | None = None
     topic_l2: str | None = None
     question_type: QuestionType | None = None
+    response_form: Literal["VERBAL", "CODE", "SQL", "UNKNOWN"] = "UNKNOWN"
+    coding_focus: Literal["ALGORITHM", "ENGINEERING", "MIXED", "NONE", "UNKNOWN"] = "UNKNOWN"
 
     @model_validator(mode="after")
     def reject_candidate_heading(self):

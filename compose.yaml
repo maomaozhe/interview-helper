@@ -60,6 +60,26 @@ services:
       LOCAL_USER_ID: local
       APP_SIGNING_KEY: ${APP_SIGNING_KEY:-local-development-only}
       API_ROOT_PATH: ${API_ROOT_PATH:-}
+      QUERY_ROUTER_ENABLED: ${QUERY_ROUTER_ENABLED:-true}
+      PI_AGENT_ENABLED: ${PI_AGENT_ENABLED:-true}
+      PI_AGENT_URL: http://pi-agent:8787
+      INTERNAL_AGENT_TOKEN: ${INTERNAL_AGENT_TOKEN:-}
+      QUERY_MODEL: ${QUERY_MODEL:-ark-code-latest}
+      QUERY_DEADLINE_SECONDS: ${QUERY_DEADLINE_SECONDS:-60}
+      QUERY_MAX_MODEL_CALLS: ${QUERY_MAX_MODEL_CALLS:-3}
+      QUERY_MAX_TOKENS: ${QUERY_MAX_TOKENS:-65536}
+      TASK_FILTERS_ENABLED: ${TASK_FILTERS_ENABLED:-true}
+      TASK_ANNOTATION_POLICY: ${TASK_ANNOTATION_POLICY:-VERIFIED}
+      JEV_DECISION_ENABLED: ${JEV_DECISION_ENABLED:-false}
+      JEV_PROVIDER: ${JEV_PROVIDER:-typesafe}
+      JEV_DECISION_MODE: ${JEV_DECISION_MODE:-shadow}
+      JEV_BASE_URL: ${JEV_BASE_URL:-https://api.typesafe.ai/v1}
+      JEV_API_KEY: ${JEV_API_KEY:-}
+      JEV_MODEL: ${JEV_MODEL:-jev-1.13.0}
+      JEV_CONFIDENCE_THRESHOLD: ${JEV_CONFIDENCE_THRESHOLD:-0.85}
+      JEV_TIMEOUT_SECONDS: ${JEV_TIMEOUT_SECONDS:-5}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     command: ["sh", "-c", "alembic upgrade head && exec uvicorn interview_intelligence.api:app --host 0.0.0.0 --port 8000"]
     ports:
       - "127.0.0.1:${API_BIND_PORT:-8000}:8000"
@@ -75,6 +95,22 @@ services:
       - ./md:/corpus:ro
       - ./data:/app/data
       - model_runtime:/app/runtime
+
+  pi-agent:
+    build:
+      context: .
+      dockerfile: services/pi-agent/Dockerfile
+    restart: unless-stopped
+    environment:
+      INTERNAL_AGENT_TOKEN: ${INTERNAL_AGENT_TOKEN:-}
+      AGENT_HOST_URL: http://api:8000
+    depends_on:
+      api: {condition: service_healthy}
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:8787/health').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
 
   worker:
     build: .
