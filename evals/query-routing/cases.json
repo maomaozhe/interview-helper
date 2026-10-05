@@ -1,0 +1,22 @@
+[
+  {"id":"top40","message":"前40个频率最高的算法题","expected":{"action":"LIST","coding_focus":"ALGORITHM","response_form":"NONE","sort":"frequency","top_n":"n0"}},
+  {"id":"handcode","message":"手撕代码有哪些题目","expected":{"action":"LIST","coding_focus":"ENGINEERING","response_form":"CODE","top_n":"NONE"}},
+  {"id":"handalgorithm","message":"手撕算法有哪些题目","expected":{"action":"LIST","coding_focus":"ALGORITHM","response_form":"CODE"}},
+  {"id":"sql","message":"手写SQL有哪些题目","expected":{"action":"LIST","response_form":"SQL","coding_focus":"ENGINEERING"}},
+  {"id":"engineering20","message":"前20个高频工程代码实现题","expected":{"action":"LIST","coding_focus":"ENGINEERING","response_form":"CODE","top_n":"n0","sort":"frequency"}},
+  {"id":"chinese40","message":"前四十个频率最高的算法题","expected":{"action":"LIST","coding_focus":"ALGORITHM","top_n":"n0","sort":"frequency"}},
+  {"id":"leetcode-number","message":"力扣40题有哪些面经提到过","expected":{"action":"FALLBACK","top_n":"NONE"}},
+  {"id":"year-count","message":"2026年面经里前40个高频算法题","expected":{"action":"FALLBACK","time":"FALLBACK","top_n":"n1"}},
+  {"id":"month-count","message":"最近三个月前40个算法题","expected":{"action":"LIST","time":"RECENT_3_MONTHS","top_n":"n1","coding_focus":"ALGORITHM"}},
+  {"id":"no-limit","message":"列出全部算法题，按频率排序","expected":{"action":"LIST","top_n":"NONE","coding_focus":"ALGORITHM","sort":"frequency"}},
+  {"id":"stats","message":"按公司统计题目出现次数","expected":{"action":"STATS","group_by":"company","sort":"frequency"}},
+  {"id":"semantic","message":"有哪些Redis内存暴涨排查相关问题","expected":{"action":"FALLBACK"}},
+  {"id":"write","message":"把第三题标记为已掌握","expected":{"action":"FALLBACK"}},
+  {"id":"next","message":"下一页","session":{"filters":{"coding_focus":"ALGORITHM"},"sort":"frequency","last_plan":{"action":"LIST","top_n":40,"page_size":20}},"expected":{"action":"NEXT"}},
+  {"id":"inherit","message":"只看二面","session":{"filters":{"coding_focus":"ALGORITHM"},"sort":"frequency","last_plan":{"action":"LIST","top_n":40,"page_size":20}},"expected":{"action":"LIST","coding_focus":"INHERIT","round":"SECOND","top_n":"INHERIT"}},
+  {"id":"reset","message":"重新开始，手撕工程代码有哪些","session":{"filters":{"coding_focus":"ALGORITHM","round":"SECOND"},"sort":"frequency","last_plan":{"action":"LIST","top_n":40}},"expected":{"action":"LIST","coding_focus":"ENGINEERING","round":"NONE","top_n":"NONE","response_form":"CODE"}},
+  {"id":"negation","message":"工程实现题，不要算法题","expected":{"action":"LIST","coding_focus":"ENGINEERING"}},
+  {"id":"importance","message":"最重要的20道算法题","expected":{"action":"LIST","coding_focus":"ALGORITHM","sort":"importance","top_n":"n0"}},
+  {"id":"gap","message":"最薄弱的10道算法题","expected":{"action":"LIST","coding_focus":"ALGORITHM","sort":"gap","top_n":"n0"}},
+  {"id":"specific-range","message":"2025年1月到3月的算法题","expected":{"action":"FALLBACK","time":"FALLBACK","top_n":"NONE"}}
+]

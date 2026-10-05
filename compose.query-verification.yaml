@@ -1,0 +1,39 @@
+# Explicit, temporary test actor; uses the same PostgreSQL/ES and model gate.
+# docker compose -p interview-query-verification -f compose.query-verification.yaml up -d
+services:
+  verification-api:
+    image: interview-intelligence-api
+    env_file: .env
+    environment:
+      DATABASE_URL: postgresql+psycopg://interview:localdev@postgres:5432/interview_intelligence
+      ELASTICSEARCH_URL: http://elasticsearch:9200
+      LOCAL_USER_ID: query-spec-verification-20261005
+      CORPUS_ROOT: /corpus
+      SNAPSHOT_ROOT: /app/data/snapshots
+      MODEL_LOCK_PATH: /app/runtime/model-call.lock
+      PI_AGENT_URL: http://verification-pi:8787
+      PI_AGENT_ENABLED: "true"
+      QUERY_ROUTER_ENABLED: "true"
+      JEV_DECISION_ENABLED: "false"
+      TASK_ANNOTATION_POLICY: KNOWN
+    command: ["uvicorn","interview_intelligence.api:app","--host","0.0.0.0","--port","8000"]
+    ports: ["127.0.0.1:18001:8000"]
+    volumes:
+      - ./md:/corpus:ro
+      - ./data:/app/data
+      - model_runtime:/app/runtime
+    networks: [existing]
+  verification-pi:
+    image: interview-intelligence-pi-agent
+    environment:
+      INTERNAL_AGENT_TOKEN: ${INTERNAL_AGENT_TOKEN:?configure internal token}
+      AGENT_HOST_URL: http://verification-api:8000
+    networks: [existing]
+networks:
+  existing:
+    external: true
+    name: interview-intelligence_default
+volumes:
+  model_runtime:
+    external: true
+    name: interview-intelligence_model_runtime

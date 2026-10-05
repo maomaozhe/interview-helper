@@ -1,0 +1,25 @@
+[Unit]
+Description=Interview private Laya System One decision service
+After=network-online.target
+Wants=network-online.target
+StartLimitIntervalSec=120
+StartLimitBurst=5
+
+[Service]
+Type=simple
+WorkingDirectory=/home/dylan/services/interview-jev
+EnvironmentFile=/home/dylan/services/interview-jev/service.env
+Environment=PYTHONPATH=/home/dylan/services/interview-jev/laya-src
+ExecStart=/home/dylan/h3/.venv/bin/python -u /home/dylan/services/interview-jev/laya_server.py
+Restart=on-failure
+RestartSec=5
+TimeoutStopSec=30
+KillMode=control-group
+NoNewPrivileges=true
+PrivateTmp=true
+UMask=0077
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=default.target
