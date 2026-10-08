@@ -14,8 +14,9 @@ from eval.common import digest, write_json, write_jsonl, read_json
 from eval.oracle import frequency_list
 
 FACTS_HASH = "0b8fd1b94127c90f0c0c463295c1dc8045184d73eb8475bb91f6eca88c67501a"
-AUTHORIZATION = {"policy": "delegated_agent", "thread_id": "01a10b68-5c0c-7b33-a585-16faefe7c1a3",
-                 "user_instruction": "涉及人工的决定，你来做。我需要项目完善好，然后可以写到简历上，有数据支撑"}
+# Original user authorization remains in local audit records.
+AUTHORIZATION = {"policy": "delegated_agent", "thread_id": "redacted-local-review-record",
+                 "user_instruction": "Agent review authorized; private instruction omitted."}
 
 # Query families are held out together. Directly relevant=2, nearby but explicitly
 # related=1. All other source questions are irrelevant to the stated narrow task.

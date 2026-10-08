@@ -1,6 +1,6 @@
 #!/bin/sh
 set -eu
-SERVICE_DIR=/home/dylan/services/interview-jev
+SERVICE_DIR=${SERVICE_DIR:-"$HOME/services/interview-jev"}
 cd "$SERVICE_DIR"
 test "$(pwd -P)" = "$SERVICE_DIR"
 test -f service.env

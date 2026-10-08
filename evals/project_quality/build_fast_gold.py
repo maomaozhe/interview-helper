@@ -128,7 +128,7 @@ if __name__ == "__main__":
         "calibration_samples":60,"test_samples":50,"human_verified":False,"reviewer_kind":"agent",
         "threshold_policy":"Fit only on calibration; require at least 20 accepted and zero accepted errors. Do not relax for test.",
         "expected_plan_origin":"Directly authored QuerySpec; independent of JevPlanner.decode",
-        "authorization":"涉及人工的决定，你来做。我需要项目完善好，然后可以写到简历上，有数据支撑",
+        "authorization":"Agent review authorized; private instruction omitted.",
         "contract_adjudication":"Three calibration continuations and one unseen test continuation retain saved page_size=20. v1 omitted that contract; retain its results. v2 is sealed before v5 inference and before any test inference."})
     write_json(args.output/"freeze.json",{"file_hashes":{file.name:digest(file.read_bytes()) for file in sorted(args.output.iterdir()) if file.name!="freeze.json"}})
     print({"dataset":str(args.output),"calibration":60,"test":50})

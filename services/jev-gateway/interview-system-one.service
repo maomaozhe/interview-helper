@@ -7,10 +7,10 @@ StartLimitBurst=5
 
 [Service]
 Type=simple
-WorkingDirectory=/home/dylan/services/interview-jev
-EnvironmentFile=/home/dylan/services/interview-jev/service.env
-Environment=PYTHONPATH=/home/dylan/services/interview-jev/laya-src
-ExecStart=/home/dylan/h3/.venv/bin/python -u /home/dylan/services/interview-jev/laya_server.py
+WorkingDirectory="@SERVICE_DIR@"
+EnvironmentFile="@SERVICE_DIR@/service.env"
+Environment="PYTHONPATH=@SERVICE_DIR@/laya-src"
+ExecStart="@PYTHON_BIN@" -u "@SERVICE_DIR@/laya_server.py"
 Restart=on-failure
 RestartSec=5
 TimeoutStopSec=30

@@ -22,11 +22,11 @@
 
 ## 已部署的模型
 
-服务器使用现有 SSH 别名 `server-101-47-18-72`，用户 `dylan`。没有使用聊天中的密码，也没有改动服务器已有模型服务。
+服务器通过本机私有 SSH 配置连接；目标、用户、密钥与 known_hosts 路径不写入公开仓库。没有改动服务器已有模型服务。
 
 | 项目 | 固定值 / 实测状态 |
 | --- | --- |
-| 管理目录 | `/home/dylan/services/interview-jev` |
+| 管理目录 | `${SERVICE_DIR:-$HOME/services/interview-jev}`（示例） |
 | GPU | NVIDIA L20，约 46 GiB 显存 |
 | 服务地址 | 服务器 `127.0.0.1:18788`，仅私有监听 |
 | API | `POST /v1/systemone`，Bearer token 鉴权 |
@@ -133,20 +133,29 @@ docker compose up -d
 服务器模型服务：先把本目录的 `download_laya.py`、`laya_server.py`、`deploy.sh` 上传到管理目录，拉取并校验固定 Laya 源码。私有 `service.env` 只存 HOST/PORT/JEV_PROXY_TOKEN；权限 600。
 
 ```sh
-/home/dylan/h3/.venv/bin/python download_laya.py
-PYTHON_BIN=/home/dylan/h3/.venv/bin/python SERVER_SCRIPT=laya_server.py sh deploy.sh
+# 在服务器上设置实际管理目录与已安装依赖的 Python 环境。
+export SERVICE_DIR="$HOME/services/interview-jev"
+export PYTHON_BIN="$SERVICE_DIR/.venv/bin/python"
+cd "$SERVICE_DIR"
+"$PYTHON_BIN" download_laya.py
+SERVER_SCRIPT=laya_server.py sh deploy.sh
 curl -fsS http://127.0.0.1:18788/health
 ```
 
 `deploy.sh` 是首轮开发启动方式，仅重启管理目录 PID 文件所指的自身进程，重启前校验 `/proc/PID/cmdline`。2026-10-05 已由 `install-user-service.sh` 接管为 `interview-system-one.service`，用户服务 enabled / active / ready，linger 原已开启；后续使用用户 systemd 管理，不要与 nohup 同时启动。尚未重启整台服务器验证，也未完成生产负载验收。
 
-本地 Docker 通过 SSH 私有隧道访问：
+`install-user-service.sh` 按同一组 `SERVICE_DIR` / `PYTHON_BIN` 渲染 unit 模板，写入当前用户的 systemd 目录（遵循 `XDG_CONFIG_HOME`），保留仅接管本目录进程的检查。模板不能直接复制使用；先配置上述路径，再运行安装脚本。
+
+本地 Docker 通过 SSH 私有隧道访问；以下占位路径应替换成本机已有授权配置，`SSH_TARGET` 必须显式提供：
 
 ```sh
+export SSH_TARGET="your-model-host" # 已配置的 SSH alias，或 user@host
+export SSH_KEY_PATH="/path/to/your/private_key"
+export SSH_KNOWN_HOSTS="/path/to/your/known_hosts"
 sh services/jev-gateway/start-tunnel-wsl.sh
 ```
 
-该脚本固定远端 loopback 目标，只在 Docker bridge `172.17.0.1:18789` 转发。复用已授权的 SSH key，临时副本权限 600，连接建立后立即移除。控制 socket 可用于停止隧道；没有开放服务器公网端口。WSL 重启或网络断开后按脚本重连。
+该脚本固定远端 loopback 目标，只在 Docker bridge `172.17.0.1:18789` 转发。复用已授权的 SSH key，临时副本权限 600，连接建立后立即移除。严格主机校验保持开启；known_hosts 应预先包含已通过可信渠道核验的主机公钥。控制 socket 默认位于 `/run`，可通过 `SSH_CONTROL_SOCKET` 指向本人有权限的目录。控制 socket 可用于停止隧道；没有开放服务器公网端口。WSL 重启或网络断开后按脚本重连。
 
 影子评测的配置示例（token 由私有配置提供，不写进此文档）：
 

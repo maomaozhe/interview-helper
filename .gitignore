@@ -22,6 +22,10 @@ data/raw/snapshots/
 data/snapshots/
 data/reports/
 data/feedback/
+# Generated references may contain source names and personal review metadata.
+data/gold/**
+!data/gold/v1/
+!data/gold/v1/manifest.json
 data/processed/
 eval/*/results/
 eval/reports/
