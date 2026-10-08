@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import re
 import time
 from typing import Literal
 from uuid import uuid4
@@ -13,7 +14,9 @@ from sqlalchemy import select
 
 from interview_intelligence.analytics.stats import _active_from, _conditions
 from interview_intelligence.contracts import FilterSpec, StrictModel
-from interview_intelligence.domain.models import CorpusState, ModelCall, OccurrenceTaskAnnotation, QuestionOccurrence
+from interview_intelligence.domain.models import CorpusState, ModelCall, OccurrenceTaskAnnotation, QuestionOccurrence, SourceRevision
+from interview_intelligence.agent.task_context import VERSION as CONTEXT_VERSION, compile_task_context
+from interview_intelligence.ingestion.snapshot import decode_source
 from interview_intelligence.providers.budget import CallBudget
 from interview_intelligence.providers.gate import ModelCallGate
 from interview_intelligence.resources import resource_path
@@ -109,10 +112,63 @@ def model_labels(database, settings, gate, budget, prompt, payload, batch, promp
                     usage_source="PROVIDER" if usage.get("prompt_tokens") is not None else "UNAVAILABLE"))
 
 
+def resilient_model_labels(database, settings, gate, budget, prompt, payload, batch, prompt_version,
+                           *, on_recovery=None):
+    """After bounded schema repair, retry smaller batches; publish only a complete result."""
+    try:
+        return model_labels(database, settings, gate, budget, prompt, payload, batch, prompt_version)
+    except ValueError as failure:
+        recoverable = isinstance(failure, ValidationError) or str(failure) in {
+            "ANNOTATION_ID_MISMATCH", "ANNOTATION_UNGROUNDED"}
+        if not recoverable or len(batch) <= 10:
+            raise
+        details = (failure.errors(include_url=False, include_context=False, include_input=False)
+                   if isinstance(failure, ValidationError) else str(failure))
+        if on_recovery:
+            on_recovery({"original_batch_size": len(batch), "fallback_batch_size": 10,
+                         "error_code": type(failure).__name__, "details": details})
+        recovered = []
+        for offset in range(0, len(batch), 10):
+            part = model_labels(database, settings, gate, budget, prompt, payload[offset:offset + 10],
+                                batch[offset:offset + 10], prompt_version)
+            recovered.extend(part.items)
+        result = TaskLabels(items=recovered)
+        validate_labels(result, batch)
+        return result
+
+
+def source_task_context(database, settings, rows):
+    """Read immutable original evidence; refuse missing, altered or mixed sources."""
+    contexts, source_bytes = {}, {}
+    with database.session() as session:
+        for row in rows:
+            revisions = {s.get("revision_id") for s in row.source_spans}
+            if len(revisions) != 1 or None in revisions:
+                raise ValueError("ANNOTATION_SINGLE_SOURCE_REQUIRED")
+            revision_id = next(iter(revisions))
+            revision = session.get(SourceRevision, revision_id)
+            if revision is None or not re.fullmatch(r"[0-9a-f]{64}", revision.raw_file_hash):
+                raise ValueError("ANNOTATION_SOURCE_REVISION_INVALID")
+            source_hash = revision.raw_file_hash
+            if source_hash not in source_bytes:
+                raw = (settings.snapshot_root / (source_hash + ".md")).read_bytes()
+                if hashlib.sha256(raw).hexdigest() != source_hash:
+                    raise ValueError("ANNOTATION_SOURCE_HASH_MISMATCH")
+                source_bytes[source_hash] = raw
+            contexts[row.id] = {
+                **compile_task_context(decode_source(source_bytes[source_hash]), row.source_spans),
+                "source_hash": source_hash, "source_revision_id": revision_id,
+            }
+    return contexts
+
+
 def annotate_tasks(database, settings, *, limit=1000, batch_size=40, max_calls=30,
-                   max_tokens=300_000, dry_run=False, classifier=None):
+                   max_tokens=300_000, dry_run=False, classifier=None,
+                   prompt_version="task_annotation_v4", source_context=False):
     if not 1 <= limit <= 100_000 or not 1 <= batch_size <= 100:
         raise ValueError("invalid annotation batch bounds")
+    if prompt_version not in {"task_annotation_v4", "task_annotation_v5", "task_annotation_v6", "task_annotation_v7"}:
+        raise ValueError("ANNOTATION_PROMPT_VERSION_INVALID")
     with database.session() as session:
         rows = list(session.scalars(select(QuestionOccurrence).select_from(_active_from()).where(
             *_conditions(FilterSpec()), ~select(OccurrenceTaskAnnotation.occurrence_id).where(
@@ -123,19 +179,28 @@ def annotate_tasks(database, settings, *, limit=1000, batch_size=40, max_calls=3
                 "model_calls": 0, "changed": 0}
     gate = ModelCallGate(settings.model_lock_path, minimum_interval_seconds=settings.model_min_interval_seconds)
     budget = CallBudget(max_calls=max_calls, max_tokens=max_tokens)
-    prompt_version = "task_annotation_v4" if classifier is None else "task_annotation_v1"
+    prompt_version = prompt_version if classifier is None else "task_annotation_v1"
     prompt = resource_path(f"prompts/{prompt_version}.md").read_text(encoding="utf-8")
     changed = 0
     for offset in range(0, len(rows), batch_size):
         batch = rows[offset:offset + batch_size]
+        contexts = source_task_context(database, settings, batch) if source_context else {}
         payload = [{"occurrence_id": row.id, "raw_question": row.raw_question,
                     "normalized_question": row.normalized_question, "context_before": row.context_before,
                     "context_after": row.context_after,
                     "source_quotes": [s.get("quote", "") for s in row.source_spans]} for row in batch]
+        if source_context:
+            for item in payload:
+                evidence = contexts[item["occurrence_id"]]
+                # Original source supplies context; a prior model paraphrase cannot
+                # supply task constraints for this evidence-bound protocol.
+                item.pop("normalized_question")
+                item.update({k: evidence[k] for k in ("context_before", "context_after")})
+        payload_by_id = {item["occurrence_id"]: item for item in payload}
         if classifier:
             labels = TaskLabels.model_validate(classifier(payload))
         else:
-            labels = model_labels(database, settings, gate, budget, prompt, payload, batch, prompt_version)
+            labels = resilient_model_labels(database, settings, gate, budget, prompt, payload, batch, prompt_version)
         original = {row.id: row for row in batch}
         validate_labels(labels, batch)
         with database.session() as session, session.begin():
@@ -149,7 +214,14 @@ def annotate_tasks(database, settings, *, limit=1000, batch_size=40, max_calls=3
                     coding_focus=item.coding_focus if item.confidence >= 0.7 else "UNKNOWN",
                     producer_version=prompt_version, evidence={"quote": item.evidence_quote,
                         "quote_origin": "host_original" if classifier is None else "classifier",
-                        "confidence": item.confidence, "input_hash": hashlib.sha256(original[item.occurrence_id].raw_question.encode()).hexdigest()}))
+                        "confidence": item.confidence,
+                        "input_hash": hashlib.sha256(original[item.occurrence_id].raw_question.encode()).hexdigest(),
+                        "payload_hash": hashlib.sha256(json.dumps(payload_by_id[item.occurrence_id],
+                            ensure_ascii=False, sort_keys=True).encode()).hexdigest(),
+                        **({"context_version": CONTEXT_VERSION,
+                            "source_hash": contexts[item.occurrence_id]["source_hash"],
+                            "source_revision_id": contexts[item.occurrence_id]["source_revision_id"]}
+                           if source_context else {})}))
                 changed += 1
             state = session.get(CorpusState, 1, with_for_update=True)
             state.task_annotation_revision += 1

@@ -1,0 +1,30 @@
+{
+  "schema": "project_quality_bundle_v1",
+  "as_of": "2026-10-05",
+  "modules": {
+    "extraction": {
+      "dataset": "data/gold/evaluation-agent-reviewed-20261005-v5",
+      "report": "data/reports/agent-reviewed-20261005-v5/extraction/results/20261005T180258640039Z-7ff82dce"
+    },
+    "task_labels": {
+      "dataset": "data/gold/evaluation-agent-reviewed-20261005-v5",
+      "report": "data/reports/agent-reviewed-20261005-v5/task_labels/results/20261005T180258864803Z-3aa3147f"
+    },
+    "dedup": {
+      "dataset": "data/gold/project-quality-agent-20261005-v6",
+      "report": "data/reports/project-quality-20261006/dedup/results/20261005T174731577088Z-fb207dbd"
+    },
+    "retrieval": {
+      "dataset": "data/gold/project-quality-agent-20261005-v4",
+      "report": "data/reports/project-quality-20261005/retrieval/results/20261005T122718323684Z-0b5fe916"
+    },
+    "routing": {
+      "dataset": "data/gold/project-quality-agent-20261005-v5",
+      "report": "data/reports/project-quality-20261005-gold-v5/routing/results/20261005T173010291230Z-3356a7f6"
+    },
+    "sql": {
+      "dataset": "data/gold/project-quality-agent-20261005-v4",
+      "report": "data/reports/project-quality-20261005/sql/results/20261005T123029246546Z-e1db864e"
+    }
+  }
+}

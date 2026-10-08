@@ -1,0 +1,39 @@
+{
+  "schema": "project_quality_bundle_v1",
+  "as_of": "2026-10-05",
+  "threshold_version": "quality_gate_v3",
+  "scope": "Offline candidate evaluation; existing published corpus and labels remain unchanged. Experimental extraction/task-label profiles are not production defaults.",
+  "modules": {
+    "dedup": {
+      "dataset": "data/gold/project-quality-agent-20261006-v7",
+      "report": "data/reports/quality-optimization-20261006/release-v3/dedup/results/20261005T224352483452Z-bedf0cf2"
+    },
+    "sql": {
+      "dataset": "data/gold/project-quality-agent-20261006-v7",
+      "report": "data/reports/quality-optimization-20261006/release-v3/sql/results/20261005T224352880969Z-1eef8574"
+    },
+    "retrieval": {
+      "dataset": "data/gold/project-quality-agent-20261006-v7",
+      "report": "data/reports/quality-optimization-20261006/release-v3/retrieval/results/20261005T224353631300Z-6831c318"
+    },
+    "routing": {
+      "dataset": "data/gold/query-generalization-agent-20261006-v1",
+      "report": "data/reports/quality-optimization-20261006/release-v3/routing/results/20261005T231307718995Z-8c393a38"
+    },
+    "extraction": {
+      "dataset": "data/gold/evaluation-agent-reviewed-20261005-v5",
+      "report": "data/reports/quality-optimization-20261006/extraction-closed-topics/extraction/results/20261005T225112715936Z-d6cf93d1"
+    },
+    "task_labels": {
+      "dataset": "data/gold/task-generalization-agent-20261006-v2",
+      "report": "data/reports/quality-optimization-20261006/filter-metrics/holdout/task_annotation_v6/task_labels/results/20261005T205749217819Z-20eafd0a"
+    }
+  },
+  "required_regressions": {
+    "task-labels-211": {
+      "section": "task_labels",
+      "dataset": "data/gold/evaluation-agent-reviewed-20261005-v5",
+      "report": "data/reports/quality-optimization-20261006/filter-metrics/regression/task_annotation_v6/task_labels/results/20261005T205747494395Z-643e0d26"
+    }
+  }
+}

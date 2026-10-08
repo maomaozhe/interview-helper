@@ -1,5 +1,5 @@
 """One validated query plan for Pi, Jev and explicit UI actions."""
-from typing import Literal
+from typing import Annotated, Literal
 
 from pydantic import Field, model_validator
 
@@ -7,7 +7,7 @@ from interview_intelligence.contracts import FilterSpec, ReviewItem, StrictModel
 from interview_intelligence.analytics.listing import ListRequest, StatsListRequest
 
 
-QUERY_AGENT_VERSION = "query_agent_v3"
+QUERY_AGENT_VERSION = "query_agent_v10"
 
 
 class QuerySpec(StrictModel):
@@ -18,7 +18,9 @@ class QuerySpec(StrictModel):
     page_size: int = Field(default=20, ge=1, le=100)
     group_by: Literal["question", "topic", "company", "round"] = "question"
     search_query: str | None = Field(default=None, min_length=1, max_length=500)
-    pipeline: Literal["BM25", "HYBRID", "DENSE", "HYBRID_RERANK"] = "HYBRID"
+    relevance_query: str | None = Field(default=None, min_length=1, max_length=500)
+    lexical_facets: list[Annotated[str, Field(min_length=1, max_length=150)]] = Field(default_factory=list, max_length=3)
+    pipeline: Literal["BM25", "HYBRID", "DENSE", "HYBRID_RERANK"] = "HYBRID_RERANK"
     question_ids: list[str] = Field(default_factory=list, max_length=100)
     review_items: list[ReviewItem] = Field(default_factory=list, max_length=100)
     review_statuses: list[Literal["UNSEEN","WEAK","REVIEWED","MASTERED"]] = Field(default_factory=list,max_length=4)
@@ -26,13 +28,24 @@ class QuerySpec(StrictModel):
     scope: Literal["current_page","full_scope"] = "current_page"
     final: bool = True
     clarification: str | None = Field(default=None, max_length=1000)
+    clarification_options: list[str] = Field(default_factory=list, max_length=4)
 
     @model_validator(mode="after")
     def validate_action(self):
         if self.action == "SEARCH" and (not self.search_query or self.page_size > 50 or self.top_n):
             raise ValueError("semantic search requires a query, <=50 candidates and no global top_n")
+        if any(not facet.strip() or len(facet) > 150 for facet in self.lexical_facets):
+            raise ValueError("lexical facets require 1-150 characters")
+        if self.lexical_facets and self.action != "SEARCH":
+            raise ValueError("lexical facets require SEARCH")
         if self.action == "CLARIFY" and not self.clarification:
             raise ValueError("clarification text required")
+        if any(not choice.strip() or len(choice) > 100 for choice in self.clarification_options):
+            raise ValueError("invalid clarification option")
+        if self.clarification_options and self.action != "CLARIFY":
+            raise ValueError("clarification options require CLARIFY")
+        if self.action == "CLARIFY" and not self.final:
+            raise ValueError("clarification must end the turn before retrieval")
         if self.action in {"DETAILS", "REVIEW_STATE"} and not self.question_ids and self.scope=="current_page":
             raise ValueError("question IDs required")
         if self.action=="DETAILS" and self.scope=="full_scope":
@@ -58,11 +71,15 @@ TOOL_ACTIONS = {
 }
 
 
-def query_model_schema():
+def query_model_schema(tool_policy=None):
     """Require explicit scope from a model; host/UI contracts keep their defaults."""
     schema = QuerySpec.model_json_schema()
     schema["required"] = ["action", "filters", "sort", "top_n", "page_size"]
     schema["$defs"]["FilterSpec"]["required"] = list(FilterSpec.model_fields)
+    if tool_policy is not None:
+        allowed = {action for name, actions in tool_policy["allowed_actions"].items()
+                   for action in actions if action in TOOL_ACTIONS.get(name, ())}
+        schema["properties"]["action"]["enum"] = sorted(allowed)
     return schema
 
 
@@ -85,7 +102,9 @@ class QueryRequest(StrictModel):
     message: str = Field(min_length=1, max_length=2000)
     filters: FilterSpec = Field(default_factory=FilterSpec)
     page_size: int = Field(default=20, ge=1, le=100)
-    pipeline: Literal["BM25", "HYBRID", "DENSE", "HYBRID_RERANK"] = "HYBRID"
+    pipeline: Literal["BM25", "HYBRID", "DENSE", "HYBRID_RERANK"] = "HYBRID_RERANK"
+    feedback_ids: list[str] = Field(default_factory=list, max_length=3)
+    requery_of_run_id: str | None = Field(default=None, min_length=1, max_length=36)
     conversation_id: str | None = Field(default=None, max_length=36)
     expected_version: int | None = Field(default=None, ge=0)
     request_id: str = Field(min_length=1, max_length=128)

@@ -36,7 +36,7 @@ def test_embedding_records_response_usage_and_model_revision(kind):
     assert logs[0]["model"] == "embedding-test"
     assert logs[0]["model_revision"] == "embedding-revision-test"
     assert logs[0]["input_tokens"] == 11
-    assert logs[0]["output_tokens"] is None
+    assert logs[0]["output_tokens"] == 0  # Vectors do not generate output tokens.
     assert logs[0]["prompt_version"] == item.version
     assert logs[0]["status"] == "SUCCEEDED"
     assert logs[0]["latency_ms"] >= 0

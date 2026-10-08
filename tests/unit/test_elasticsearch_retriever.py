@@ -67,6 +67,184 @@ def test_dense_requires_encoder():
         retriever.retrieve("Redis", ["a"], "DENSE", 10)
 
 
+def test_progress_emits_only_phases_that_are_actually_entered():
+    stages=[]
+    class CheckedEncoder(Encoder):
+        def embed(self, text):
+            assert stages[-1]["stage"] == "embedding"
+            return super().embed(text)
+    class CheckedReranker:
+        version="progress-test"
+        def rerank(self,query,candidates):
+            assert stages[-1] == {"stage":"reranking","count":2}
+            return candidates
+    retriever=ElasticsearchRetriever("http://unused",CheckedEncoder(),client=FakeClient(),reranker=CheckedReranker())
+    retriever.retrieve("Redis",["a","b"],"HYBRID_RERANK",2,on_progress=stages.append)
+    assert [step["stage"] for step in stages] == ["embedding","retrieving","reranking"]
+    stages.clear()
+    retriever.retrieve("Redis",["a","b"],"BM25",2,on_progress=stages.append)
+    assert stages == [{"stage":"retrieving"}]
+
+
+def test_semantic_expansion_does_not_widen_relevance_target():
+    class RecordingEncoder(Encoder):
+        queries = []
+
+        def embed(self, text):
+            self.queries.append(text)
+            return super().embed(text)
+
+    class IntentReranker:
+        version = "test-intent"
+        queries = []
+
+        def rerank(self, query, candidates):
+            self.queries.append(query)
+            # Only the concrete business design is relevant; general Redis is not.
+            return [item for item in candidates if item["canonical_question_id"] == "b"]
+
+    client, encoder, reranker = FakeClient(), RecordingEncoder(), IntentReranker()
+    expanded = "秒杀设计 库存扣减 Redis 异步消息"
+    original = "高并发秒杀业务系统怎么设计"
+    retriever = ElasticsearchRetriever("http://unused", encoder, reranker=reranker, client=client)
+    result = retriever.retrieve(expanded, ["a", "b"], "HYBRID_RERANK", 20, relevance_query=original)
+    assert encoder.queries == [expanded]
+    assert reranker.queries == [original]
+    bm25 = next(options["json"] for path, options in client.calls if path == "/_search")
+    assert "redis" in bm25["query"]["bool"]["must"][0]["multi_match"]["query"]
+    assert result["meta"]["relevance_query"] == original
+    assert [item["canonical_question_id"] for item in result["data"]] == ["b"]
+
+
+def test_rerank_audit_distinguishes_page_cutoff_from_relevance_rejection():
+    from interview_intelligence.search.reranker import RerankedCandidates
+
+    class AuditedReranker:
+        version = "audit-test"
+
+        def rerank(self, query, candidates):
+            return RerankedCandidates(candidates, {"query_object": "Agent", "query_focus": "记忆", "candidates": [
+                {"canonical_question_id": "a", "decision": "ACCEPTED"},
+                {"canonical_question_id": "b", "decision": "ACCEPTED"},
+                {"canonical_question_id": "other", "decision": "BELOW_THRESHOLD"}]})
+
+    retriever = ElasticsearchRetriever("http://unused", Encoder(), reranker=AuditedReranker(), client=FakeClient())
+    result = retriever.retrieve("Agent记忆", ["a", "b"], "HYBRID_RERANK", 1)
+    audit = result["meta"]["rerank_audit"]["candidates"]
+    assert [item["decision"] for item in audit] == ["RETURNED", "PAGE_CUTOFF", "BELOW_THRESHOLD"]
+
+
+def test_parallel_subtask_selection_covers_accepted_branch_before_redundant_general_rows():
+    from interview_intelligence.search.elasticsearch import _select_reranked
+
+    general = [{"canonical_question_id": f"framework-{i}", "relevance_grade": 3, "rerank_rank": i}
+               for i in range(1, 21)]
+    memory = {"canonical_question_id": "memory", "relevance_grade": 2, "rerank_rank": 21,
+              "stage_ranks": {"lexical_facet_1": 8}}
+    tools = {"canonical_question_id": "tools", "relevance_grade": 2, "rerank_rank": 22,
+             "stage_ranks": {"lexical_facet_2": 2}}
+    rows = _select_reranked([*general, memory, tools], ["Agent memory", "Agent工具执行"], 15)
+    ids = [row["canonical_question_id"] for row in rows]
+    assert ids[:5] == [f"framework-{i}" for i in range(1, 6)]
+    assert "memory" in ids and "tools" in ids
+    assert len(ids) == len(set(ids)) == 15
+    assert "memory" not in [row["canonical_question_id"] for row in _select_reranked([*general, memory], [], 15)]
+
+
+def test_single_focus_selection_obeys_grade_before_model_order_without_padding():
+    from interview_intelligence.search.elasticsearch import _select_reranked
+
+    rows = [{"canonical_question_id": "subtask", "relevance_grade": 2, "rerank_rank": 1},
+            {"canonical_question_id": "direct", "relevance_grade": 3, "rerank_rank": 9}]
+    assert [row["canonical_question_id"] for row in _select_reranked(rows, [], 20)] == ["direct", "subtask"]
+
+
+def test_missing_facet_once_preserves_semantic_rank13_instead_of_rotating_all_branches():
+    from interview_intelligence.search.elasticsearch import _select_reranked
+
+    semantic = [{"canonical_question_id": f"semantic-{i}", "relevance_grade": 3, "rerank_rank": i}
+                for i in range(1, 21)]
+    semantic[0]["stage_ranks"] = {"lexical_facet_1": 10}
+    semantic[1]["stage_ranks"] = {"lexical_facet_3": 10}
+    semantic[12]["stage_ranks"] = {"lexical_facet_2": 8}
+    lexical = [{"canonical_question_id": f"branch-{branch}-{rank}", "relevance_grade": 2,
+                "rerank_rank": 20 + (branch - 1) * 10 + rank,
+                "stage_ranks": {f"lexical_facet_{branch}": rank}}
+               for branch in range(1, 4) for rank in range(1, 8)]
+    rows = _select_reranked([*lexical, *reversed(semantic)], ["context", "memory", "tools"], 15)
+    ids = [row["canonical_question_id"] for row in rows]
+    assert ids[:5] == [f"semantic-{i}" for i in range(1, 6)]
+    assert ids[5] == "branch-2-1"
+    assert ids[6:] == [f"semantic-{i}" for i in range(6, 15)]
+    assert "semantic-13" in ids and sum(key.startswith("branch-") for key in ids) == 1
+    semantic[2]["stage_ranks"] = {"lexical_facet_2": 10}
+    assert _select_reranked([*lexical, *reversed(semantic)], ["context", "memory", "tools"], 15) == semantic[:15]
+
+
+def test_each_missing_facet_promotes_at_most_one_candidate_before_semantic_fill():
+    from interview_intelligence.search.elasticsearch import _select_reranked
+
+    semantic = [{"canonical_question_id": f"semantic-{i}", "relevance_grade": 3, "rerank_rank": i}
+                for i in range(1, 21)]
+    lexical = [{"canonical_question_id": f"branch-{branch}-{rank}", "relevance_grade": 2,
+                "rerank_rank": 20 + (branch - 1) * 10 + rank,
+                "stage_ranks": {f"lexical_facet_{branch}": rank}}
+               for branch in range(1, 4) for rank in range(1, 11)]
+    rows = _select_reranked([*semantic, *lexical], ["context", "memory", "tools"], 15)
+    ids = [row["canonical_question_id"] for row in rows]
+    assert ids[5:8] == [f"branch-{branch}-1" for branch in range(1, 4)]
+    assert ids[8:] == [f"semantic-{i}" for i in range(6, 13)]
+    assert [row["canonical_question_id"] for row in _select_reranked([*semantic, *lexical], [], 15)] == [
+        f"semantic-{i}" for i in range(1, 16)]
+
+
+def test_one_promoted_candidate_can_cover_multiple_missing_facets():
+    from interview_intelligence.search.elasticsearch import _select_reranked
+
+    semantic = [{"canonical_question_id": f"semantic-{i}", "relevance_grade": 3, "rerank_rank": i}
+                for i in range(1, 16)]
+    shared = {"canonical_question_id": "shared", "relevance_grade": 2, "rerank_rank": 16,
+              "stage_ranks": {"lexical_facet_1": 1, "lexical_facet_2": 10}}
+    other = {"canonical_question_id": "other", "relevance_grade": 2, "rerank_rank": 17,
+             "stage_ranks": {"lexical_facet_2": 1}}
+    ids = [row["canonical_question_id"] for row in _select_reranked(
+        [*semantic, shared, other], ["context", "memory"], 15)]
+    assert ids[5] == "shared" and "other" not in ids
+    assert ids[6:] == [f"semantic-{i}" for i in range(6, 15)]
+    for top_k in (0, 1, 5):
+        assert _select_reranked([*semantic, shared, other], ["context", "memory"], top_k) == semantic[:top_k]
+
+
+def test_facet_selection_cannot_pad_with_rejected_retrieval_candidates():
+    from interview_intelligence.search.reranker import RerankedCandidates
+
+    class RejectingReranker:
+        version = "rejecting"
+        calls = 0
+
+        def rerank(self, query, candidates):
+            self.calls += 1
+            return RerankedCandidates([row for row in candidates if row["canonical_question_id"] == "a"], {
+                "candidates": [{"canonical_question_id": "a", "decision": "ACCEPTED"},
+                               {"canonical_question_id": "b", "decision": "BELOW_THRESHOLD"}]})
+
+    class RejectedFacetClient(FakeClient):
+        def post(self, path, **kwargs):
+            if path == "/_search" and kwargs["json"]["size"] == 50:
+                self.calls.append((path, kwargs))
+                return Response({"hits": {"hits": [{"_id": "b", "_score": 1.0}]}})
+            return super().post(path, **kwargs)
+
+    reranker = RejectingReranker()
+    result = ElasticsearchRetriever("http://unused", Encoder(), reranker=reranker, client=RejectedFacetClient()).retrieve(
+        "Agent", ["a", "b"], "HYBRID_RERANK", 15, lexical_facets=["Agent memory"])
+    assert [row["canonical_question_id"] for row in result["data"]] == ["a"]
+    assert reranker.calls == 1
+    assert result["meta"]["result_selection_policy"] == "top5_missing_facet_once_v1"
+    assert [row["decision"] for row in result["meta"]["rerank_audit"]["candidates"]] == [
+        "RETURNED", "BELOW_THRESHOLD"]
+
+
 @pytest.mark.parametrize("pipeline", ["DENSE", "HYBRID_RERANK"])
 def test_serial_model_waits_do_not_expire_search_snapshot(pipeline):
     class ExpiringClient(FakeClient):
@@ -107,3 +285,124 @@ def test_serial_model_waits_do_not_expire_search_snapshot(pipeline):
     result = retriever.retrieve("Redis", ["a", "b"], pipeline, 2)
     assert result["data"]
     assert client.expires is None
+
+
+def test_lexical_facets_cover_missing_parallel_subtask_without_displacing_main_top20():
+    main = [f"main-{index:03}" for index in range(100)]
+    branches = [[f"facet-{branch}-{index:02}" for index in range(50)] for branch in range(3)]
+    missing = branches[1][7]  # Outside both main Top100 lists, rank8 in the memory branch.
+
+    class FacetClient(FakeClient):
+        def post(self, path, **kwargs):
+            if path != "/_search":
+                return super().post(path, **kwargs)
+            self.calls.append((path, kwargs))
+            body = kwargs["json"]
+            if "knn" in body or body["size"] == 100:
+                ids = main
+            else:
+                text = body["query"]["bool"]["must"][0]["multi_match"]["query"]
+                ids = branches[int(text.split()[-1])]
+            return Response({"hits": {"hits": [{"_id": key, "_score": 100 - rank,
+                "_source": {"canonical_text": f"Agent subtask {key}"}} for rank, key in enumerate(ids)]}})
+
+    class RecordingEncoder(Encoder):
+        def __init__(self): self.calls = []
+        def embed(self, text):
+            self.calls.append(text)
+            return super().embed(text)
+
+    class RecordingReranker:
+        version = "recording"
+        def __init__(self): self.calls = []
+        def rerank(self, query, candidates):
+            self.calls.append((query, candidates))
+            return [row for row in candidates if row["canonical_question_id"] == missing]
+
+    client, encoder, reranker = FacetClient(), RecordingEncoder(), RecordingReranker()
+    retriever = ElasticsearchRetriever("http://unused", encoder, reranker=reranker, client=client)
+    eligible = [*main, *(key for branch in branches for key in branch)]
+    facets = [f"Agent subtask {index}" for index in range(3)]
+    result = retriever.retrieve("Agent harness", eligible, "HYBRID_RERANK", 15,
+                                relevance_query="Agent runtime framework", lexical_facets=facets)
+    query, pool = reranker.calls[0]
+    assert query == "Agent runtime framework" and len(reranker.calls) == 1
+    assert len(pool) == len({row["canonical_question_id"] for row in pool}) == 50
+    assert [row["canonical_question_id"] for row in pool[:20]] == main[:20]
+    assert [row["canonical_question_id"] for row in pool[20:26]] == [
+        "facet-0-00", "facet-1-00", "facet-2-00", "facet-0-01", "facet-1-01", "facet-2-01"]
+    assert [row["canonical_question_id"] for row in result["data"]] == [missing]
+    added = result["data"][0]
+    assert added["stage_ranks"] == {"lexical_facet_2": 8}
+    assert "rrf_score" not in added
+    assert pool[0]["rrf_score"] == pytest.approx(2 / 61)
+    assert encoder.calls == ["Agent harness"]
+    searches = [options for path, options in client.calls if path == "/_search"]
+    assert len(searches) == 5 and sum(options["json"]["size"] == 50 for options in searches) == 3
+    for options in searches:
+        body = options["json"]
+        assert body["pit"]["id"] == "pit-id"
+        assert options["params"]["allow_partial_search_results"] == "false"
+        assert (body["knn"]["filter"] if "knn" in body else body["query"]["bool"]["filter"][0]) == {
+            "terms": {"_id": eligible}}
+    assert client.calls[-1] == ("/_pit", {"json": {"id": "pit-id"}})
+
+
+def test_lexical_facet_pool_skips_duplicates_and_backfills_main_then_remaining_branches():
+    from interview_intelligence.search.elasticsearch import _facet_candidate_pool
+    from interview_intelligence.search.service import rrf
+
+    main = rrf([(f"m{index:02}", 100 - index) for index in range(70)])
+    branch = [("m00", 200), *( (f"b{index:02}", 100 - index) for index in range(50))]
+    pool = _facet_candidate_pool(main, [branch])
+    assert [row["canonical_question_id"] for row in pool[:20]] == [f"m{index:02}" for index in range(20)]
+    assert [row["canonical_question_id"] for row in pool[20:30]] == [f"b{index:02}" for index in range(10)]
+    assert [row["canonical_question_id"] for row in pool[30:]] == [f"m{index:02}" for index in range(20, 40)]
+    assert pool[0]["stage_ranks"] == {"lexical_facet_1": 1}
+    sparse = _facet_candidate_pool(main[:3], [branch])
+    assert len(sparse) == len({row["canonical_question_id"] for row in sparse}) == 50
+    assert sparse[-1]["canonical_question_id"] == "b46"
+
+
+@pytest.mark.parametrize("pipeline", ["BM25", "DENSE"])
+def test_raw_pipeline_ignores_lexical_facets_without_extra_search(pipeline):
+    client = FakeClient()
+    retriever = ElasticsearchRetriever("http://unused", Encoder(), client=client)
+    result = retriever.retrieve("Redis", ["a", "b"], pipeline, 2, lexical_facets=["memory"])
+    assert len([path for path, _ in client.calls if path == "/_search"]) == 1
+    assert result["meta"]["lexical_facets_ignored"] is True
+
+
+def test_empty_facets_preserve_original_result_and_search_calls_exactly():
+    first_client, second_client = FakeClient(), FakeClient()
+    first = ElasticsearchRetriever("http://unused", Encoder(), client=first_client)
+    second = ElasticsearchRetriever("http://unused", Encoder(), client=second_client)
+    assert first.retrieve("Redis", ["a", "b"], "HYBRID", 2) == second.retrieve(
+        "Redis", ["a", "b"], "HYBRID", 2, lexical_facets=[])
+    assert first_client.calls == second_client.calls
+
+
+def test_failed_lexical_branch_closes_pit_and_cannot_return_partial_candidate_pool():
+    import httpx
+
+    class FailedBranch(FakeClient):
+        def post(self, path, **kwargs):
+            if path == "/_search" and kwargs["json"]["size"] == 50:
+                self.calls.append((path, kwargs))
+                raise httpx.ReadTimeout("facet search failed")
+            return super().post(path, **kwargs)
+
+    client = FailedBranch()
+    retriever = ElasticsearchRetriever("http://unused", Encoder(), client=client)
+    with pytest.raises(ValueError, match="LEXICAL_FACET_RETRIEVAL_FAILED"):
+        retriever.retrieve("Agent", ["a", "b"], "HYBRID", 20, lexical_facets=["memory"])
+    assert client.calls[-1] == ("/_pit", {"json": {"id": "pit-id"}})
+
+
+@pytest.mark.parametrize("facets", [[" ", "memory"], ["x" * 151], ["a", "b", "c", "d"]])
+def test_invalid_lexical_facets_fail_before_any_model_or_es_request(facets):
+    client = FakeClient()
+    retriever = ElasticsearchRetriever("http://unused", Encoder(), client=client)
+    with pytest.raises(ValueError, match="invalid lexical facets"):
+        retriever.retrieve("Agent", ["a"], "HYBRID", 20, lexical_facets=facets)
+    assert not client.calls

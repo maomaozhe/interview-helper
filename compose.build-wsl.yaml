@@ -1,0 +1,12 @@
+# Opt-in build override for this WSL host's bridge/DNS routing problem.
+# Runtime networking stays in compose.yaml. Build first, then start without it.
+services:
+  api:
+    build:
+      network: host
+  worker:
+    build:
+      network: host
+  pi-agent:
+    build:
+      network: host

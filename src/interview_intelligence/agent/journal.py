@@ -58,7 +58,8 @@ class QueryJournal:
             invocation=ToolInvocation(run_id=run.id,ordinal=ordinal,tool_name=name,payload_hash=digest,
                 arguments=args,status="STARTED",result={})
             s.add(invocation);s.flush()
-            self.append(s,t,"stage",{"stage":"tool","tool":name,"ordinal":ordinal,"action_id":invocation.id})
+            self.append(s,t,"stage",{"stage":"tool","tool":name,"action":plan.action,
+                                     "ordinal":ordinal,"action_id":invocation.id})
             return invocation.id,None
     def complete(self,run,invocation_id):
         with self.database.session() as s,s.begin():

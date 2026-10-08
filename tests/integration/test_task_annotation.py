@@ -68,3 +68,34 @@ def test_invalid_model_schema_gets_one_bounded_repair_before_atomic_commit(monke
         stored = list(session.scalars(select(OccurrenceTaskAnnotation)))
         assert {row.evidence["quote"] for row in stored} == set(quotes)
         assert all(row.evidence["quote_origin"] == "host_original" for row in stored)
+
+
+def test_source_context_reaches_classifier_and_provenance_is_published_atomically(tmp_path):
+    from test_evaluation_collectors import published_fixture
+    database, settings = published_fixture(tmp_path)
+    observed = []
+    def classify(payload):
+        observed.extend(payload)
+        return labels(payload)
+    result = annotate_tasks(database, settings, classifier=classify, source_context=True)
+    assert result["changed"] == 3
+    assert all("normalized_question" not in row and "面经" in row["context_before"] for row in observed)
+    with database.session() as session:
+        stored = list(session.scalars(select(OccurrenceTaskAnnotation)))
+        assert all(row.evidence["context_version"] == "task_context_v1" for row in stored)
+        assert all(len(row.evidence["source_hash"]) == 64 and len(row.evidence["payload_hash"]) == 64 for row in stored)
+        assert {row.classification_status for row in stored} == {"NEEDS_REVIEW"}
+
+
+def test_altered_snapshot_stops_before_any_call_or_publication(tmp_path):
+    from test_evaluation_collectors import published_fixture
+    database, settings = published_fixture(tmp_path)
+    for path in settings.snapshot_root.glob("*.md"):
+        path.write_text("changed source", encoding="utf-8")
+    called = []
+    with pytest.raises(ValueError, match="ANNOTATION_SOURCE_HASH_MISMATCH"):
+        annotate_tasks(database, settings, classifier=lambda payload: called.append(payload), source_context=True)
+    assert called == []
+    with database.session() as session:
+        assert session.scalar(select(func.count()).select_from(OccurrenceTaskAnnotation)) == 0
+        assert session.get(CorpusState, 1).task_annotation_revision == 0

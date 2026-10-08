@@ -1,0 +1,57 @@
+# Dedicated, fresh evaluation actor. Does not publish corpus or annotation changes.
+services:
+  quality-api:
+    image: interview-intelligence-api
+    env_file: .env
+    environment:
+      DATABASE_URL: postgresql+psycopg://interview:localdev@postgres:5432/interview_intelligence
+      ELASTICSEARCH_URL: http://elasticsearch:9200
+      LOCAL_USER_ID: ${QUALITY_USER_ID:?fresh eval-prefixed actor required}
+      PYTHONPATH: /app/src:/app
+      CORPUS_ROOT: /corpus
+      SNAPSHOT_ROOT: /app/data/snapshots
+      MODEL_LOCK_PATH: /app/runtime/model-call.lock
+      PI_AGENT_URL: http://quality-pi:8787
+      PI_AGENT_ENABLED: "true"
+      QUERY_ROUTER_ENABLED: "true"
+      JEV_DECISION_ENABLED: ${QUALITY_JEV_ENABLED:-false}
+      JEV_PROVIDER: local_qwen
+      JEV_DECISION_MODE: active
+      JEV_BASE_URL: http://172.17.0.1:18791/v1
+      JEV_MODEL: Qwen/Qwen3-1.7B
+      JEV_TIMEOUT_SECONDS: 15
+      JEV_CALIBRATION_PATH: /app/data/reports/resume-quality-workbench-20261005-v1/qwen.calibration.v5.json
+      TASK_ANNOTATION_POLICY: KNOWN
+      QUERY_MAX_TOKENS: 65536
+      QUERY_PROMPT_VERSION: ${QUALITY_QUERY_PROMPT_VERSION:-query_agent_v6}
+      QUERY_COMPACT_CONTEXT: ${QUALITY_COMPACT_CONTEXT:-true}
+      QUERY_DYNAMIC_TOOLS: ${QUALITY_DYNAMIC_TOOLS:-true}
+    command: ["python", "-m", "eval.serve", "--host", "0.0.0.0", "--port", "8000", "--as-of", "${QUALITY_AS_OF:-2026-10-05}"]
+    ports: ["127.0.0.1:${QUALITY_PORT:-18003}:8000"]
+    extra_hosts: ["host.docker.internal:host-gateway"]
+    volumes:
+      - ./src:/app/src:ro
+      - ./eval:/app/eval:ro
+      - ./evals:/app/evals:ro
+      - ./config:/app/config:ro
+      - ./prompts:/app/prompts:ro
+      - ./data:/app/data
+      - ./md:/corpus:ro
+      - model_runtime:/app/runtime
+    networks: [existing]
+  quality-pi:
+    image: interview-intelligence-pi-agent
+    environment:
+      INTERNAL_AGENT_TOKEN: ${INTERNAL_AGENT_TOKEN:?configure internal token}
+      AGENT_HOST_URL: http://quality-api:8000
+    volumes:
+      - ./services/pi-agent/runtime.mjs:/app/services/pi-agent/runtime.mjs:ro
+    networks: [existing]
+networks:
+  existing:
+    external: true
+    name: interview-intelligence_default
+volumes:
+  model_runtime:
+    external: true
+    name: interview-intelligence_model_runtime

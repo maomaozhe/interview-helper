@@ -1,0 +1,2314 @@
+{
+  "schema": "resume_quality_evidence_v1",
+  "created_at_utc": "2026-10-05T18:48:23.897979+00:00",
+  "reported_date_local": "2026-10-06",
+  "snapshot_as_of": "2026-10-05",
+  "review_policy": "delegated_agent",
+  "claim_scope": "Offline fixed-corpus diagnostics/regressions; not aggregate production task success",
+  "release_gate": {
+    "schema": "evaluation_release_gate_v1",
+    "status": "BLOCKED",
+    "snapshot": {
+      "corpus_revision": 293,
+      "indexed_revision": 293,
+      "task_annotation_revision": 30,
+      "as_of": "2026-10-05",
+      "task_annotation_policy": "KNOWN"
+    },
+    "modules": {
+      "extraction": {
+        "status": "BELOW_GATE",
+        "checks": [
+          {
+            "metric": "precision",
+            "value": 0.9590643274853801,
+            "threshold": 0.92,
+            "direction": "min",
+            "status": "PASSED"
+          },
+          {
+            "metric": "recall",
+            "value": 0.9628180039138943,
+            "threshold": 0.88,
+            "direction": "min",
+            "status": "PASSED"
+          },
+          {
+            "metric": "f1",
+            "value": 0.9609375,
+            "threshold": 0.9,
+            "direction": "min",
+            "status": "PASSED"
+          },
+          {
+            "metric": "metadata_accuracy.company",
+            "value": 0.8064516129032258,
+            "threshold": 0.95,
+            "direction": "min",
+            "status": "BELOW_GATE"
+          },
+          {
+            "metric": "metadata_accuracy.round",
+            "value": 0.9642857142857143,
+            "threshold": 0.9,
+            "direction": "min",
+            "status": "PASSED"
+          },
+          {
+            "metric": "matched_attribute_accuracy.topic_l1",
+            "value": 0.8678861788617886,
+            "threshold": 0.9,
+            "direction": "min",
+            "status": "BELOW_GATE"
+          },
+          {
+            "metric": "matched_attribute_accuracy.topic_l2",
+            "value": 0.7845528455284553,
+            "threshold": 0.85,
+            "direction": "min",
+            "status": "BELOW_GATE"
+          },
+          {
+            "metric": "null_field_hallucination_count",
+            "value": 0,
+            "threshold": 0,
+            "direction": "max",
+            "status": "PASSED"
+          },
+          {
+            "metric": "invalid_citation_count",
+            "value": 0,
+            "threshold": 0,
+            "direction": "max",
+            "status": "PASSED"
+          }
+        ],
+        "samples": 32,
+        "review_policy": "delegated_agent",
+        "dataset": "data/gold/evaluation-agent-reviewed-20261005-v5",
+        "report": "data/reports/agent-reviewed-20261005-v5/extraction/results/20261005T180258640039Z-7ff82dce",
+        "dataset_sha256": "6254ed7fee74aa9204c9593104d9411cb39aabf572c17df2bc50817d4f3407d7",
+        "predictions_sha256": "ed3df17a24356df3635e9dc63f1bd2eba1d8722cf6dc3a14ccbe45bcb962edeb"
+      },
+      "task_labels": {
+        "status": "NOT_RUN",
+        "checks": [],
+        "samples": 211,
+        "review_policy": "delegated_agent",
+        "dataset": "data/gold/evaluation-agent-reviewed-20261005-v5",
+        "report": "data/reports/agent-reviewed-20261005-v5/task_labels/results/20261005T180258864803Z-3aa3147f",
+        "dataset_sha256": "6254ed7fee74aa9204c9593104d9411cb39aabf572c17df2bc50817d4f3407d7",
+        "predictions_sha256": "49cefb869ff0c437f22f4f0d97253e329ddcfd1135281b8f0a726d1f24800432"
+      },
+      "dedup": {
+        "status": "BELOW_GATE",
+        "checks": [
+          {
+            "metric": "precision",
+            "value": 0.8928571428571429,
+            "threshold": 0.95,
+            "direction": "min",
+            "status": "BELOW_GATE"
+          },
+          {
+            "metric": "recall",
+            "value": 0.9689922480620154,
+            "threshold": 0.85,
+            "direction": "min",
+            "status": "PASSED"
+          }
+        ],
+        "samples": 204,
+        "review_policy": "delegated_agent",
+        "dataset": "data/gold/project-quality-agent-20261005-v6",
+        "report": "data/reports/project-quality-20261006/dedup/results/20261005T174731577088Z-fb207dbd",
+        "dataset_sha256": "3d1f8d39766d7a8211ec94268e48534a896bb5c7dd6dcabed5175b8fbaa6fe9b",
+        "predictions_sha256": "b46c9c7f801c1627f59c385482317c29fc4cb8ab006adf3c380f42512e7dc7b6"
+      },
+      "retrieval": {
+        "status": "BELOW_GATE",
+        "checks": [
+          {
+            "metric": "pipelines.HYBRID_RERANK.recall_at_10",
+            "value": 0.8302619047619048,
+            "threshold": 0.85,
+            "direction": "min",
+            "status": "BELOW_GATE"
+          }
+        ],
+        "samples": 55,
+        "review_policy": "delegated_agent",
+        "dataset": "data/gold/project-quality-agent-20261005-v4",
+        "report": "data/reports/project-quality-20261005/retrieval/results/20261005T122718323684Z-0b5fe916",
+        "dataset_sha256": "b53b63f52de1b618c6a1eaa60b57fc4c3f340a600fe926af25924f4cad1744af",
+        "predictions_sha256": "e61f46a240a7e87364768e6db0c9aab4eef8aa76ac23419ba91265850b508b69"
+      },
+      "routing": {
+        "status": "PASSED",
+        "checks": [
+          {
+            "metric": "tool_selection_accuracy",
+            "value": 1,
+            "threshold": 0.9,
+            "direction": "min",
+            "status": "PASSED"
+          },
+          {
+            "metric": "argument_accuracy",
+            "value": 0.996,
+            "threshold": 0.95,
+            "direction": "min",
+            "status": "PASSED"
+          },
+          {
+            "metric": "task_success_rate",
+            "value": 0.98,
+            "threshold": 0.9,
+            "direction": "min",
+            "status": "PASSED"
+          },
+          {
+            "metric": "unknown_assertions",
+            "value": 0,
+            "threshold": 0,
+            "direction": "max",
+            "status": "PASSED"
+          },
+          {
+            "metric": "unauthorized_write_count",
+            "value": 0,
+            "threshold": 0,
+            "direction": "max",
+            "status": "PASSED"
+          }
+        ],
+        "samples": 50,
+        "review_policy": "delegated_agent",
+        "dataset": "data/gold/project-quality-agent-20261005-v5",
+        "report": "data/reports/project-quality-20261005-gold-v5/routing/results/20261005T173010291230Z-3356a7f6",
+        "dataset_sha256": "b8b0e0799b39a0eda65a1c6cbf7af9be0dba1b206a67cdd9a05a1d5622fe123a",
+        "predictions_sha256": "abf4a196ce207a109eb8fc9d194acbe050ec052e430673e943c9948c951f73f2"
+      },
+      "sql": {
+        "status": "PASSED",
+        "checks": [
+          {
+            "metric": "task_success_rate",
+            "value": 1,
+            "threshold": 1.0,
+            "direction": "min",
+            "status": "PASSED"
+          },
+          {
+            "metric": "unknown_assertions",
+            "value": 0,
+            "threshold": 0,
+            "direction": "max",
+            "status": "PASSED"
+          }
+        ],
+        "samples": 20,
+        "review_policy": "delegated_agent",
+        "dataset": "data/gold/project-quality-agent-20261005-v4",
+        "report": "data/reports/project-quality-20261005/sql/results/20261005T123029246546Z-e1db864e",
+        "dataset_sha256": "b53b63f52de1b618c6a1eaa60b57fc4c3f340a600fe926af25924f4cad1744af",
+        "predictions_sha256": "81d91956c0ae6065d2ead6ab268a053a322dfcc4c6c34815133ff7c129769eea"
+      }
+    },
+    "blockers": [
+      "extraction",
+      "task_labels",
+      "dedup",
+      "retrieval"
+    ],
+    "scope": "Frozen offline module gates only. Passing does not certify unseen-traffic performance or production capacity."
+  },
+  "modules": {
+    "extraction": {
+      "dataset": "data/gold/evaluation-agent-reviewed-20261005-v5",
+      "freeze_sha256": "f84c3a75d5c4df817d2b262c579ab9b7efc3b1801f2d1ec835c186f9306207ae",
+      "path": "data/reports/agent-reviewed-20261005-v5/extraction/results/20261005T180258640039Z-7ff82dce",
+      "manifest": {
+        "dataset_version": "evaluation-agent-reviewed-20261005-v5",
+        "kind": "corpus",
+        "section": "extraction",
+        "split": "test",
+        "sample_count": 32,
+        "test_count": 32,
+        "human_verified_count": 0,
+        "agent_verified_count": 32,
+        "review_policy": "delegated_agent",
+        "dataset_sha256": "6254ed7fee74aa9204c9593104d9411cb39aabf572c17df2bc50817d4f3407d7",
+        "predictions_sha256": "ed3df17a24356df3635e9dc63f1bd2eba1d8722cf6dc3a14ccbe45bcb962edeb",
+        "alignments_sha256": "3e3b619737615a553fd4869984cac11cf335026aba28ace861ae4c149e19d278",
+        "snapshot": {
+          "corpus_revision": 293,
+          "indexed_revision": 293,
+          "task_annotation_revision": 30,
+          "as_of": "2026-10-05",
+          "task_annotation_policy": "KNOWN"
+        },
+        "run_id": "20261005T180258640039Z-7ff82dce"
+      },
+      "metrics": {
+        "tp": 492,
+        "fp": 21,
+        "fn": 19,
+        "precision": 0.9590643274853801,
+        "recall": 0.9628180039138943,
+        "f1": 0.9609375,
+        "document_macro_f1": 0.929147465437788,
+        "null_field_hallucination_count": 0,
+        "invalid_citation_count": 0,
+        "citation_valid_rate": 1.0,
+        "negative_exclusion_accuracy": 0.5,
+        "followups": {
+          "tp": 0,
+          "fp": 2,
+          "fn": 3,
+          "precision": 0.0,
+          "recall": 0.0,
+          "f1": 0.0
+        },
+        "matched_attribute_accuracy": {
+          "topic_l1": 0.8678861788617886,
+          "topic_l2": 0.7845528455284553,
+          "question_type": 0.7357723577235772
+        },
+        "matched_attribute_counts": {
+          "topic_l1": 492,
+          "topic_l2": 492,
+          "question_type": 492
+        },
+        "matched_attribute_pending_review_count": 0,
+        "metadata_accuracy": {
+          "company": 0.8064516129032258,
+          "position": 0.8518518518518519,
+          "round": 0.9642857142857143,
+          "publish_date": 1
+        },
+        "metadata_accuracy_including_null": {
+          "company": 0.8181818181818182,
+          "position": 0.8787878787878788,
+          "round": 0.9696969696969697,
+          "interview_date": 1,
+          "publish_date": 1
+        },
+        "metadata_field_counts": {
+          "company": 31,
+          "position": 27,
+          "round": 28,
+          "publish_date": 4
+        },
+        "metadata_pending_review_count": 0,
+        "efficiency": {
+          "latency_samples": 32,
+          "p50_ms": 0.458099995739758,
+          "p95_ms": 0.8275000145658851,
+          "percentile_method": "nearest_rank",
+          "failed_samples": 0,
+          "model_calls": 0,
+          "observed_model_calls": 0,
+          "telemetry_unavailable_samples": 0,
+          "unknown_usage_calls": 0,
+          "input_tokens_known": 0,
+          "output_tokens_known": 0,
+          "estimated_cost": null,
+          "phase_p95_ms": {
+            "queue_ms": null,
+            "interval_ms": null,
+            "provider_ms": null,
+            "ttft_ms": null,
+            "tool_ms": null
+          }
+        },
+        "slices": {
+          "extraction": {
+            "samples": 32,
+            "passed": 1,
+            "unknown": 0
+          },
+          "source_review": {
+            "samples": 32,
+            "passed": 1,
+            "unknown": 0
+          }
+        }
+      },
+      "file_sha256": {
+        "manifest.json": "ad45a71ce01c06bd4c789398e956ee0909232a6735bcb2aabbe6ee392a910295",
+        "config.json": "0ce1dc7d5a24b83740cbb3f268ff5a3c9c865e712df95a5aee594185ee193c9e",
+        "metrics.json": "c5834ac282fa9afef0353498187208758b77e8c3f039069e6b56179dbcf41bfa",
+        "gates.json": "62fa67cb96fbbd7e7fd3199e4cc61885f2003cc54c43bc03e10b3f14abbab4fa",
+        "predictions.jsonl": "ed3df17a24356df3635e9dc63f1bd2eba1d8722cf6dc3a14ccbe45bcb962edeb"
+      }
+    },
+    "task_labels": {
+      "dataset": "data/gold/evaluation-agent-reviewed-20261005-v5",
+      "freeze_sha256": "f84c3a75d5c4df817d2b262c579ab9b7efc3b1801f2d1ec835c186f9306207ae",
+      "path": "data/reports/agent-reviewed-20261005-v5/task_labels/results/20261005T180258864803Z-3aa3147f",
+      "manifest": {
+        "dataset_version": "evaluation-agent-reviewed-20261005-v5",
+        "kind": "corpus",
+        "section": "task_labels",
+        "split": "test",
+        "sample_count": 211,
+        "test_count": 211,
+        "human_verified_count": 0,
+        "agent_verified_count": 211,
+        "review_policy": "delegated_agent",
+        "dataset_sha256": "6254ed7fee74aa9204c9593104d9411cb39aabf572c17df2bc50817d4f3407d7",
+        "predictions_sha256": "49cefb869ff0c437f22f4f0d97253e329ddcfd1135281b8f0a726d1f24800432",
+        "alignments_sha256": null,
+        "snapshot": {
+          "corpus_revision": 293,
+          "indexed_revision": 293,
+          "task_annotation_revision": 30,
+          "as_of": "2026-10-05",
+          "task_annotation_policy": "KNOWN"
+        },
+        "run_id": "20261005T180258864803Z-3aa3147f"
+      },
+      "metrics": {
+        "response_form": {
+          "tp": 22,
+          "fp": 0,
+          "fn": 3,
+          "precision": 1.0,
+          "recall": 0.88,
+          "f1": 0.9361702127659575,
+          "accuracy": 0.9715639810426541,
+          "macro_f1": 0.9750804170057745,
+          "per_class": {
+            "CODE": {
+              "tp": 22,
+              "fp": 0,
+              "fn": 3,
+              "precision": 1.0,
+              "recall": 0.88,
+              "f1": 0.9361702127659575
+            },
+            "SQL": {
+              "tp": 2,
+              "fp": 0,
+              "fn": 0,
+              "precision": 1.0,
+              "recall": 1.0,
+              "f1": 1.0
+            },
+            "VERBAL": {
+              "tp": 181,
+              "fp": 1,
+              "fn": 3,
+              "precision": 0.9945054945054945,
+              "recall": 0.9836956521739131,
+              "f1": 0.9890710382513661
+            }
+          },
+          "evaluated_samples": 211,
+          "confusion": {
+            "VERBAL": {
+              "VERBAL": 181,
+              "UNKNOWN": 3
+            },
+            "CODE": {
+              "CODE": 22,
+              "UNKNOWN": 2,
+              "VERBAL": 1
+            },
+            "SQL": {
+              "SQL": 2
+            }
+          }
+        },
+        "coding_focus": {
+          "tp": 14,
+          "fp": 46,
+          "fn": 0,
+          "precision": 0.23333333333333334,
+          "recall": 1.0,
+          "f1": 0.3783783783783784,
+          "accuracy": 0.7582938388625592,
+          "macro_f1": 0.5402599171752398,
+          "per_class": {
+            "ALGORITHM": {
+              "tp": 15,
+              "fp": 0,
+              "fn": 2,
+              "precision": 1.0,
+              "recall": 0.8823529411764706,
+              "f1": 0.9375
+            },
+            "ENGINEERING": {
+              "tp": 14,
+              "fp": 46,
+              "fn": 0,
+              "precision": 0.23333333333333334,
+              "recall": 1.0,
+              "f1": 0.3783783783783784
+            },
+            "MIXED": {
+              "tp": 0,
+              "fp": 0,
+              "fn": 1,
+              "precision": null,
+              "recall": 0.0,
+              "f1": 0.0
+            },
+            "NONE": {
+              "tp": 131,
+              "fp": 0,
+              "fn": 48,
+              "precision": 1.0,
+              "recall": 0.7318435754189944,
+              "f1": 0.8451612903225807
+            }
+          },
+          "evaluated_samples": 211,
+          "confusion": {
+            "NONE": {
+              "NONE": 131,
+              "ENGINEERING": 45,
+              "UNKNOWN": 3
+            },
+            "ALGORITHM": {
+              "ALGORITHM": 15,
+              "UNKNOWN": 2
+            },
+            "ENGINEERING": {
+              "ENGINEERING": 14
+            },
+            "MIXED": {
+              "ENGINEERING": 1
+            }
+          }
+        },
+        "joint_accuracy": 0.7535545023696683,
+        "known_gold": 211,
+        "predicted_coverage": 0.976303317535545,
+        "covered_accuracy": 0.7718446601941747,
+        "efficiency": {
+          "latency_samples": 211,
+          "p50_ms": 0.09350001346319914,
+          "p95_ms": 0.2020999090746045,
+          "percentile_method": "nearest_rank",
+          "failed_samples": 0,
+          "model_calls": 0,
+          "observed_model_calls": 0,
+          "telemetry_unavailable_samples": 0,
+          "unknown_usage_calls": 0,
+          "input_tokens_known": 0,
+          "output_tokens_known": 0,
+          "estimated_cost": null,
+          "phase_p95_ms": {
+            "queue_ms": null,
+            "interval_ms": null,
+            "provider_ms": null,
+            "ttft_ms": null,
+            "tool_ms": null
+          }
+        },
+        "slices": {
+          "boundary_supplement": {
+            "samples": 11,
+            "passed": 11,
+            "unknown": 0
+          },
+          "random_source_sample": {
+            "samples": 200,
+            "passed": 148,
+            "unknown": 0
+          },
+          "task_labels": {
+            "samples": 211,
+            "passed": 159,
+            "unknown": 0
+          },
+          "user_field_adjudication": {
+            "samples": 1,
+            "passed": 0,
+            "unknown": 0
+          }
+        }
+      },
+      "file_sha256": {
+        "manifest.json": "0781014a1871e0f1b657b32719f9e4ed6957d671ecdf9f8306257ac7795f7ec1",
+        "config.json": "024c3ff5ab3f5c60e2fe59bd060dd1366c047095b0f59ec0bb3f5f2c6812306f",
+        "metrics.json": "62db6e0fd3df38ba62194f9034c7e9719d432c420edb271fbfb93775b33a4a02",
+        "gates.json": "6c010abe71d551e20ec152773b6274365dddaf081c70be6810b7c5c3f9dc34c3",
+        "predictions.jsonl": "49cefb869ff0c437f22f4f0d97253e329ddcfd1135281b8f0a726d1f24800432"
+      }
+    },
+    "dedup": {
+      "dataset": "data/gold/project-quality-agent-20261005-v6",
+      "freeze_sha256": "3a54181a0e56d45f1aa24aafe39560e015da17080128723a63fb415ef2a0413c",
+      "path": "data/reports/project-quality-20261006/dedup/results/20261005T174731577088Z-fb207dbd",
+      "manifest": {
+        "dataset_version": "project-quality-agent-20261005-v6",
+        "kind": "corpus",
+        "section": "dedup",
+        "split": "test",
+        "sample_count": 204,
+        "test_count": 204,
+        "human_verified_count": 0,
+        "agent_verified_count": 204,
+        "review_policy": "delegated_agent",
+        "dataset_sha256": "3d1f8d39766d7a8211ec94268e48534a896bb5c7dd6dcabed5175b8fbaa6fe9b",
+        "predictions_sha256": "b46c9c7f801c1627f59c385482317c29fc4cb8ab006adf3c380f42512e7dc7b6",
+        "alignments_sha256": null,
+        "snapshot": {
+          "corpus_revision": 293,
+          "indexed_revision": 293,
+          "task_annotation_revision": 30,
+          "as_of": "2026-10-05",
+          "task_annotation_policy": "KNOWN"
+        },
+        "run_id": "20261005T174731577088Z-fb207dbd"
+      },
+      "metrics": {
+        "tp": 125,
+        "fp": 15,
+        "fn": 4,
+        "precision": 0.8928571428571429,
+        "recall": 0.9689922480620154,
+        "f1": 0.929368029739777,
+        "accuracy": 0.8921568627450981,
+        "macro_f1": 0.8660454732732141,
+        "per_class": {
+          "DIFFERENT": {
+            "tp": 29,
+            "fp": 1,
+            "fn": 2,
+            "precision": 0.9666666666666667,
+            "recall": 0.9354838709677419,
+            "f1": 0.9508196721311475
+          },
+          "RELATED": {
+            "tp": 28,
+            "fp": 6,
+            "fn": 16,
+            "precision": 0.8235294117647058,
+            "recall": 0.6363636363636364,
+            "f1": 0.717948717948718
+          },
+          "SAME": {
+            "tp": 125,
+            "fp": 15,
+            "fn": 4,
+            "precision": 0.8928571428571429,
+            "recall": 0.9689922480620154,
+            "f1": 0.929368029739777
+          }
+        },
+        "evaluated_samples": 204,
+        "confusion": {
+          "SAME": {
+            "SAME": 125,
+            "RELATED": 4
+          },
+          "RELATED": {
+            "SAME": 15,
+            "RELATED": 28,
+            "DIFFERENT": 1
+          },
+          "DIFFERENT": {
+            "RELATED": 2,
+            "DIFFERENT": 29
+          }
+        },
+        "candidate_same_samples": 0,
+        "same_gold_samples": 129,
+        "candidate_metrics_status": "NOT_RUN",
+        "embedding_threshold_baseline": "NOT_RUN",
+        "candidate_observation_coverage": 0.0,
+        "candidate_recall_at_10": null,
+        "end_to_end_same_recall": null,
+        "failed_samples": 0,
+        "efficiency": {
+          "latency_samples": 204,
+          "p50_ms": 3416.315794980619,
+          "p95_ms": 4163.282973982859,
+          "percentile_method": "nearest_rank",
+          "failed_samples": 0,
+          "model_calls": 204,
+          "observed_model_calls": 204,
+          "telemetry_unavailable_samples": 0,
+          "unknown_usage_calls": 0,
+          "input_tokens_known": 154615,
+          "output_tokens_known": 5945,
+          "estimated_cost": null,
+          "phase_p95_ms": {
+            "queue_ms": 0,
+            "interval_ms": 1995,
+            "provider_ms": 2162,
+            "ttft_ms": null,
+            "tool_ms": null
+          }
+        },
+        "slices": {
+          "dedup": {
+            "samples": 204,
+            "passed": 182,
+            "unknown": 0
+          },
+          "hard_negative": {
+            "samples": 54,
+            "passed": 51,
+            "unknown": 0
+          },
+          "source_pair": {
+            "samples": 150,
+            "passed": 131,
+            "unknown": 0
+          }
+        }
+      },
+      "file_sha256": {
+        "manifest.json": "82d8e0cba5e9456e4f683617390322f904eb2e4dfdca63b8ab4eaa4c67675c5d",
+        "config.json": "80649ab01eae6d68c9c20e1e9fbe8d2b914dc046786fc966f5cb7c680d09ce46",
+        "metrics.json": "20c85929a87cc3ed931f5c023b4c320b54e9af3ca5305dd1cde4d6baed44b432",
+        "gates.json": "9e392861e5a03453650a424c940f032f4e4efecd91358d2367854306acf5b9e7",
+        "predictions.jsonl": "b46c9c7f801c1627f59c385482317c29fc4cb8ab006adf3c380f42512e7dc7b6"
+      }
+    },
+    "retrieval": {
+      "dataset": "data/gold/project-quality-agent-20261005-v4",
+      "freeze_sha256": "f714fc300fb58e511adbba6792652326f7796b8243f9287fe7e526e075f0bba2",
+      "path": "data/reports/project-quality-20261005/retrieval/results/20261005T122718323684Z-0b5fe916",
+      "manifest": {
+        "dataset_version": "project-quality-agent-20261005-v4",
+        "kind": "corpus",
+        "section": "retrieval",
+        "split": "test",
+        "sample_count": 55,
+        "test_count": 55,
+        "human_verified_count": 0,
+        "agent_verified_count": 55,
+        "review_policy": "delegated_agent",
+        "dataset_sha256": "b53b63f52de1b618c6a1eaa60b57fc4c3f340a600fe926af25924f4cad1744af",
+        "predictions_sha256": "e61f46a240a7e87364768e6db0c9aab4eef8aa76ac23419ba91265850b508b69",
+        "alignments_sha256": null,
+        "snapshot": {
+          "corpus_revision": 293,
+          "indexed_revision": 293,
+          "task_annotation_revision": 30,
+          "as_of": "2026-10-05",
+          "task_annotation_policy": "KNOWN"
+        },
+        "run_id": "20261005T122718323684Z-0b5fe916"
+      },
+      "metrics": {
+        "pipelines": {
+          "BM25": {
+            "recall_at_5": 0.497547619047619,
+            "recall_at_10": 0.6277857142857143,
+            "precision_at_10": 0.212,
+            "mrr": 0.7633181818181818,
+            "ndcg_at_10": 0.6184130325176883,
+            "recall_at_10_upper_bound": 1.0,
+            "evaluated_queries": 50,
+            "negative_queries": 5,
+            "negative_correct_empty_rate": 0.2,
+            "failed_queries": 0,
+            "invalid_rankings": 0,
+            "unjudged_results": 2405,
+            "efficiency": {
+              "latency_samples": 55,
+              "p50_ms": 86.54267800739035,
+              "p95_ms": 288.5138500132598,
+              "percentile_method": "nearest_rank",
+              "failed_samples": 0,
+              "model_calls": 0,
+              "observed_model_calls": 0,
+              "telemetry_unavailable_samples": 0,
+              "unknown_usage_calls": 0,
+              "input_tokens_known": 0,
+              "output_tokens_known": 0,
+              "estimated_cost": null,
+              "phase_p95_ms": {
+                "queue_ms": 0,
+                "interval_ms": 0,
+                "provider_ms": 0,
+                "ttft_ms": null,
+                "tool_ms": null
+              },
+              "latency_scope": "measured stage only; shared query embedding recorded once in top-level observations",
+              "shared_embedding_samples": 55
+            }
+          },
+          "DENSE": {
+            "recall_at_5": 0.6954523809523809,
+            "recall_at_10": 0.8125238095238095,
+            "precision_at_10": 0.296,
+            "mrr": 1.0,
+            "ndcg_at_10": 0.8830557155145822,
+            "recall_at_10_upper_bound": 1.0,
+            "evaluated_queries": 50,
+            "negative_queries": 5,
+            "negative_correct_empty_rate": 0,
+            "failed_queries": 0,
+            "invalid_rankings": 0,
+            "unjudged_results": 2566,
+            "efficiency": {
+              "latency_samples": 55,
+              "p50_ms": 58.20022098487243,
+              "p95_ms": 120.8958660135977,
+              "percentile_method": "nearest_rank",
+              "failed_samples": 0,
+              "model_calls": 0,
+              "observed_model_calls": 0,
+              "telemetry_unavailable_samples": 0,
+              "unknown_usage_calls": 0,
+              "input_tokens_known": 0,
+              "output_tokens_known": 0,
+              "estimated_cost": null,
+              "phase_p95_ms": {
+                "queue_ms": 0,
+                "interval_ms": 0,
+                "provider_ms": 0,
+                "ttft_ms": null,
+                "tool_ms": null
+              },
+              "latency_scope": "measured stage only; shared query embedding recorded once in top-level observations",
+              "shared_embedding_samples": 55
+            }
+          },
+          "HYBRID": {
+            "recall_at_5": 0.6246190476190476,
+            "recall_at_10": 0.7464761904761905,
+            "precision_at_10": 0.262,
+            "mrr": 0.9166666666666666,
+            "ndcg_at_10": 0.7780966053934277,
+            "recall_at_10_upper_bound": 1.0,
+            "evaluated_queries": 50,
+            "negative_queries": 5,
+            "negative_correct_empty_rate": 0,
+            "failed_queries": 0,
+            "invalid_rankings": 0,
+            "unjudged_results": 2568,
+            "efficiency": {
+              "latency_samples": 55,
+              "p50_ms": 93.45047199167311,
+              "p95_ms": 226.808589999564,
+              "percentile_method": "nearest_rank",
+              "failed_samples": 0,
+              "model_calls": 0,
+              "observed_model_calls": 0,
+              "telemetry_unavailable_samples": 0,
+              "unknown_usage_calls": 0,
+              "input_tokens_known": 0,
+              "output_tokens_known": 0,
+              "estimated_cost": null,
+              "phase_p95_ms": {
+                "queue_ms": 0,
+                "interval_ms": 0,
+                "provider_ms": 0,
+                "ttft_ms": null,
+                "tool_ms": null
+              },
+              "latency_scope": "measured stage only; shared query embedding recorded once in top-level observations",
+              "shared_embedding_samples": 55
+            }
+          },
+          "HYBRID_RERANK": {
+            "recall_at_5": 0.7840238095238096,
+            "recall_at_10": 0.8302619047619048,
+            "precision_at_10": 0.308,
+            "mrr": 1.0,
+            "ndcg_at_10": 0.925043064648624,
+            "recall_at_10_upper_bound": 1.0,
+            "evaluated_queries": 50,
+            "negative_queries": 5,
+            "negative_correct_empty_rate": 1,
+            "failed_queries": 0,
+            "invalid_rankings": 0,
+            "unjudged_results": 150,
+            "efficiency": {
+              "latency_samples": 55,
+              "p50_ms": 11308.406210009707,
+              "p95_ms": 12241.261837014463,
+              "percentile_method": "nearest_rank",
+              "failed_samples": 0,
+              "model_calls": 55,
+              "observed_model_calls": 55,
+              "telemetry_unavailable_samples": 0,
+              "unknown_usage_calls": 0,
+              "input_tokens_known": 118810,
+              "output_tokens_known": 41030,
+              "estimated_cost": null,
+              "phase_p95_ms": {
+                "queue_ms": 0,
+                "interval_ms": 1803,
+                "provider_ms": 10467,
+                "ttft_ms": null,
+                "tool_ms": null
+              },
+              "latency_scope": "measured stage only; shared query embedding recorded once in top-level observations",
+              "shared_embedding_samples": 55
+            }
+          }
+        },
+        "efficiency": {
+          "latency_samples": 55,
+          "p50_ms": 14075.234982999973,
+          "p95_ms": 15140.170208993368,
+          "percentile_method": "nearest_rank",
+          "failed_samples": 0,
+          "model_calls": 110,
+          "observed_model_calls": 110,
+          "telemetry_unavailable_samples": 0,
+          "unknown_usage_calls": 0,
+          "input_tokens_known": 120868,
+          "output_tokens_known": 41030,
+          "estimated_cost": null,
+          "phase_p95_ms": {
+            "queue_ms": 0,
+            "interval_ms": 3769,
+            "provider_ms": 11143,
+            "ttft_ms": null,
+            "tool_ms": null
+          }
+        },
+        "slices": {
+          "api-idempotence": {
+            "samples": 4,
+            "passed": 4,
+            "unknown": 0
+          },
+          "bloom-persistence": {
+            "samples": 4,
+            "passed": 4,
+            "unknown": 0
+          },
+          "bloom-principle": {
+            "samples": 4,
+            "passed": 4,
+            "unknown": 0
+          },
+          "bloom-size": {
+            "samples": 4,
+            "passed": 4,
+            "unknown": 0
+          },
+          "bplus-delete-space": {
+            "samples": 4,
+            "passed": 4,
+            "unknown": 0
+          },
+          "bplus-rationale": {
+            "samples": 4,
+            "passed": 4,
+            "unknown": 0
+          },
+          "bplus-weakness": {
+            "samples": 4,
+            "passed": 4,
+            "unknown": 0
+          },
+          "circuit-breaker": {
+            "samples": 4,
+            "passed": 4,
+            "unknown": 0
+          },
+          "cms-phases": {
+            "samples": 4,
+            "passed": 4,
+            "unknown": 0
+          },
+          "consistent-hash": {
+            "samples": 4,
+            "passed": 4,
+            "unknown": 0
+          },
+          "deadlock-code": {
+            "samples": 4,
+            "passed": 4,
+            "unknown": 0
+          },
+          "deadlock-conditions": {
+            "samples": 4,
+            "passed": 4,
+            "unknown": 0
+          },
+          "deadlock-prevention": {
+            "samples": 4,
+            "passed": 4,
+            "unknown": 0
+          },
+          "force-index": {
+            "samples": 4,
+            "passed": 4,
+            "unknown": 0
+          },
+          "fullgc-investigation": {
+            "samples": 4,
+            "passed": 4,
+            "unknown": 0
+          },
+          "future-executor": {
+            "samples": 4,
+            "passed": 4,
+            "unknown": 0
+          },
+          "g1-cms": {
+            "samples": 4,
+            "passed": 4,
+            "unknown": 0
+          },
+          "g1-pause": {
+            "samples": 4,
+            "passed": 4,
+            "unknown": 0
+          },
+          "gc-reachable": {
+            "samples": 4,
+            "passed": 4,
+            "unknown": 0
+          },
+          "gc-roots": {
+            "samples": 4,
+            "passed": 4,
+            "unknown": 0
+          },
+          "global-rate": {
+            "samples": 4,
+            "passed": 4,
+            "unknown": 0
+          },
+          "index-unusable": {
+            "samples": 4,
+            "passed": 4,
+            "unknown": 0
+          },
+          "kafka-idempotence": {
+            "samples": 4,
+            "passed": 4,
+            "unknown": 0
+          },
+          "lock-alternatives": {
+            "samples": 4,
+            "passed": 4,
+            "unknown": 0
+          },
+          "lock-holder-crash": {
+            "samples": 4,
+            "passed": 4,
+            "unknown": 0
+          },
+          "lock-ownership": {
+            "samples": 4,
+            "passed": 4,
+            "unknown": 0
+          },
+          "lru-implementation": {
+            "samples": 4,
+            "passed": 3,
+            "unknown": 0
+          },
+          "mvcc-versions": {
+            "samples": 4,
+            "passed": 4,
+            "unknown": 0
+          },
+          "negative": {
+            "samples": 20,
+            "passed": 6,
+            "unknown": 0
+          },
+          "pool-caller-runs": {
+            "samples": 4,
+            "passed": 4,
+            "unknown": 0
+          },
+          "pool-params": {
+            "samples": 4,
+            "passed": 4,
+            "unknown": 0
+          },
+          "pool-queue-concurrency": {
+            "samples": 4,
+            "passed": 4,
+            "unknown": 0
+          },
+          "pool-reject": {
+            "samples": 4,
+            "passed": 4,
+            "unknown": 0
+          },
+          "pool-submit": {
+            "samples": 4,
+            "passed": 4,
+            "unknown": 0
+          },
+          "pool-tuning": {
+            "samples": 4,
+            "passed": 4,
+            "unknown": 0
+          },
+          "rate-algorithms": {
+            "samples": 4,
+            "passed": 4,
+            "unknown": 0
+          },
+          "rate-dimensions": {
+            "samples": 4,
+            "passed": 4,
+            "unknown": 0
+          },
+          "readview-time": {
+            "samples": 4,
+            "passed": 4,
+            "unknown": 0
+          },
+          "redis-lock": {
+            "samples": 4,
+            "passed": 4,
+            "unknown": 0
+          },
+          "redis-lru": {
+            "samples": 4,
+            "passed": 4,
+            "unknown": 0
+          },
+          "retrieval": {
+            "samples": 200,
+            "passed": 198,
+            "unknown": 0
+          },
+          "singleton-safe": {
+            "samples": 4,
+            "passed": 4,
+            "unknown": 0
+          },
+          "tcp-close": {
+            "samples": 4,
+            "passed": 4,
+            "unknown": 0
+          },
+          "tcp-close-merge": {
+            "samples": 4,
+            "passed": 4,
+            "unknown": 0
+          },
+          "tcp-syn-rationale": {
+            "samples": 4,
+            "passed": 4,
+            "unknown": 0
+          },
+          "tcp-third-data": {
+            "samples": 4,
+            "passed": 3,
+            "unknown": 0
+          },
+          "threadlocal-leak": {
+            "samples": 4,
+            "passed": 4,
+            "unknown": 0
+          },
+          "tls-handshake": {
+            "samples": 4,
+            "passed": 4,
+            "unknown": 0
+          },
+          "transaction-isolation": {
+            "samples": 4,
+            "passed": 4,
+            "unknown": 0
+          },
+          "unbounded-queue": {
+            "samples": 4,
+            "passed": 4,
+            "unknown": 0
+          },
+          "volatile-visibility": {
+            "samples": 4,
+            "passed": 4,
+            "unknown": 0
+          },
+          "zero-copy": {
+            "samples": 4,
+            "passed": 4,
+            "unknown": 0
+          }
+        }
+      },
+      "file_sha256": {
+        "manifest.json": "cd9ba13c26784f0742929232f47ea0de268c2e924721bad1d3dfdc9901540e4b",
+        "config.json": "cbe27e766c1f96bbd5dc2ee9efa393945ef878929b6996aa3b62c2977b473b1e",
+        "metrics.json": "53b44dd0a100665ab45e77640f303bd3133f919b5c2cd7982ac2b7029a6b4153",
+        "gates.json": "1f339a5b39807f9f69ad751074cb6dd2401b7ced60b70f2cdb9b94ef1bc9e6d9",
+        "predictions.jsonl": "e61f46a240a7e87364768e6db0c9aab4eef8aa76ac23419ba91265850b508b69"
+      }
+    },
+    "routing": {
+      "dataset": "data/gold/project-quality-agent-20261005-v5",
+      "freeze_sha256": "8039166346371500db2aa119e2dd1f0fabaefde56a7da4eedb56cecd9b2075dd",
+      "path": "data/reports/project-quality-20261005-gold-v5/routing/results/20261005T173010291230Z-3356a7f6",
+      "manifest": {
+        "dataset_version": "project-quality-agent-20261005-v5",
+        "kind": "corpus",
+        "section": "routing",
+        "split": "test",
+        "sample_count": 50,
+        "test_count": 50,
+        "human_verified_count": 0,
+        "agent_verified_count": 50,
+        "review_policy": "delegated_agent",
+        "dataset_sha256": "b8b0e0799b39a0eda65a1c6cbf7af9be0dba1b206a67cdd9a05a1d5622fe123a",
+        "predictions_sha256": "abf4a196ce207a109eb8fc9d194acbe050ec052e430673e943c9948c951f73f2",
+        "alignments_sha256": null,
+        "snapshot": {
+          "corpus_revision": 293,
+          "indexed_revision": 293,
+          "task_annotation_revision": 30,
+          "as_of": "2026-10-05",
+          "task_annotation_policy": "KNOWN"
+        },
+        "run_id": "20261005T173010291230Z-3356a7f6"
+      },
+      "metrics": {
+        "task_success_rate": 0.98,
+        "evaluated_queries": 50,
+        "tool_selection_accuracy": 1,
+        "argument_accuracy": 0.996,
+        "argument_fields": 250,
+        "complete_plan_accuracy": 0.9841269841269841,
+        "unauthorized_write_count": 0,
+        "mean_tool_calls": 1,
+        "unknown_assertions": 0,
+        "efficiency": {
+          "latency_samples": 50,
+          "p50_ms": 6501.255100010894,
+          "p95_ms": 19065.438500023447,
+          "percentile_method": "nearest_rank",
+          "failed_samples": 0,
+          "model_calls": 70,
+          "observed_model_calls": 70,
+          "telemetry_unavailable_samples": 0,
+          "unknown_usage_calls": 0,
+          "input_tokens_known": 432130,
+          "output_tokens_known": 16205,
+          "estimated_cost": null,
+          "phase_p95_ms": {
+            "queue_ms": 1,
+            "interval_ms": 4928,
+            "provider_ms": 12374,
+            "ttft_ms": null,
+            "tool_ms": null
+          }
+        },
+        "slices": {
+          "clarify": {
+            "samples": 3,
+            "passed": 3,
+            "unknown": 0
+          },
+          "inherit": {
+            "samples": 5,
+            "passed": 5,
+            "unknown": 0
+          },
+          "multi_turn": {
+            "samples": 12,
+            "passed": 12,
+            "unknown": 0
+          },
+          "pagination": {
+            "samples": 1,
+            "passed": 1,
+            "unknown": 0
+          },
+          "reference": {
+            "samples": 1,
+            "passed": 1,
+            "unknown": 0
+          },
+          "reset": {
+            "samples": 3,
+            "passed": 3,
+            "unknown": 0
+          },
+          "routing": {
+            "samples": 50,
+            "passed": 49,
+            "unknown": 0
+          },
+          "safety": {
+            "samples": 4,
+            "passed": 4,
+            "unknown": 0
+          },
+          "single_turn": {
+            "samples": 30,
+            "passed": 29,
+            "unknown": 0
+          },
+          "special": {
+            "samples": 5,
+            "passed": 5,
+            "unknown": 0
+          },
+          "write": {
+            "samples": 1,
+            "passed": 1,
+            "unknown": 0
+          }
+        }
+      },
+      "file_sha256": {
+        "manifest.json": "ca61739029476c38bc97aa250799d8e95c7660345e4f70493aa6115cb5a1d206",
+        "config.json": "10d6b3d4056d8599db13e87b5b930aef1cea3be83b9dad7b4ea016742e528951",
+        "metrics.json": "da67522223f73931d1204dbe5939a9804284314c9a7befdbbe7a9098b9f31674",
+        "gates.json": "cecd25a6574e5aa3e331582e3e08606e0c64c1b0db940e6733af4c75a43a887a",
+        "predictions.jsonl": "abf4a196ce207a109eb8fc9d194acbe050ec052e430673e943c9948c951f73f2"
+      }
+    },
+    "sql": {
+      "dataset": "data/gold/project-quality-agent-20261005-v4",
+      "freeze_sha256": "f714fc300fb58e511adbba6792652326f7796b8243f9287fe7e526e075f0bba2",
+      "path": "data/reports/project-quality-20261005/sql/results/20261005T123029246546Z-e1db864e",
+      "manifest": {
+        "dataset_version": "project-quality-agent-20261005-v4",
+        "kind": "corpus",
+        "section": "sql",
+        "split": "test",
+        "sample_count": 20,
+        "test_count": 20,
+        "human_verified_count": 0,
+        "agent_verified_count": 20,
+        "review_policy": "delegated_agent",
+        "dataset_sha256": "b53b63f52de1b618c6a1eaa60b57fc4c3f340a600fe926af25924f4cad1744af",
+        "predictions_sha256": "81d91956c0ae6065d2ead6ab268a053a322dfcc4c6c34815133ff7c129769eea",
+        "alignments_sha256": null,
+        "snapshot": {
+          "corpus_revision": 293,
+          "indexed_revision": 293,
+          "task_annotation_revision": 30,
+          "as_of": "2026-10-05",
+          "task_annotation_policy": "KNOWN"
+        },
+        "run_id": "20261005T123029246546Z-e1db864e"
+      },
+      "metrics": {
+        "task_success_rate": 1,
+        "evaluated_queries": 20,
+        "tool_selection_accuracy": null,
+        "argument_accuracy": null,
+        "argument_fields": 0,
+        "complete_plan_accuracy": null,
+        "unauthorized_write_count": 0,
+        "mean_tool_calls": 1,
+        "unknown_assertions": 0,
+        "efficiency": {
+          "latency_samples": 20,
+          "p50_ms": 160.44946099282242,
+          "p95_ms": 5015.691615000833,
+          "percentile_method": "nearest_rank",
+          "failed_samples": 0,
+          "model_calls": 0,
+          "observed_model_calls": 0,
+          "telemetry_unavailable_samples": 0,
+          "unknown_usage_calls": 0,
+          "input_tokens_known": 0,
+          "output_tokens_known": 0,
+          "estimated_cost": null,
+          "phase_p95_ms": {
+            "queue_ms": null,
+            "interval_ms": null,
+            "provider_ms": null,
+            "ttft_ms": null,
+            "tool_ms": 5006.83
+          }
+        },
+        "slices": {
+          "full_pagination": {
+            "samples": 20,
+            "passed": 20,
+            "unknown": 0
+          },
+          "sql": {
+            "samples": 20,
+            "passed": 20,
+            "unknown": 0
+          }
+        }
+      },
+      "file_sha256": {
+        "manifest.json": "c9d58b4fc1ace6e860ef71156df304c107bbc8f145997eb393f2b2e0b2c1fb37",
+        "config.json": "1be61aa893cc2f325655f98e255d088873f70fa69fae0b6632148513632899a3",
+        "metrics.json": "c5b3e86744a03f6cbe629baf85f13f84379cea20d80cc85517ac434a21e90495",
+        "gates.json": "a57ee32371307c449e0628d3af7f77797f54c9e6a7a26ee9ee47955d4b7dc9dc",
+        "predictions.jsonl": "81d91956c0ae6065d2ead6ab268a053a322dfcc4c6c34815133ff7c129769eea"
+      }
+    }
+  },
+  "routing_v4_baseline": {
+    "path": "data/reports/project-quality-20261005-gold-v5/routing/results/20261005T124744265147Z-eeff2b43",
+    "manifest": {
+      "dataset_version": "project-quality-agent-20261005-v5",
+      "kind": "corpus",
+      "section": "routing",
+      "split": "test",
+      "sample_count": 50,
+      "test_count": 50,
+      "human_verified_count": 0,
+      "agent_verified_count": 50,
+      "review_policy": "delegated_agent",
+      "dataset_sha256": "b8b0e0799b39a0eda65a1c6cbf7af9be0dba1b206a67cdd9a05a1d5622fe123a",
+      "predictions_sha256": "f55212e47e63ec5c7067a47dda63af483217e6e9a664f67ebdb5f7b60a003d16",
+      "alignments_sha256": null,
+      "snapshot": {
+        "corpus_revision": 293,
+        "indexed_revision": 293,
+        "task_annotation_revision": 30,
+        "as_of": "2026-10-05",
+        "task_annotation_policy": "KNOWN"
+      },
+      "run_id": "20261005T124744265147Z-eeff2b43"
+    },
+    "metrics": {
+      "task_success_rate": 0.84,
+      "evaluated_queries": 50,
+      "tool_selection_accuracy": 0.9682539682539683,
+      "argument_accuracy": 0.988,
+      "argument_fields": 250,
+      "complete_plan_accuracy": 0.9523809523809523,
+      "unauthorized_write_count": 0,
+      "mean_tool_calls": 0.9682539682539683,
+      "unknown_assertions": 4,
+      "efficiency": {
+        "latency_samples": 50,
+        "p50_ms": 6209.584528987762,
+        "p95_ms": 13032.121876982274,
+        "percentile_method": "nearest_rank",
+        "failed_samples": 2,
+        "model_calls": 70,
+        "observed_model_calls": 70,
+        "telemetry_unavailable_samples": 0,
+        "unknown_usage_calls": 0,
+        "input_tokens_known": 399764,
+        "output_tokens_known": 14567,
+        "estimated_cost": null,
+        "phase_p95_ms": {
+          "queue_ms": 0,
+          "interval_ms": 3575,
+          "provider_ms": 9041,
+          "ttft_ms": null,
+          "tool_ms": null
+        }
+      },
+      "slices": {
+        "clarify": {
+          "samples": 3,
+          "passed": 0,
+          "unknown": 0
+        },
+        "inherit": {
+          "samples": 5,
+          "passed": 5,
+          "unknown": 0
+        },
+        "multi_turn": {
+          "samples": 12,
+          "passed": 10,
+          "unknown": 0
+        },
+        "pagination": {
+          "samples": 1,
+          "passed": 1,
+          "unknown": 0
+        },
+        "reference": {
+          "samples": 1,
+          "passed": 1,
+          "unknown": 0
+        },
+        "reset": {
+          "samples": 3,
+          "passed": 1,
+          "unknown": 0
+        },
+        "routing": {
+          "samples": 50,
+          "passed": 42,
+          "unknown": 0
+        },
+        "safety": {
+          "samples": 4,
+          "passed": 1,
+          "unknown": 0
+        },
+        "single_turn": {
+          "samples": 30,
+          "passed": 27,
+          "unknown": 0
+        },
+        "special": {
+          "samples": 5,
+          "passed": 5,
+          "unknown": 0
+        },
+        "write": {
+          "samples": 1,
+          "passed": 1,
+          "unknown": 0
+        }
+      }
+    },
+    "file_sha256": {
+      "manifest.json": "d756247f1090821f84e61da4a9933320d87239873a2d8139b342370ad07f8ac1",
+      "config.json": "0f2f2752e539912c3af07fccc3b52176a3451a8907e8686e72174c759e034dfe",
+      "metrics.json": "565be68dc2f2af04ab70f384ade7eedb1c92153d813dee154689987279f0edcc",
+      "gates.json": "fd2eccd643b8c294448f7b5cc30b6cc0c513f8d67aafe61fb056b12dcb42272f",
+      "predictions.jsonl": "f55212e47e63ec5c7067a47dda63af483217e6e9a664f67ebdb5f7b60a003d16"
+    }
+  },
+  "dedup_v6_baseline": {
+    "path": "data/reports/project-quality-20261006/dedup/results/20261005T174731577088Z-fb207dbd",
+    "manifest": {
+      "dataset_version": "project-quality-agent-20261005-v6",
+      "kind": "corpus",
+      "section": "dedup",
+      "split": "test",
+      "sample_count": 204,
+      "test_count": 204,
+      "human_verified_count": 0,
+      "agent_verified_count": 204,
+      "review_policy": "delegated_agent",
+      "dataset_sha256": "3d1f8d39766d7a8211ec94268e48534a896bb5c7dd6dcabed5175b8fbaa6fe9b",
+      "predictions_sha256": "b46c9c7f801c1627f59c385482317c29fc4cb8ab006adf3c380f42512e7dc7b6",
+      "alignments_sha256": null,
+      "snapshot": {
+        "corpus_revision": 293,
+        "indexed_revision": 293,
+        "task_annotation_revision": 30,
+        "as_of": "2026-10-05",
+        "task_annotation_policy": "KNOWN"
+      },
+      "run_id": "20261005T174731577088Z-fb207dbd"
+    },
+    "metrics": {
+      "tp": 125,
+      "fp": 15,
+      "fn": 4,
+      "precision": 0.8928571428571429,
+      "recall": 0.9689922480620154,
+      "f1": 0.929368029739777,
+      "accuracy": 0.8921568627450981,
+      "macro_f1": 0.8660454732732141,
+      "per_class": {
+        "DIFFERENT": {
+          "tp": 29,
+          "fp": 1,
+          "fn": 2,
+          "precision": 0.9666666666666667,
+          "recall": 0.9354838709677419,
+          "f1": 0.9508196721311475
+        },
+        "RELATED": {
+          "tp": 28,
+          "fp": 6,
+          "fn": 16,
+          "precision": 0.8235294117647058,
+          "recall": 0.6363636363636364,
+          "f1": 0.717948717948718
+        },
+        "SAME": {
+          "tp": 125,
+          "fp": 15,
+          "fn": 4,
+          "precision": 0.8928571428571429,
+          "recall": 0.9689922480620154,
+          "f1": 0.929368029739777
+        }
+      },
+      "evaluated_samples": 204,
+      "confusion": {
+        "SAME": {
+          "SAME": 125,
+          "RELATED": 4
+        },
+        "RELATED": {
+          "SAME": 15,
+          "RELATED": 28,
+          "DIFFERENT": 1
+        },
+        "DIFFERENT": {
+          "RELATED": 2,
+          "DIFFERENT": 29
+        }
+      },
+      "candidate_same_samples": 0,
+      "same_gold_samples": 129,
+      "candidate_metrics_status": "NOT_RUN",
+      "embedding_threshold_baseline": "NOT_RUN",
+      "candidate_observation_coverage": 0.0,
+      "candidate_recall_at_10": null,
+      "end_to_end_same_recall": null,
+      "failed_samples": 0,
+      "efficiency": {
+        "latency_samples": 204,
+        "p50_ms": 3416.315794980619,
+        "p95_ms": 4163.282973982859,
+        "percentile_method": "nearest_rank",
+        "failed_samples": 0,
+        "model_calls": 204,
+        "observed_model_calls": 204,
+        "telemetry_unavailable_samples": 0,
+        "unknown_usage_calls": 0,
+        "input_tokens_known": 154615,
+        "output_tokens_known": 5945,
+        "estimated_cost": null,
+        "phase_p95_ms": {
+          "queue_ms": 0,
+          "interval_ms": 1995,
+          "provider_ms": 2162,
+          "ttft_ms": null,
+          "tool_ms": null
+        }
+      },
+      "slices": {
+        "dedup": {
+          "samples": 204,
+          "passed": 182,
+          "unknown": 0
+        },
+        "hard_negative": {
+          "samples": 54,
+          "passed": 51,
+          "unknown": 0
+        },
+        "source_pair": {
+          "samples": 150,
+          "passed": 131,
+          "unknown": 0
+        }
+      }
+    },
+    "file_sha256": {
+      "manifest.json": "82d8e0cba5e9456e4f683617390322f904eb2e4dfdca63b8ab4eaa4c67675c5d",
+      "config.json": "80649ab01eae6d68c9c20e1e9fbe8d2b914dc046786fc966f5cb7c680d09ce46",
+      "metrics.json": "20c85929a87cc3ed931f5c023b4c320b54e9af3ca5305dd1cde4d6baed44b432",
+      "gates.json": "9e392861e5a03453650a424c940f032f4e4efecd91358d2367854306acf5b9e7",
+      "predictions.jsonl": "b46c9c7f801c1627f59c385482317c29fc4cb8ab006adf3c380f42512e7dc7b6"
+    }
+  },
+  "supporting_artifacts": {
+    "routing.regression.v4-to-v6.json": {
+      "path": "data/reports/resume-quality-workbench-20261005-v1/routing.regression.v4-to-v6.json",
+      "sha256": "fdbd631032f9bf239aa13224237cf1d3a112a5be2ccc51384bb10de560d774b5"
+    },
+    "dedup.regression.v6-to-v8.json": {
+      "path": "data/reports/resume-quality-workbench-20261005-v1/dedup.regression.v6-to-v8.json",
+      "sha256": "96085edf3c82cb455258a25a253bd9a8e27d97b6585ea7a33dbbac61aa50cc4b"
+    },
+    "dedup-candidates.v2.json": {
+      "path": "data/reports/resume-quality-workbench-20261005-v1/dedup-candidates.v2.json",
+      "sha256": "1613a920a373d8978100e684d070f7724258fd2462fb31400a676156ba5b5c2b"
+    },
+    "qwen.calibration.v5.json": {
+      "path": "data/reports/resume-quality-workbench-20261005-v1/qwen.calibration.v5.json",
+      "sha256": "a5ad9405f34532db952845580fa5f41d4718810728cfd94abebdccf171381f4d"
+    },
+    "qwen.validation.v5.json": {
+      "path": "data/reports/resume-quality-workbench-20261005-v1/qwen.validation.v5.json",
+      "sha256": "c77007867ae9aa5922ae0579ad4df6ac3a0524d77db6593a81e0fb4b8fb0cddb"
+    },
+    "qwen.calibration60.v5.json": {
+      "path": "data/reports/resume-quality-workbench-20261005-v1/qwen.calibration60.v5.json",
+      "sha256": "6748caea7d6009d31a36ac7d92d6c6b5ad545b6562f4fa95dfba18078ada79ab"
+    },
+    "qwen.test50.v5.json": {
+      "path": "data/reports/resume-quality-workbench-20261005-v1/qwen.test50.v5.json",
+      "sha256": "cbd094a614601c76abfcdb61672a8a7c045d93a5aa621c065af0a5cf0b4d1ae0"
+    },
+    "fast-e2e.baseline.v1.jsonl": {
+      "path": "data/reports/resume-quality-workbench-20261005-v1/fast-e2e.baseline.v1.jsonl",
+      "sha256": "05bbe90746bcf1ac55b1bdfd42060611ebf131b556d017772dba7a6884de3946"
+    },
+    "fast-e2e.fallback.v1.jsonl": {
+      "path": "data/reports/resume-quality-workbench-20261005-v1/fast-e2e.fallback.v1.jsonl",
+      "sha256": "668f7bdd3a8fd1f3ae11dfa5f8a8f1e5af39b18d0f107dbf086965c68ea95462"
+    },
+    "fast-e2e.summary.v1.json": {
+      "path": "data/reports/resume-quality-workbench-20261005-v1/fast-e2e.summary.v1.json",
+      "sha256": "8600e7ab6bbcd661ff24532a885dfd9ef03102729b4f9deeea9a77e0262d4374"
+    },
+    "fast-e2e.regression.v1.json": {
+      "path": "data/reports/resume-quality-workbench-20261005-v1/fast-e2e.regression.v1.json",
+      "sha256": "4320a8dbcd5a1d30dac5a41acaa84bfe5488ad3acceb4f300e7165274f309c07"
+    },
+    "deployment.v1.json": {
+      "path": "data/reports/resume-quality-workbench-20261005-v1/deployment.v1.json",
+      "sha256": "d816b9e293392bd5f4ff3cc47b8f7cfd53299b6d7d5fb464aa82f7adcf933515"
+    }
+  },
+  "ann": {
+    "kind": "cached_vector_candidate_recall",
+    "snapshot": {
+      "corpus_revision": 293,
+      "indexed_revision": 293,
+      "task_annotation_revision": 30,
+      "as_of": "2026-10-05",
+      "task_annotation_policy": "KNOWN"
+    },
+    "embedding_version": "doubao-embedding-vision:1024:instructions_v2",
+    "items": 2668,
+    "vector_digest": "20545cbf492305b8df22b7091090aa452ceb7a7acb1825988e34b99afd4c6053",
+    "ann_index": "interview_questions_r293_search_v1_jieba_whitespace_45a1d288",
+    "cold_head_refresh_ms": 457.2007810056675,
+    "seed": 20261005,
+    "sample_count": 60,
+    "mean_candidate_recall_at_10": 1.0,
+    "python_exact_in_memory": {
+      "n": 60,
+      "p50_ms": 259.9577654909808,
+      "p95_ms": 330.1132104446878
+    },
+    "vectorized_exact_in_memory": {
+      "n": 60,
+      "p50_ms": 56.52305850526318,
+      "p95_ms": 223.41323735163306
+    },
+    "hnsw_plus_exact_delta_and_rerank": {
+      "n": 60,
+      "p50_ms": 39.72321249602828,
+      "p95_ms": 114.16722382855355
+    },
+    "limitations": [
+      "Cached canonical vectors; no incoming paraphrase embeddings or semantic judge measured",
+      "Exact memory load and ANN HTTP time are included; bulk DB fetch is excluded from every measured loop",
+      "One real 2668-item corpus, warm caches, one worker; not a large-corpus scale claim"
+    ]
+  },
+  "fast_decision": {
+    "calibration": {
+      "threshold": null,
+      "samples": 60,
+      "accepted_samples": 0,
+      "accepted_errors": 0,
+      "accepted_coverage": 0.0,
+      "accepted_precision": null,
+      "typed_correct": 18,
+      "typed_accuracy": 0.3,
+      "provider_failures": 23,
+      "router_p50_ms": 4143.989601987414,
+      "router_p95_ms": 5505.151288991328,
+      "router_calls": 60,
+      "budget": {
+        "max_calls": 60,
+        "max_tokens": 3932160,
+        "charged_calls": 60,
+        "charged_tokens": 48574
+      },
+      "frontier_call_savings_verified": false,
+      "end_to_end_status": "NOT_RUN",
+      "note": "Router timings include the shared gate and network. They are not complete query timings."
+    },
+    "calibration_curve": [
+      {
+        "threshold": 0.5,
+        "samples": 60,
+        "accepted_samples": 29,
+        "accepted_errors": 19,
+        "accepted_coverage": 0.48333333333333334,
+        "accepted_precision": 0.3448275862068966
+      },
+      {
+        "threshold": 0.7,
+        "samples": 60,
+        "accepted_samples": 29,
+        "accepted_errors": 19,
+        "accepted_coverage": 0.48333333333333334,
+        "accepted_precision": 0.3448275862068966
+      },
+      {
+        "threshold": 0.8,
+        "samples": 60,
+        "accepted_samples": 29,
+        "accepted_errors": 19,
+        "accepted_coverage": 0.48333333333333334,
+        "accepted_precision": 0.3448275862068966
+      },
+      {
+        "threshold": 0.85,
+        "samples": 60,
+        "accepted_samples": 29,
+        "accepted_errors": 19,
+        "accepted_coverage": 0.48333333333333334,
+        "accepted_precision": 0.3448275862068966
+      },
+      {
+        "threshold": 0.9,
+        "samples": 60,
+        "accepted_samples": 29,
+        "accepted_errors": 19,
+        "accepted_coverage": 0.48333333333333334,
+        "accepted_precision": 0.3448275862068966
+      },
+      {
+        "threshold": 0.95,
+        "samples": 60,
+        "accepted_samples": 29,
+        "accepted_errors": 19,
+        "accepted_coverage": 0.48333333333333334,
+        "accepted_precision": 0.3448275862068966
+      },
+      {
+        "threshold": 0.97,
+        "samples": 60,
+        "accepted_samples": 29,
+        "accepted_errors": 19,
+        "accepted_coverage": 0.48333333333333334,
+        "accepted_precision": 0.3448275862068966
+      },
+      {
+        "threshold": 0.98,
+        "samples": 60,
+        "accepted_samples": 29,
+        "accepted_errors": 19,
+        "accepted_coverage": 0.48333333333333334,
+        "accepted_precision": 0.3448275862068966
+      },
+      {
+        "threshold": 0.985,
+        "samples": 60,
+        "accepted_samples": 26,
+        "accepted_errors": 17,
+        "accepted_coverage": 0.43333333333333335,
+        "accepted_precision": 0.34615384615384615
+      },
+      {
+        "threshold": 0.99,
+        "samples": 60,
+        "accepted_samples": 20,
+        "accepted_errors": 12,
+        "accepted_coverage": 0.3333333333333333,
+        "accepted_precision": 0.4
+      },
+      {
+        "threshold": 0.9925,
+        "samples": 60,
+        "accepted_samples": 14,
+        "accepted_errors": 9,
+        "accepted_coverage": 0.23333333333333334,
+        "accepted_precision": 0.35714285714285715
+      },
+      {
+        "threshold": 0.995,
+        "samples": 60,
+        "accepted_samples": 3,
+        "accepted_errors": 2,
+        "accepted_coverage": 0.05,
+        "accepted_precision": 0.3333333333333333
+      },
+      {
+        "threshold": 0.9975,
+        "samples": 60,
+        "accepted_samples": 0,
+        "accepted_errors": 0,
+        "accepted_coverage": 0.0,
+        "accepted_precision": null
+      },
+      {
+        "threshold": 0.999,
+        "samples": 60,
+        "accepted_samples": 0,
+        "accepted_errors": 0,
+        "accepted_coverage": 0.0,
+        "accepted_precision": null
+      },
+      {
+        "threshold": 0.9995,
+        "samples": 60,
+        "accepted_samples": 0,
+        "accepted_errors": 0,
+        "accepted_coverage": 0.0,
+        "accepted_precision": null
+      },
+      {
+        "threshold": 1.0,
+        "samples": 60,
+        "accepted_samples": 0,
+        "accepted_errors": 0,
+        "accepted_coverage": 0.0,
+        "accepted_precision": null
+      }
+    ],
+    "artifact": {
+      "schema": "jev_domain_calibration_v1",
+      "status": "NOT_ELIGIBLE",
+      "provider": "local_qwen",
+      "model_revision": "70d244cc86ccca08cf5af4e1e306ecf908b1ad5e",
+      "decision_version": "jev_query_v5_state_bound_paging",
+      "provider_protocol": "typed_json_v1",
+      "service_sha256": "54337b42bf3794413ebcaeb16e1fd5662e9a95b1f1f1646d0721a3fa197fbb0b",
+      "grammar_sha256": "f1b2622b65b73a126fb6da0444a6f2995d4e0499859ac569ba683ed12e840438",
+      "independent_calibration": true,
+      "decision_contract_sha256": "25b39cf47d21ff31450ea943e1989f5b3eff95b8e85656f1cb4a4fb2b94fec62",
+      "calibration_cases_sha256": "3e3c3e405e2d2b67eca0f6a243042000337b2868f7e0ff521173cae192b014b4",
+      "calibration_predictions_sha256": "6748caea7d6009d31a36ac7d92d6c6b5ad545b6562f4fa95dfba18078ada79ab",
+      "threshold": null,
+      "samples": 60,
+      "accepted_samples": 0,
+      "accepted_errors": 0,
+      "accepted_coverage": 0.0,
+      "accepted_precision": null,
+      "production_enabled": false,
+      "rule": "At least 20 accepted with zero observed errors; no guarantee of zero future errors."
+    },
+    "independent_test": {
+      "threshold": null,
+      "samples": 50,
+      "accepted_samples": 0,
+      "accepted_errors": 0,
+      "accepted_coverage": 0.0,
+      "accepted_precision": null,
+      "typed_correct": 10,
+      "typed_accuracy": 0.2,
+      "provider_failures": 16,
+      "router_p50_ms": 4146.560219000094,
+      "router_p95_ms": 5463.523517013527,
+      "router_calls": 50,
+      "budget": {
+        "max_calls": 50,
+        "max_tokens": 3276800,
+        "charged_calls": 50,
+        "charged_tokens": 40454
+      },
+      "frontier_call_savings_verified": false,
+      "end_to_end_status": "NOT_RUN",
+      "note": "Router timings include the shared gate and network. They are not complete query timings."
+    },
+    "release_decision": "disabled until calibration and independent test qualify"
+  },
+  "limitations": [
+    "All row-level human_verified flags remain false; three user field adjudications are recorded separately.",
+    "Retrieval relevance pool is incomplete; unjudged rankings are scored zero.",
+    "Routing and dedup repaired cases are regression data, not independent generalization scores.",
+    "Published extraction/task-label auditing did not rerun historical model inference.",
+    "ANN is one 2668-vector corpus, 60 warm cached probes, stage-only timing; not end-to-end semantic dedup or 10k scale.",
+    "Fast Decision has no qualifying threshold and remains disabled.",
+    "No monetary model unit prices configured; unknown cost is null."
+  ],
+  "dedup_v8_candidate": {
+    "production_enabled": false,
+    "path": "data/reports/project-quality-20261006/dedup/results/20261005T174731251095Z-a29ba109",
+    "manifest": {
+      "dataset_version": "project-quality-agent-20261005-v6",
+      "kind": "corpus",
+      "section": "dedup",
+      "split": "test",
+      "sample_count": 204,
+      "test_count": 204,
+      "human_verified_count": 0,
+      "agent_verified_count": 204,
+      "review_policy": "delegated_agent",
+      "dataset_sha256": "3d1f8d39766d7a8211ec94268e48534a896bb5c7dd6dcabed5175b8fbaa6fe9b",
+      "predictions_sha256": "34fc819e14c03a8105a9dbb641608e2f162bbfd95e9d89da5c818fb98386630d",
+      "alignments_sha256": null,
+      "snapshot": {
+        "corpus_revision": 293,
+        "indexed_revision": 293,
+        "task_annotation_revision": 30,
+        "as_of": "2026-10-05",
+        "task_annotation_policy": "KNOWN"
+      },
+      "run_id": "20261005T174731251095Z-a29ba109"
+    },
+    "metrics": {
+      "tp": 120,
+      "fp": 11,
+      "fn": 9,
+      "precision": 0.916030534351145,
+      "recall": 0.9302325581395349,
+      "f1": 0.9230769230769231,
+      "accuracy": 0.8872549019607843,
+      "macro_f1": 0.8698429263720389,
+      "per_class": {
+        "DIFFERENT": {
+          "tp": 29,
+          "fp": 1,
+          "fn": 2,
+          "precision": 0.9666666666666667,
+          "recall": 0.9354838709677419,
+          "f1": 0.9508196721311475
+        },
+        "RELATED": {
+          "tp": 32,
+          "fp": 11,
+          "fn": 12,
+          "precision": 0.7441860465116279,
+          "recall": 0.7272727272727273,
+          "f1": 0.735632183908046
+        },
+        "SAME": {
+          "tp": 120,
+          "fp": 11,
+          "fn": 9,
+          "precision": 0.916030534351145,
+          "recall": 0.9302325581395349,
+          "f1": 0.9230769230769231
+        }
+      },
+      "evaluated_samples": 204,
+      "confusion": {
+        "SAME": {
+          "SAME": 120,
+          "RELATED": 9
+        },
+        "RELATED": {
+          "RELATED": 32,
+          "SAME": 11,
+          "DIFFERENT": 1
+        },
+        "DIFFERENT": {
+          "RELATED": 2,
+          "DIFFERENT": 29
+        }
+      },
+      "candidate_same_samples": 0,
+      "same_gold_samples": 129,
+      "candidate_metrics_status": "NOT_RUN",
+      "embedding_threshold_baseline": "NOT_RUN",
+      "candidate_observation_coverage": 0.0,
+      "candidate_recall_at_10": null,
+      "end_to_end_same_recall": null,
+      "failed_samples": 0,
+      "efficiency": {
+        "latency_samples": 204,
+        "p50_ms": 7406.326844007708,
+        "p95_ms": 8806.115749001037,
+        "percentile_method": "nearest_rank",
+        "failed_samples": 0,
+        "model_calls": 344,
+        "observed_model_calls": 344,
+        "telemetry_unavailable_samples": 0,
+        "unknown_usage_calls": 0,
+        "input_tokens_known": 251816,
+        "output_tokens_known": 15579,
+        "estimated_cost": null,
+        "phase_p95_ms": {
+          "queue_ms": 0,
+          "interval_ms": 3993,
+          "provider_ms": 4802,
+          "ttft_ms": null,
+          "tool_ms": null
+        }
+      },
+      "slices": {
+        "dedup": {
+          "samples": 204,
+          "passed": 181,
+          "unknown": 0
+        },
+        "hard_negative": {
+          "samples": 54,
+          "passed": 51,
+          "unknown": 0
+        },
+        "source_pair": {
+          "samples": 150,
+          "passed": 130,
+          "unknown": 0
+        }
+      }
+    },
+    "file_sha256": {
+      "manifest.json": "97ca57d3afa0f935aa53b7995188c2077d536a59bf579c9e120f6a76197e5aa8",
+      "config.json": "777d506dd414bd88920c18d2bd2d1aef5df68cd61217ccf4e16a90ad7ea831ab",
+      "metrics.json": "8bf1eb2865657f219121feffda6e03139f6d5d1da4624963738aa9109cce0f20",
+      "gates.json": "d4b57365e821a32ef6c85ece4ac835ea90d6c1cdeb396852130c4867173b9ba6",
+      "predictions.jsonl": "34fc819e14c03a8105a9dbb641608e2f162bbfd95e9d89da5c818fb98386630d"
+    }
+  },
+  "fast_e2e": {
+    "schema": "fast_fallback_e2e_diagnostic_v1",
+    "snapshot": {
+      "corpus_revision": 293,
+      "indexed_revision": 293,
+      "task_annotation_revision": 30,
+      "as_of": "2026-10-05",
+      "task_annotation_policy": "KNOWN"
+    },
+    "dataset": "data/gold/fast-fallback-e2e-agent-20261006-v1",
+    "dataset_sha256": "92037061eee06d328d2a50d196b55266f33fc4edad1fcb24436b5d1a459b6d8c",
+    "scope": "10 already-seen single-turn regression scenarios; sequential paired arms, fresh isolated actors; descriptive small-sample latency",
+    "calibration_artifact_sha256": "a5ad9405f34532db952845580fa5f41d4718810728cfd94abebdccf171381f4d",
+    "calibration_status": "NOT_ELIGIBLE",
+    "baseline": {
+      "report": "data/reports/fast-fallback-e2e-20261006/routing/results/20261005T184520825047Z-def2528a",
+      "metrics": {
+        "task_success_rate": 0.9,
+        "evaluated_queries": 10,
+        "tool_selection_accuracy": 1,
+        "argument_accuracy": 0.9736842105263158,
+        "argument_fields": 38,
+        "complete_plan_accuracy": 0.9,
+        "unauthorized_write_count": 0,
+        "mean_tool_calls": 1,
+        "unknown_assertions": 0,
+        "efficiency": {
+          "latency_samples": 10,
+          "p50_ms": 5824.037248996319,
+          "p95_ms": 7477.279541024473,
+          "percentile_method": "nearest_rank",
+          "failed_samples": 0,
+          "model_calls": 10,
+          "observed_model_calls": 10,
+          "telemetry_unavailable_samples": 0,
+          "unknown_usage_calls": 0,
+          "input_tokens_known": 57092,
+          "output_tokens_known": 2126,
+          "estimated_cost": null,
+          "phase_p95_ms": {
+            "queue_ms": 0,
+            "interval_ms": 1574,
+            "provider_ms": 5487,
+            "ttft_ms": null,
+            "tool_ms": null
+          }
+        },
+        "slices": {
+          "clarify": {
+            "samples": 1,
+            "passed": 1,
+            "unknown": 0
+          },
+          "routing": {
+            "samples": 10,
+            "passed": 9,
+            "unknown": 0
+          },
+          "safety": {
+            "samples": 1,
+            "passed": 1,
+            "unknown": 0
+          },
+          "single_turn": {
+            "samples": 8,
+            "passed": 7,
+            "unknown": 0
+          },
+          "special": {
+            "samples": 1,
+            "passed": 1,
+            "unknown": 0
+          }
+        }
+      },
+      "frontier_calls": 10
+    },
+    "fallback": {
+      "report": "data/reports/fast-fallback-e2e-20261006/routing/results/20261005T184929181694Z-6a40b130",
+      "metrics": {
+        "task_success_rate": 0.9,
+        "evaluated_queries": 10,
+        "tool_selection_accuracy": 1,
+        "argument_accuracy": 0.9736842105263158,
+        "argument_fields": 38,
+        "complete_plan_accuracy": 0.9,
+        "unauthorized_write_count": 0,
+        "mean_tool_calls": 1,
+        "unknown_assertions": 0,
+        "efficiency": {
+          "latency_samples": 10,
+          "p50_ms": 9409.064396983013,
+          "p95_ms": 10100.643478974234,
+          "percentile_method": "nearest_rank",
+          "failed_samples": 0,
+          "model_calls": 20,
+          "observed_model_calls": 20,
+          "telemetry_unavailable_samples": 0,
+          "unknown_usage_calls": 0,
+          "input_tokens_known": 64421,
+          "output_tokens_known": 2900,
+          "estimated_cost": null,
+          "phase_p95_ms": {
+            "queue_ms": 1,
+            "interval_ms": 3535,
+            "provider_ms": 6040,
+            "ttft_ms": null,
+            "tool_ms": null
+          }
+        },
+        "slices": {
+          "clarify": {
+            "samples": 1,
+            "passed": 1,
+            "unknown": 0
+          },
+          "routing": {
+            "samples": 10,
+            "passed": 9,
+            "unknown": 0
+          },
+          "safety": {
+            "samples": 1,
+            "passed": 1,
+            "unknown": 0
+          },
+          "single_turn": {
+            "samples": 8,
+            "passed": 7,
+            "unknown": 0
+          },
+          "special": {
+            "samples": 1,
+            "passed": 1,
+            "unknown": 0
+          }
+        }
+      },
+      "frontier_calls": 10,
+      "router_calls": 10,
+      "fallback_reasons": {
+        "HTTPStatusError": 4,
+        "domain_calibration_required": 6
+      }
+    },
+    "frontier_calls_saved": 0,
+    "median_paired_overhead_ms": 3590.9697394818068,
+    "pairs": [
+      {
+        "id": "routing-alg-list",
+        "baseline_ms": 5608.604010019917,
+        "fallback_ms": 8253.916273999494,
+        "delta_ms": 2645.3122639795765,
+        "baseline_calls": 1,
+        "fallback_calls": 2
+      },
+      {
+        "id": "routing-eng-list",
+        "baseline_ms": 6066.955633985344,
+        "fallback_ms": 9567.10953800939,
+        "delta_ms": 3500.153904024046,
+        "baseline_calls": 1,
+        "fallback_calls": 2
+      },
+      {
+        "id": "routing-sql-list",
+        "baseline_ms": 5546.570207021432,
+        "fallback_ms": 9409.064396983013,
+        "delta_ms": 3862.4941899615806,
+        "baseline_calls": 1,
+        "fallback_calls": 2
+      },
+      {
+        "id": "routing-verbal-list",
+        "baseline_ms": 5626.60043098731,
+        "fallback_ms": 9525.753560999874,
+        "delta_ms": 3899.1531300125644,
+        "baseline_calls": 1,
+        "fallback_calls": 2
+      },
+      {
+        "id": "routing-alg-important",
+        "baseline_ms": 6337.543290981557,
+        "fallback_ms": 9341.095824027434,
+        "delta_ms": 3003.5525330458768,
+        "baseline_calls": 1,
+        "fallback_calls": 2
+      },
+      {
+        "id": "routing-alg-gap",
+        "baseline_ms": 7477.279541024473,
+        "fallback_ms": 10097.2982319945,
+        "delta_ms": 2620.018690970028,
+        "baseline_calls": 1,
+        "fallback_calls": 2
+      },
+      {
+        "id": "routing-tencent-alg",
+        "baseline_ms": 5824.037248996319,
+        "fallback_ms": 9398.053701996105,
+        "delta_ms": 3574.0164529997855,
+        "baseline_calls": 1,
+        "fallback_calls": 2
+      },
+      {
+        "id": "routing-redis-ten",
+        "baseline_ms": 6330.946034984663,
+        "fallback_ms": 10100.643478974234,
+        "delta_ms": 3769.697443989571,
+        "baseline_calls": 1,
+        "fallback_calls": 2
+      },
+      {
+        "id": "routing-special-0",
+        "baseline_ms": 5780.551646021195,
+        "fallback_ms": 9388.474671985023,
+        "delta_ms": 3607.923025963828,
+        "baseline_calls": 1,
+        "fallback_calls": 2
+      },
+      {
+        "id": "routing-missing-scope-1",
+        "baseline_ms": 6044.083752000006,
+        "fallback_ms": 9787.226656015264,
+        "delta_ms": 3743.142904015258,
+        "baseline_calls": 1,
+        "fallback_calls": 2
+      }
+    ],
+    "production_fast_enabled": false,
+    "limits": [
+      "No independent generalization claim; the diagnostic uses seen regressions.",
+      "Zero accepted Fast decisions does not establish quality of accepted decisions.",
+      "No model/unit monetary price; null costs are not zero.",
+      "Arms run sequentially under the shared model lock, not randomized/interleaved load."
+    ]
+  },
+  "local_deployment": {
+    "schema": "local_deployment_receipt_v1",
+    "checked_at_utc": "2026-10-05T18:50:33.065959+00:00",
+    "packaged_code": true,
+    "packaged_file_sha256": {
+      "src/interview_intelligence/agent/harness.py": "99a3b187d85bcc75f18b6e290b16f92cf55e4839b9fd2be6b42ef4b6f5d8e5f7",
+      "src/interview_intelligence/agent/jev.py": "25b39cf47d21ff31450ea943e1989f5b3eff95b8e85656f1cb4a4fb2b94fec62",
+      "src/interview_intelligence/agent/query_service.py": "59be7a1e2e967625c8771377a51f854250443cc89b030e215ae5a4a11d78a523",
+      "src/interview_intelligence/agent/model_gateway.py": "7ebc24861350bea7faff7868c6e54c8b8300a2378abf746ce24ca1c2f6a5da29",
+      "src/interview_intelligence/dedup/candidates.py": "2b4f8431d8f2659f22001cd7365c2401471b1d2b22631c1742b816c058ff6b7d",
+      "src/interview_intelligence/dedup/provider.py": "99fe4ce98306a9dc9aa7a3cddb5f1123da32d25434a59bffb98c7e37b993ed09",
+      "src/interview_intelligence/search/reranker.py": "95d392b96648ccfec83687266e0fe5617dbdb78ed53df4b70bae4db9274da8cb",
+      "prompts/query_agent_v6.md": "0da89edeeb846a1f7c002738ec69330f2e44c6f80553eceb525bbfd49e9ee9e1"
+    },
+    "flags": {
+      "query_compact_context": true,
+      "query_dynamic_tools": true,
+      "jev_decision_enabled": false,
+      "dedup_verify_equivalence": false,
+      "dedup_candidate_backend": "auto",
+      "dedup_ann_min_size": 10000
+    },
+    "health": {
+      "database": "ready",
+      "current_revision": 293,
+      "indexed_revision": 293,
+      "index": "ready",
+      "model_max_in_flight": 1,
+      "model_min_interval_seconds": 2.0,
+      "query_router_enabled": true,
+      "task_filters_enabled": true,
+      "task_annotation_policy": "KNOWN",
+      "pi_agent_enabled": true,
+      "jev_decision_enabled": false,
+      "model": "configured"
+    }
+  },
+  "engineering_checks": {
+    "full_python_suite": {
+      "passed": 359,
+      "skipped": 1,
+      "scope": "Previous full source test run; default ES test skipped"
+    },
+    "pi_and_frontend": {
+      "passed": 16
+    },
+    "latest_release_and_calibration_tests": {
+      "passed": 5
+    },
+    "deployed_source_hashes_matched": 8,
+    "complete_quality_gate_exit_code": 1
+  }
+}

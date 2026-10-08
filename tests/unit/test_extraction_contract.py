@@ -71,6 +71,92 @@ def test_extractor_retries_invalid_result_but_never_accepts_fabricated_quote():
     assert all(item["status"] == "FAILED" for item in calls)
 
 
+def test_title_only_extraction_is_rejected_and_repaired_from_body():
+    mod = importlib.import_module("interview_intelligence.extraction.provider")
+    client, completions = make_client([model_payload("# 字节一面"), model_payload()])
+    calls = []
+    extractor = mod.OpenAICompatibleExtractor(client=client, model="test-model", on_call=calls.append,
+                                              sleep=lambda _: None)
+    result = extractor.extract(text="# 字节一面\nRedis为什么快？", revision_id="r1")
+    assert result.interviews[0].questions[0].raw_question == "Redis为什么快？"
+    assert [c["status"] for c in calls] == ["FAILED", "SUCCEEDED"]
+    assert "EXTRACTION_TITLE_IS_NOT_A_QUESTION" in completions.calls[1]["messages"][-1]["content"]
+
+
+def test_publication_contract_failure_is_repaired_inside_provider_and_counted():
+    mod = importlib.import_module("interview_intelligence.extraction.provider")
+    bad = json.loads(model_payload())
+    bad["interviews"].append(bad["interviews"][0])
+    client, completions = make_client([json.dumps(bad, ensure_ascii=False), model_payload()])
+    calls = []
+    extractor = mod.OpenAICompatibleExtractor(client=client, model="test-model", on_call=calls.append,
+        sleep=lambda _: None)
+    result = extractor.extract(text="# 字节一面\nRedis为什么快？", revision_id="r1")
+    assert len(result.interviews) == 1
+    assert [c["status"] for c in calls] == ["FAILED", "SUCCEEDED"]
+    assert "duplicate local interview ID" in completions.calls[1]["messages"][-1]["content"]
+
+
+def test_explicit_thinking_policy_changes_request_and_stage_cache_identity():
+    mod = importlib.import_module("interview_intelligence.extraction.provider")
+    from interview_intelligence.ingestion.extraction_cache import extraction_config_hash
+    from interview_intelligence.taxonomy import load_taxonomy
+    client, completions = make_client([model_payload()])
+    disabled = mod.OpenAICompatibleExtractor(client=client, model="test-model", thinking_mode="disabled")
+    disabled.extract(text="# 字节一面\nRedis为什么快？", revision_id="r1")
+    assert completions.calls[0]["extra_body"] == {"thinking": {"type": "disabled"}}
+    automatic = mod.OpenAICompatibleExtractor(client=client, model="test-model")
+    assert "thinking" not in automatic.cache_configuration
+    assert extraction_config_hash(disabled, load_taxonomy()) != extraction_config_hash(automatic, load_taxonomy())
+
+
+def test_closed_topic_id_schema_prevents_invalid_pair_and_records_existing_type_policy():
+    mod = importlib.import_module("interview_intelligence.extraction.provider")
+    data = json.loads(model_payload())
+    q = data["interviews"][0]["questions"][0]
+    q.pop("topic_l1"); q.pop("topic_l2")
+    q.update(topic_id="ai.agent", question_type="PRINCIPLE", raw_quote="Agent是什么？",
+             normalized_question="Agent 是什么？")
+    client, completions = make_client([json.dumps(data, ensure_ascii=False)])
+    calls = []
+    extractor = mod.OpenAICompatibleExtractor(client=client, model="test", topic_ids=True, on_call=calls.append)
+    result = extractor.extract(text="# 字节一面\nAgent是什么？", revision_id="r1")
+    question = result.interviews[0].questions[0]
+    assert (question.topic_l1, question.topic_l2, question.question_type.value) == ("AI", "Agent", "AI")
+    schema = completions.calls[0]["response_format"]["json_schema"]["schema"]["$defs"]["DraftQuestion"]
+    assert "topic_l1" not in schema["properties"] and "topic_l2" not in schema["properties"]
+    assert set(schema["properties"]["topic_id"]["enum"]) == set(extractor.taxonomy.leaves)
+    assert calls[0]["type_policy_corrections"][0]["from"] == "PRINCIPLE"
+    assert len(calls[0]["provider_configuration_sha256"]) == 64
+
+
+def test_closed_topic_id_never_accepts_a_fabricated_topic_or_changes_project_type():
+    mod = importlib.import_module("interview_intelligence.extraction.provider")
+    data = json.loads(model_payload())
+    q = data["interviews"][0]["questions"][0]
+    q.pop("topic_l1"); q.pop("topic_l2")
+    q.update(topic_id="algorithm.not_real")
+    client, _ = make_client([json.dumps(data)])
+    extractor = mod.OpenAICompatibleExtractor(client=client, model="test", topic_ids=True, max_attempts=1)
+    with pytest.raises(ValueError, match="unknown topic ID"):
+        extractor.extract(text="# 字节一面\nRedis为什么快？", revision_id="r1")
+    q.update(topic_id="ai.agent", question_type="PROJECT")
+    draft = extractor.parse_draft(json.dumps(data))
+    grounded = extractor._ground(draft, "# 字节一面\nRedis为什么快？", "r1")
+    assert grounded.interviews[0].questions[0].question_type.value == "PROJECT"
+
+
+def test_body_question_repeated_in_title_is_still_eligible_with_correct_quote_index():
+    mod = importlib.import_module("interview_intelligence.extraction.provider")
+    draft = json.loads(model_payload())
+    draft["interviews"][0]["metadata"] = {key: None for key in draft["interviews"][0]["metadata"]}
+    draft["interviews"][0]["questions"][0]["quote_index"] = 1
+    client, _ = make_client([json.dumps(draft, ensure_ascii=False)])
+    extractor = mod.OpenAICompatibleExtractor(client=client, model="test-model", max_attempts=1)
+    result = extractor.extract(text="# Redis为什么快？\nRedis为什么快？", revision_id="r1")
+    assert result.interviews[0].questions[0].source_spans[0].start_line == 2
+
+
 def test_validation_retry_explains_the_actual_grounding_error_and_preserves_source():
     mod = importlib.import_module("interview_intelligence.extraction.provider")
     client, completions = make_client([model_payload("原文没有的问题"), model_payload()])

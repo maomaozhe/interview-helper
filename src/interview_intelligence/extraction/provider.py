@@ -7,6 +7,7 @@ from types import SimpleNamespace
 import json
 import hashlib
 import random
+import re
 import time
 from pathlib import Path
 from typing import Callable, Literal
@@ -21,6 +22,7 @@ from interview_intelligence.contracts import (
 from interview_intelligence.taxonomy import load_taxonomy
 from interview_intelligence.resources import resource_path
 from interview_intelligence.providers.gate import ModelCallGate
+from interview_intelligence.extraction.validation import validate_extraction
 
 
 DEFAULT_PROMPT = resource_path("prompts/extract_question_v2.md")
@@ -107,9 +109,13 @@ class OpenAICompatibleExtractor:
         timeout_seconds: float = 180,
         stream: bool = False,
         max_tokens: int | None = None,
+        thinking_mode: Literal["auto", "enabled", "disabled"] = "auto",
+        topic_ids: bool = False,
     ):
         if max_tokens is not None and (isinstance(max_tokens, bool) or not isinstance(max_tokens, int) or max_tokens <= 0):
             raise ValueError("output token limit must be positive")
+        if thinking_mode not in {"auto", "enabled", "disabled"}:
+            raise ValueError("unsupported extraction thinking mode")
         if client is None:
             if not api_key or not base_url:
                 raise ValueError("model API key and base URL are required")
@@ -120,6 +126,8 @@ class OpenAICompatibleExtractor:
         self.model = model
         self.resolved_model = None
         self.prompt = prompt_path.read_text(encoding="utf-8")
+        if prompt_path.stem.startswith("extract_question_v"):
+            self.version = prompt_path.stem
         self.prompt_hash = hashlib.sha256(self.prompt.encode("utf-8")).hexdigest()
         self.max_attempts = max_attempts
         self.on_call = on_call
@@ -128,13 +136,16 @@ class OpenAICompatibleExtractor:
         self.call_gate = call_gate
         self.stream = stream
         self.max_tokens = max_tokens
+        self.thinking_mode = thinking_mode
+        self.topic_ids = topic_ids
+        self.type_policy_corrections = []
         self.taxonomy = load_taxonomy()
 
     @property
     def cache_configuration(self) -> dict:
         """Effective extraction inputs, excluding credentials and retry state."""
         configuration = {
-            "schema": DraftResult.model_json_schema(),
+            "schema": self.request_schema(),
             "response_format": {"type": "json_schema", "name": "interview_extraction_v1", "strict": True},
             "temperature": 0,
             "stream": self.stream,
@@ -145,16 +156,48 @@ class OpenAICompatibleExtractor:
         }
         if self.max_tokens is not None:
             configuration["max_tokens"] = self.max_tokens
+        if self.thinking_mode != "auto":
+            configuration["thinking"] = {"type": self.thinking_mode}
+        configuration["publication_contract"] = "extraction_validation_v1"
+        configuration["taxonomy_output"] = "closed_topic_ids_v1" if self.topic_ids else "topic_names"
+        configuration["type_policy"] = "ai_knowledge_priority_v1" if self.topic_ids else "model_then_validate"
         return configuration
+
+    def request_schema(self):
+        schema = DraftResult.model_json_schema()
+        if self.topic_ids:
+            question = schema["$defs"]["DraftQuestion"]
+            for name in ("topic_l1", "topic_l2"):
+                question["properties"].pop(name)
+                question["required"].remove(name)
+            question["properties"]["topic_id"] = {"type": "string", "enum": list(self.taxonomy.leaves)}
+            question["required"].append("topic_id")
+        return schema
+
+    def parse_draft(self, content):
+        if not self.topic_ids:
+            return DraftResult.model_validate_json(content)
+        data = json.loads(content)
+        for interview in data.get("interviews", []):
+            for question in interview.get("questions", []):
+                if "topic_id" not in question:
+                    raise ValueError("EXTRACTION_TOPIC_ID_REQUIRED")
+                if "topic_l1" in question or "topic_l2" in question:
+                    raise ValueError("EXTRACTION_TOPIC_NAMES_WITH_IDS")
+                question["topic_l1"], question["topic_l2"] = self.taxonomy.labels(question.pop("topic_id"))
+        return DraftResult.model_validate(data)
 
     def extract(self, *, text: str, revision_id: str) -> ExtractionResult:
         if len(text) > 20_000:
             raise ValueError("INPUT_TOO_LARGE: semantic sectioning required")
-        schema = DraftResult.model_json_schema()
-        topics = "\n".join(f"{l1}: {', '.join(children)}" for l1, children in self.taxonomy.topics.items())
+        schema = self.request_schema()
+        topics = ("\n".join(f"{topic_id}: {l1}/{l2}" for l1, children in self.taxonomy.topics.items()
+                          for l2, topic_id in children.items()) if self.topic_ids else
+                  "\n".join(f"{l1}: {', '.join(children)}" for l1, children in self.taxonomy.topics.items()))
         last_error = None
         correction = None
         for attempt in range(self.max_attempts):
+            self.type_policy_corrections = []
             if self.budget:
                 self.budget.before_call(estimated_input_tokens=(len(text) + len(self.prompt)) // 2)
             started = time.perf_counter()
@@ -165,6 +208,8 @@ class OpenAICompatibleExtractor:
                                         if self.stream else {})
                     if self.max_tokens is not None:
                         response_options["max_tokens"] = self.max_tokens
+                    if self.thinking_mode != "auto":
+                        response_options["extra_body"] = {"thinking": {"type": self.thinking_mode}}
                     response = self.client.chat.completions.create(
                         model=self.model,
                         messages=[
@@ -203,8 +248,12 @@ class OpenAICompatibleExtractor:
                 if getattr(response.choices[0], "finish_reason", None) == "length":
                     raise ValueError("MODEL_OUTPUT_TRUNCATED")
                 content = response.choices[0].message.content
-                draft = DraftResult.model_validate_json(content)
+                self.type_policy_corrections = []
+                draft = self.parse_draft(content)
                 result = self._ground(draft, text, revision_id)
+                # Invalid publication shape must consume the same bounded repair
+                # policy as invalid JSON/quotes, rather than escaping as success.
+                validate_extraction(result, text, revision_id, self.taxonomy)
                 self._record(attempt, started, "SUCCEEDED", usage)
                 return result
             except Exception as error:
@@ -237,10 +286,17 @@ class OpenAICompatibleExtractor:
             "latency_ms": int((time.perf_counter() - started) * 1000),
             "status": status, "retry_count": attempt, "error_code": error_code,
             "error_detail": error_detail,
+            "thinking_mode": self.thinking_mode,
+            "taxonomy_output": "closed_topic_ids_v1" if self.topic_ids else "topic_names",
+            "type_policy_corrections": self.type_policy_corrections.copy(),
+            "provider_configuration_sha256": hashlib.sha256(json.dumps(
+                self.cache_configuration, ensure_ascii=False, sort_keys=True).encode()).hexdigest(),
         })
 
     def _ground(self, draft: DraftResult, text: str, revision_id: str) -> ExtractionResult:
         interviews = []
+        first_content = next(((index, line) for index, line in enumerate(text.splitlines(), 1)
+                              if line.strip()), None)
         for session in draft.interviews:
             metadata = session.metadata.model_dump()
             evidence = {}
@@ -250,13 +306,27 @@ class OpenAICompatibleExtractor:
             questions = []
             for question in session.questions:
                 self.taxonomy.resolve(question.topic_l1, question.topic_l2)
+                question_type = question.question_type
+                if (self.topic_ids and question.evidence_kind == "INTERVIEW_QUESTION"
+                        and question.topic_l1 == "AI"
+                        and question_type in {QuestionType.KNOWLEDGE, QuestionType.PRINCIPLE}):
+                    # Apply the existing domain type-priority rule explicitly;
+                    # retain the original model choice in telemetry for audit.
+                    self.type_policy_corrections.append({"session_id": session.local_id,
+                        "question_id": question.local_id, "from": question_type.value, "to": "AI",
+                        "policy": "ai_knowledge_priority_v1"})
+                    question_type = QuestionType.AI
                 span = _source_span(text, question.raw_quote, revision_id, question.quote_index)
+                if (question.evidence_kind == "INTERVIEW_QUESTION" and first_content
+                        and re.match(r"^\s*#{1,6}\s", first_content[1])
+                        and span.start_line == span.end_line == first_content[0]):
+                    raise ValueError("EXTRACTION_TITLE_IS_NOT_A_QUESTION: inspect the body, not the document title")
                 questions.append(ExtractedQuestion(
                     local_id=question.local_id, raw_question=question.raw_quote,
                     normalized_question=question.normalized_question,
                     source_spans=[span], evidence_kind=question.evidence_kind,
                     confidence=question.confidence, topic_l1=question.topic_l1,
-                    topic_l2=question.topic_l2, question_type=question.question_type,
+                    topic_l2=question.topic_l2, question_type=question_type,
                     response_form=question.response_form, coding_focus=question.coding_focus,
                 ))
             followups = []

@@ -1,0 +1,290 @@
+{
+  "schema": "evaluation_release_gate_v1",
+  "status": "BLOCKED",
+  "snapshot": {
+    "corpus_revision": 293,
+    "indexed_revision": 293,
+    "task_annotation_revision": 30,
+    "as_of": "2026-10-05",
+    "task_annotation_policy": "KNOWN"
+  },
+  "modules": {
+    "extraction": {
+      "status": "BELOW_GATE",
+      "checks": [
+        {
+          "metric": "precision",
+          "value": 0.9406952965235174,
+          "threshold": 0.92,
+          "direction": "min",
+          "status": "PASSED"
+        },
+        {
+          "metric": "recall",
+          "value": 0.9001956947162426,
+          "threshold": 0.88,
+          "direction": "min",
+          "status": "PASSED"
+        },
+        {
+          "metric": "f1",
+          "value": 0.92,
+          "threshold": 0.9,
+          "direction": "min",
+          "status": "PASSED"
+        },
+        {
+          "metric": "metadata_accuracy.company",
+          "value": 0.8064516129032258,
+          "threshold": 0.95,
+          "direction": "min",
+          "status": "BELOW_GATE"
+        },
+        {
+          "metric": "metadata_accuracy.round",
+          "value": 0.75,
+          "threshold": 0.9,
+          "direction": "min",
+          "status": "BELOW_GATE"
+        },
+        {
+          "metric": "matched_attribute_accuracy.topic_l1",
+          "value": 0.782608695652174,
+          "threshold": 0.9,
+          "direction": "min",
+          "status": "BELOW_GATE"
+        },
+        {
+          "metric": "matched_attribute_accuracy.topic_l2",
+          "value": 0.7108695652173913,
+          "threshold": 0.85,
+          "direction": "min",
+          "status": "BELOW_GATE"
+        },
+        {
+          "metric": "null_field_hallucination_count",
+          "value": 1,
+          "threshold": 0,
+          "direction": "max",
+          "status": "BELOW_GATE"
+        },
+        {
+          "metric": "invalid_citation_count",
+          "value": 0,
+          "threshold": 0,
+          "direction": "max",
+          "status": "PASSED"
+        }
+      ],
+      "samples": 32,
+      "review_policy": "delegated_agent",
+      "dataset": "data/gold/evaluation-agent-reviewed-20261005-v5",
+      "report": "data/reports/quality-optimization-20261006/extraction-closed-topics/extraction/results/20261005T225112715936Z-d6cf93d1",
+      "dataset_sha256": "6254ed7fee74aa9204c9593104d9411cb39aabf572c17df2bc50817d4f3407d7",
+      "predictions_sha256": "4936c927710f0b4852dc2e6c9722bb2b3910a721775eece4063f272bb26a0251"
+    },
+    "task_labels": {
+      "status": "BELOW_GATE",
+      "checks": [
+        {
+          "metric": "joint_accuracy",
+          "value": 0.96,
+          "threshold": 0.9,
+          "direction": "min",
+          "status": "PASSED"
+        },
+        {
+          "metric": "predicted_coverage",
+          "value": 0.9848484848484849,
+          "threshold": 0.95,
+          "direction": "min",
+          "status": "PASSED"
+        },
+        {
+          "metric": "coding_focus.per_class.ENGINEERING.precision",
+          "value": 0.5,
+          "threshold": 0.9,
+          "direction": "min",
+          "status": "BELOW_GATE"
+        },
+        {
+          "metric": "coding_focus.per_class.ENGINEERING.recall",
+          "value": 1.0,
+          "threshold": 0.85,
+          "direction": "min",
+          "status": "PASSED"
+        }
+      ],
+      "samples": 200,
+      "review_policy": "delegated_agent",
+      "dataset": "data/gold/task-generalization-agent-20261006-v2",
+      "report": "data/reports/quality-optimization-20261006/filter-metrics/holdout/task_annotation_v6/task_labels/results/20261005T205749217819Z-20eafd0a",
+      "dataset_sha256": "d1672697968579c2d3e652d03b6f0b69c140d3c082d9af312b600a0844328b71",
+      "predictions_sha256": "de9c510ebe0984509654d5db0e4dac12116bee914a3a3a7267544ee046cf19d5"
+    },
+    "dedup": {
+      "status": "BELOW_GATE",
+      "checks": [
+        {
+          "metric": "precision",
+          "value": 0.8928571428571429,
+          "threshold": 0.95,
+          "direction": "min",
+          "status": "BELOW_GATE"
+        },
+        {
+          "metric": "recall",
+          "value": 0.9689922480620154,
+          "threshold": 0.85,
+          "direction": "min",
+          "status": "PASSED"
+        }
+      ],
+      "samples": 204,
+      "review_policy": "delegated_agent",
+      "dataset": "data/gold/project-quality-agent-20261006-v7",
+      "report": "data/reports/quality-optimization-20261006/release-v3/dedup/results/20261005T224352483452Z-bedf0cf2",
+      "dataset_sha256": "0fa817aed3445388ddd5dcd87a32285930d63e682a04309600475311c3afeed2",
+      "predictions_sha256": "b46c9c7f801c1627f59c385482317c29fc4cb8ab006adf3c380f42512e7dc7b6"
+    },
+    "retrieval": {
+      "status": "BELOW_GATE",
+      "checks": [
+        {
+          "metric": "pipelines.HYBRID_RERANK.recall_at_10",
+          "value": 0.6028811188811188,
+          "threshold": 0.85,
+          "direction": "min",
+          "status": "BELOW_GATE"
+        }
+      ],
+      "samples": 55,
+      "review_policy": "delegated_agent",
+      "dataset": "data/gold/project-quality-agent-20261006-v7",
+      "report": "data/reports/quality-optimization-20261006/release-v3/retrieval/results/20261005T224353631300Z-6831c318",
+      "dataset_sha256": "0fa817aed3445388ddd5dcd87a32285930d63e682a04309600475311c3afeed2",
+      "predictions_sha256": "e61f46a240a7e87364768e6db0c9aab4eef8aa76ac23419ba91265850b508b69"
+    },
+    "routing": {
+      "status": "BELOW_GATE",
+      "checks": [
+        {
+          "metric": "tool_selection_accuracy",
+          "value": 0.9714285714285714,
+          "threshold": 0.9,
+          "direction": "min",
+          "status": "PASSED"
+        },
+        {
+          "metric": "argument_accuracy",
+          "value": 0.9776536312849162,
+          "threshold": 0.95,
+          "direction": "min",
+          "status": "PASSED"
+        },
+        {
+          "metric": "task_success_rate",
+          "value": 0.86,
+          "threshold": 0.9,
+          "direction": "min",
+          "status": "BELOW_GATE"
+        },
+        {
+          "metric": "unknown_assertions",
+          "value": 0,
+          "threshold": 0,
+          "direction": "max",
+          "status": "PASSED"
+        },
+        {
+          "metric": "unauthorized_write_count",
+          "value": 0,
+          "threshold": 0,
+          "direction": "max",
+          "status": "PASSED"
+        }
+      ],
+      "samples": 50,
+      "review_policy": "delegated_agent",
+      "dataset": "data/gold/query-generalization-agent-20261006-v1",
+      "report": "data/reports/quality-optimization-20261006/release-v3/routing/results/20261005T231307718995Z-8c393a38",
+      "dataset_sha256": "ecf56064148613893503f37cb5c4760bdb7f47668e7a8a328b927e35fb532640",
+      "predictions_sha256": "ccdfda87a0a57497e2619b88d28fc0336edab50d5ddcf90a9c3c6fa378935901"
+    },
+    "sql": {
+      "status": "PASSED",
+      "checks": [
+        {
+          "metric": "task_success_rate",
+          "value": 1,
+          "threshold": 1.0,
+          "direction": "min",
+          "status": "PASSED"
+        },
+        {
+          "metric": "unknown_assertions",
+          "value": 0,
+          "threshold": 0,
+          "direction": "max",
+          "status": "PASSED"
+        }
+      ],
+      "samples": 20,
+      "review_policy": "delegated_agent",
+      "dataset": "data/gold/project-quality-agent-20261006-v7",
+      "report": "data/reports/quality-optimization-20261006/release-v3/sql/results/20261005T224352880969Z-1eef8574",
+      "dataset_sha256": "0fa817aed3445388ddd5dcd87a32285930d63e682a04309600475311c3afeed2",
+      "predictions_sha256": "81d91956c0ae6065d2ead6ab268a053a322dfcc4c6c34815133ff7c129769eea"
+    }
+  },
+  "required_regressions": {
+    "task-labels-211": {
+      "status": "BELOW_GATE",
+      "checks": [
+        {
+          "metric": "joint_accuracy",
+          "value": 0.9715639810426541,
+          "threshold": 0.9,
+          "direction": "min",
+          "status": "PASSED"
+        },
+        {
+          "metric": "predicted_coverage",
+          "value": 0.995260663507109,
+          "threshold": 0.95,
+          "direction": "min",
+          "status": "PASSED"
+        },
+        {
+          "metric": "coding_focus.per_class.ENGINEERING.precision",
+          "value": 0.8235294117647058,
+          "threshold": 0.9,
+          "direction": "min",
+          "status": "BELOW_GATE"
+        },
+        {
+          "metric": "coding_focus.per_class.ENGINEERING.recall",
+          "value": 1.0,
+          "threshold": 0.85,
+          "direction": "min",
+          "status": "PASSED"
+        }
+      ],
+      "samples": 211,
+      "review_policy": "delegated_agent",
+      "dataset": "data/gold/evaluation-agent-reviewed-20261005-v5",
+      "report": "data/reports/quality-optimization-20261006/filter-metrics/regression/task_annotation_v6/task_labels/results/20261005T205747494395Z-643e0d26",
+      "dataset_sha256": "6254ed7fee74aa9204c9593104d9411cb39aabf572c17df2bc50817d4f3407d7",
+      "predictions_sha256": "c3ac739d7e495426231d6c031ea8d2dac228c945033a83bc813364517ffb076b"
+    }
+  },
+  "blockers": [
+    "extraction",
+    "task_labels",
+    "dedup",
+    "retrieval",
+    "routing",
+    "regression:task-labels-211"
+  ],
+  "scope": "Frozen offline module gates only. Passing does not certify unseen-traffic performance or production capacity."
+}

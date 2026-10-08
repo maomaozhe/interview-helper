@@ -8,6 +8,7 @@ from interview_intelligence.contracts import StrictModel
 from interview_intelligence.domain.models import UserPreference, now_utc
 
 CHOICES = {
+    "design_domain": {"AGENT","BUSINESS_SYSTEM","PRODUCTION_TROUBLESHOOTING","ALL"},
     "coding_focus": {"ENGINEERING","ALGORITHM","MIXED"},
     "language": {"JAVA","PYTHON","CPP","GO","JAVASCRIPT","TYPESCRIPT"},
     "job_family": {"BACKEND","AI_APPLICATION","ALGORITHM","OTHER"},
@@ -42,7 +43,8 @@ class PreferenceService:
             p=s.get(UserPreference,(self.user_id,key))
             return self._view(p) if p and not p.deleted else {"key":key,"value":None,"version":p.version if p else 0,"active":False}
     def defaults(self):
-        return {p["key"]:p["value"] for p in self.list() if p["active"]}
+        return {p["key"]:p["value"] for p in self.list()
+                if p["active"] and (p["key"] in CHOICES or p["key"] == "page_size")}
     def update(self,key,request):
         for attempt in range(2):
             try: return self._update(key,request)

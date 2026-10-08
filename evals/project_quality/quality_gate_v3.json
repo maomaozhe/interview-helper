@@ -1,0 +1,13 @@
+{
+  "version": "quality_gate_v3",
+  "policy": "Retain every quality_gate_v2 extraction/dedup/retrieval/routing/SQL threshold. Add previously unconfigured task-label thresholds before source-disjoint holdout prediction.",
+  "task_labels": {
+    "joint_accuracy_min": 0.90,
+    "predicted_coverage_min": 0.95,
+    "engineering_precision_min": 0.90,
+    "engineering_recall_min": 0.85
+  },
+  "unknowns": "Missing class measurements are NOT_RUN and block release. UNKNOWN and failed rows remain in full joint accuracy; known-label coverage is reported separately.",
+  "review": "Delegated Agent source review, not human verification. Source-disjoint holdout has sparse engineering positives and does not establish domain-wide accuracy.",
+  "deployment": "Module passage alone never overrides the aggregate release blocker or the disabled Fast Decision policy. Historical v2 reports remain replayable under v2."
+}

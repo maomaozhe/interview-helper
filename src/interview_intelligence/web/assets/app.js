@@ -4,7 +4,7 @@ const $ = (id) => document.getElementById(id);
 const pickFilters = window.InterviewWorkspace.pickFilters;
 const escapeHTML = (value) => String(value ?? "").replace(/[&<>"']/g, (char) => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[char]));
 const labels = {UNSEEN:"未复习", WEAK:"薄弱", REVIEWED:"已复习", MASTERED:"已掌握", KNOWLEDGE:"知识", PRINCIPLE:"原理", SCENARIO:"场景", SYSTEM_DESIGN:"系统设计", PROJECT:"项目", ALGORITHM:"算法", AI:"AI", HR:"HR", OTHER:"其他", INCLUDED:"已生效", PENDING:"尚未生效", EXCLUDED:"已排除", NEEDS_REVIEW:"待核验", QUEUED:"排队中", RUNNING:"导入中", SUCCEEDED:"已完成", FAILED:"失败", PARTIAL_FAILURE:"部分失败", IRRELEVANT:"检索偏题", TAG:"标签问题", DEDUP:"归并问题", SOURCE:"来源问题", HYBRID:"混合检索", BM25:"关键词检索", DENSE:"语义检索", HYBRID_RERANK:"混合检索 + 重排", CORE:"核心", COMMON:"常见", LONG_TAIL:"长尾"};
-const state = {page:"library", taxonomy:{}, topicLabels:{}, documents:[], selected:new Set(), feedback:[], detail:null, diagnostic:null, feedbackContext:null, searchSequence:0, detailSequence:0, sourceSequence:0, rows:[], chatBusy:false, ingestBusy:false, libraryConversation:null, chatConversation:null, listRequest:null, nextCursor:null};
+const state = {page:"library", taxonomy:{}, topicLabels:{}, documents:[], selected:new Set(), feedback:[], detail:null, diagnostic:null, feedbackContext:null, searchSequence:0, detailSequence:0, sourceSequence:0, rows:[], chatBusy:false, chatContinuation:null, ingestBusy:false, libraryConversation:null, chatConversation:null, listRequest:null, nextCursor:null};
 labels.CHANGED = "内容已修改";
 labels.EXTRACT = "抽取问题"; labels.DEDUP = "核对与归并问题"; labels.PUBLISH = "发布数据"; labels.INDEX_SYNC = "同步检索索引";
 Object.assign(labels,{SQL:"数据库查询",CODE:"代码实现",ENGINEERING:"工程实现",MIXED:"混合任务"});
@@ -48,9 +48,17 @@ async function api(path, {method="GET", params={}, body, signal}={}) {
 }
 
 function filters() { return pickFilters({topic_l1:$("filter-topic").value, topic_l2:$("filter-subtopic").value, company:$("filter-company").value, round:$("filter-round").value, question_type:$("filter-type").value,coding_focus:$("filter-coding").value,response_form:$("filter-response").value,annotation_status:$("filter-annotation").value}); }
+function reflectFilters(scope){
+  $("filter-topic").value=scope.topic_l1 || "";subtopicOptions();
+  for(const [id,key] of Object.entries({"filter-topic":"topic_l1",...filterControls}))$(id).value=scope[key] || "";
+}
+function invalidateLibraryContinuation(conversationId){
+  if(conversationId && state.chatConversation?.id===conversationId){state.chatContinuation=null;syncContinuationActions();}
+}
 async function listWithContext(request, signal, cursor) {
   const body={list_request:request,request_id:crypto.randomUUID(),conversation_id:state.libraryConversation?.id || null,
     expected_version:cursor ? state.libraryConversation?.version ?? null : null};
+  invalidateLibraryContinuation(body.conversation_id);
   // A changed explicit SQL scope replaces the previous scope. Use the latest
   // host version so an aborted filter request cannot leave the client stale.
   for(let attempt=0;attempt<3;attempt++) {
@@ -65,6 +73,7 @@ async function listWithContext(request, signal, cursor) {
 async function agentQuery(body,signal,kind,onStage=()=>{}) {
   const started=performance.now();
   const key=kind==="library" ? "libraryConversation" : "chatConversation";
+  if(kind==="library")invalidateLibraryContinuation(body.conversation_id);
   if(!body.conversation_id) {
     const created=await api("api/conversations",{method:"POST",signal});
     body.conversation_id=created.data.conversation_id;
@@ -88,39 +97,10 @@ async function agentQuery(body,signal,kind,onStage=()=>{}) {
   const cancel=()=>api(`api/runs/${encodeURIComponent(runId)}/cancel`,{method:"POST"}).catch(()=>{});
   const snapshot=(await api(`api/runs/${encodeURIComponent(runId)}`)).data;
   if(signal?.aborted){cancel();throw new DOMException("查询已取消","AbortError");}
-  const result=snapshot.status==="SUCCEEDED" ? snapshot.result : await new Promise((resolve,reject)=>{
-    const url=new URL(`api/runs/${encodeURIComponent(runId)}/events`,document.baseURI);
-    url.searchParams.set("after",snapshot.event_cursor || 0);
-    const events=new EventSource(url);
-    let ended=false, fallbackStarted=false;
-    const clean=()=>{ended=true;events.close();clearTimeout(timer);signal?.removeEventListener("abort",abort);};
-    const abort=()=>{clean();cancel();reject(new DOMException("查询已取消","AbortError"));};
-    const timer=setTimeout(()=>{clean();cancel();reject(new Error("查询超时，请重试。"));},90000);
-    signal?.addEventListener("abort",abort,{once:true});
-    if(signal?.aborted) return abort();
-    events.addEventListener("stage",e=>{if(!ended)onStage(JSON.parse(e.data));});
-    events.addEventListener("tool_result",()=>{if(!ended)onStage({stage:"tool_completed"});});
-    events.addEventListener("completed",e=>{clean();resolve(JSON.parse(e.data).result);});
-    for(const event of ["failed","interrupted"]) events.addEventListener(event,async e=>{
-      clean();const payload=JSON.parse(e.data),error=new Error(payload.code || "查询中断，请使用原请求重试。");
-      try{error.partial=(await api(`api/runs/${encodeURIComponent(runId)}`)).data.partial_result;}catch{}
-      reject(error);
-    });
-    events.onerror=async()=>{
-      if(ended || fallbackStarted)return;
-      fallbackStarted=true;
-      events.close();
-      // A disconnected event stream must not create another model run.
-      try {
-        while(!ended) {
-          const response=await api(`api/runs/${encodeURIComponent(runId)}`,{signal}), run=response.data;
-          if(run.status==="SUCCEEDED"){clean();resolve(run.result);return;}
-          if(run.status!=="RUNNING"){clean();const error=new Error(run.error_code || "查询未完成");error.partial=run.partial_result;reject(error);return;}
-          await new Promise(resolve=>setTimeout(resolve,250));
-        }
-      } catch(error){if(!ended){clean();reject(error);}}
-    };
-  });
+  const result=await window.InterviewQueryStream.watchQueryRun({
+    url:new URL(`api/runs/${encodeURIComponent(runId)}/events`,document.baseURI),snapshot,signal,cancel,
+    readRun:async after=>(await api(`api/runs/${encodeURIComponent(runId)}`,{params:{after},signal})).data,
+    onEvent:onStage});
   state[key]={id:result.conversation_id,version:result.conversation_version};
   sessionStorage.setItem(key,JSON.stringify(state[key]));
   sessionStorage.removeItem(`${kind}Pending`);
@@ -128,11 +108,13 @@ async function agentQuery(body,signal,kind,onStage=()=>{}) {
   const elapsed_ms=Math.round(performance.now()-started);
   if(kind==="chat")return {data:result,meta:result.facts.meta,elapsed_ms};
   return {data:result.facts.data || [],meta:{...result.facts.meta,answer:result.answer,
+    run_id:result.run_id || runId,
     conversation_id:result.conversation_id,conversation_version:result.conversation_version,
     planning:result.planning,tool_trace:result.tool_trace},warnings:result.warnings || [],elapsed_ms};
 }
 
 const preferenceOptions={
+  design_domain:[["AGENT","Agent 应用设计"],["BUSINESS_SYSTEM","业务系统设计"],["PRODUCTION_TROUBLESHOOTING","线上排障场景"],["ALL","全部方向"]],
   coding_focus:[["ENGINEERING","工程代码实现"],["ALGORITHM","算法题"],["MIXED","混合任务"]],
   language:[["JAVA","Java"],["PYTHON","Python"],["CPP","C++"],["GO","Go"],["JAVASCRIPT","JavaScript"],["TYPESCRIPT","TypeScript"]],
   job_family:[["BACKEND","后端"],["AI_APPLICATION","AI 应用"],["ALGORITHM","算法"],["OTHER","其他"]],
@@ -148,12 +130,13 @@ function preferenceChoices(){
 }
 async function loadPreferences(){
   try {
-    const response=await api("api/preferences");savedPreferences=response.data;
+    const response=await api("api/preferences");savedPreferences=response.data.filter(p=>!p.key.startsWith("query_correction:"));
     $("preferences-list").innerHTML=savedPreferences.length ? savedPreferences.map(p=>{
       const label=preferenceOptions[p.key]?.find(([value])=>String(value)===String(p.value))?.[1] || p.value;
       return `<article class="question-row"><div><strong>${escapeHTML(label)}</strong><p class="muted">${escapeHTML(p.source_message)}${p.active ? "" : " · 已过期"}</p></div><button type="button" class="text-button" data-delete-preference="${escapeHTML(p.key)}" data-version="${p.version}">删除</button></article>`;
     }).join("") : empty("尚未保存长期偏好","选择默认值后，点击保存。");
     preferenceChoices();
+    await loadQueryMemory();
   } catch(error){notice("preferences-notice",error.message,"error");}
 }
 function topicOptions() {
@@ -188,15 +171,17 @@ function rowHTML(row,index) {
   const id = escapeHTML(row.canonical_question_id || "");
   const topic = state.topicLabels[row.topic_id];
   const taskLabel = row.coding_focus && row.coding_focus !== "NONE" ? labels[row.coding_focus] || row.coding_focus : labels[row.question_type] || row.question_type;
+  const matched=row.retrieval?.relevance_evidence;
+  const evidence=matched ? `<details class="match-evidence"><summary>匹配到的原文</summary>${[...new Set([matched.object,matched.focus].filter(Boolean))].map(quote=>`<blockquote>${escapeHTML(quote)}</blockquote>`).join("")}</details>` : "";
   const meta = [row.importance_band ? `<span class="pill ${row.importance_band === "CORE" ? "green" : ""}">${escapeHTML(labels[row.importance_band])}</span>` : "", topic ? `<span class="pill">${escapeHTML(topic)}</span>` : "", taskLabel ? `<span class="pill">${escapeHTML(taskLabel)}</span>` : "", row.response_form ? `<span class="pill">${escapeHTML(row.response_form === "SQL" ? "SQL 实现" : labels[row.response_form] || row.response_form)}</span>` : "", row.user_status ? `<span class="pill ${row.user_status === "WEAK" ? "orange" : ""}">${escapeHTML(labels[row.user_status])}</span>` : "", row.interview_count != null ? `${row.interview_count} 场面试` : "", row.variants?.length ? `${row.variants.length} 种原始问法` : ""].filter(Boolean).join("");
-  return `<article class="question-row"><span class="question-number">${String(index+1).padStart(2,"0")}</span><div class="question-main"><button class="question-title" data-detail="${id}">${escapeHTML(row.canonical_text || row.key || "题目")}</button><div class="question-meta">${meta || '<span>点开详情，查看标签与原文</span>'}</div></div><div class="frequency"><strong>${escapeHTML(row.occurrence_count ?? "—")}</strong><small>真实提问</small></div><div class="row-actions"><button class="button secondary small" data-detail="${id}">查看详情 ↗</button><button class="icon-button" data-issue="${id}" aria-label="记录这道题的问题" title="记录问题">⚑</button></div></article>`;
+  return `<article class="question-row"><span class="question-number">${String(index+1).padStart(2,"0")}</span><div class="question-main"><button class="question-title" data-detail="${id}">${escapeHTML(row.canonical_text || row.key || "题目")}</button><div class="question-meta">${meta || '<span>点开详情，查看标签与原文</span>'}</div>${evidence}</div><div class="frequency"><strong>${escapeHTML(row.occurrence_count ?? "—")}</strong><small>真实提问</small></div><div class="row-actions"><button class="button secondary small" data-detail="${id}">查看详情 ↗</button><button class="icon-button" data-issue="${id}" aria-label="记录这道题的问题" title="记录问题">⚑</button></div></article>`;
 }
 function resultRow(row,index){
   if(row.canonical_question_id)return rowHTML(row,index);
   return `<article class="question-row"><span class="question-number">${index+1}</span><div class="question-main"><strong>${escapeHTML(state.topicLabels[row.key] || row.key)}</strong><p class="muted">统计分组</p></div><div class="frequency"><strong>${row.occurrence_count ?? 0}</strong><small>真实提问</small></div></article>`;
 }
 
-let searchController,chatController;
+let searchController,chatController,libraryProgress;
 let annotationQueue=null;
 async function loadAnnotations(cursor=null){
   $("annotations-list").innerHTML=loading("正在读取待核验分类…");
@@ -234,16 +219,22 @@ $("annotations-publish").addEventListener("click",async()=>{
 });
 async function search(cursor=null, structured=false, changedField=null,retryBody=null,restored=null) {
   const sequence = ++state.searchSequence;
+  libraryProgress?.finish("superseded");
   searchController?.abort(); searchController = new AbortController();
   const query = $("query").value.trim(), params = filters(), limit = Number($("result-limit").value), pipeline = $("search-pipeline").value;
-  $("search-button").disabled = true; $("results").innerHTML = loading(query ? "正在检索题目，语义查询可能需要稍等…" : "正在读取高频题目…");
+  const agentRun=!restored && query && !cursor && !(structured && state.listRequest) && healthSnapshot?.query_router_enabled;
+  const progressHost=$("library-progress");progressHost.replaceChildren();progressHost.hidden=!agentRun;
+  let progress=null,progressReply=null,outcome="failed";
+  if(agentRun){progressReply=document.createElement("div");progressHost.append(progressReply);progress=startQueryProgress(progressReply,{follow:false});}
+  libraryProgress=progress;
+  $("search-button").disabled = true; $("results").innerHTML = agentRun ? "" : loading(query ? "正在检索题目…" : "正在读取高频题目…");
   $("query-cancel").hidden=false;
   $("results-title").textContent = query ? "检索结果" : "高频题目"; $("results-caption").textContent = "正在查询…";
   $("search-diagnostics").hidden = true; $("results-next").hidden = true; state.diagnostic = null; state.rows = []; notice("results-notice");
   try {
     let response;
     if(restored){
-      response={data:restored.facts.data || [],meta:{...restored.facts.meta,planning:restored.planning,
+      response={data:restored.facts.data || [],meta:{...restored.facts.meta,planning:restored.planning,run_id:restored.run_id,
         answer:restored.answer,conversation_id:restored.conversation_id,conversation_version:restored.conversation_version},
         warnings:restored.warnings || [],elapsed_ms:null};
     } else if(cursor || (!query) || (structured && state.listRequest)) {
@@ -259,7 +250,10 @@ async function search(cursor=null, structured=false, changedField=null,retryBody
       state.listRequest = {...request,cursor:null};
     } else if(query && healthSnapshot?.query_router_enabled) {
       response = await agentQuery(retryBody || {message:query,filters:params,page_size:limit,pipeline,request_id:crypto.randomUUID(),conversation_id:state.libraryConversation?.id || null,expected_version:state.libraryConversation?.version ?? null},searchController.signal,"library",phase=>{
-        if(sequence===state.searchSequence)$("results-caption").textContent=phase.stage==="tool" ? "正在查询题库…" : phase.stage==="tool_completed" ? "正在保存查询结果…" : "正在理解查询…";
+        if(sequence!==state.searchSequence)return;
+        progress?.update(phase);
+        const step=window.InterviewWorkspace.queryStage(phase);
+        if(step)$("results-caption").textContent=step.label;
       });
       if (sequence !== state.searchSequence) return;
       state.libraryConversation = {id:response.meta.conversation_id,version:response.meta.conversation_version};
@@ -286,15 +280,23 @@ async function search(cursor=null, structured=false, changedField=null,retryBody
     $("review-order").value=response.meta.review_order || "BEFORE_TOP_N";
     state.rows = response.data;
     state.diagnostic = {query,filters:pickFilters(response.meta.applied_filters || params),mode:query ? "search" : "browse",meta:response.meta,warnings:response.warnings,elapsed_ms:response.elapsed_ms,results:response.data.map(row => ({canonical_question_id:row.canonical_question_id,canonical_text:row.canonical_text,occurrence_count:row.occurrence_count,retrieval:row.retrieval}))};
-    $("results").innerHTML = response.data.length ? response.data.map(resultRow).join("") : empty("没有找到符合条件的题目", query ? "试试核心关键词、调整筛选条件，或在导入页确认相关面经是否已生效。" : "当前筛选范围没有真实提问。可以放宽条件，或导入面经。");
+    const clarification=window.InterviewWorkspace.clarificationFor({facts:{meta:response.meta},planning:response.meta.planning});
+    $("results").innerHTML = response.meta.route==="CLARIFY" ? `<div class="library-clarification">${clarificationHTML(clarification)}</div>` : response.data.length ? response.data.map(resultRow).join("") : empty("没有找到符合条件的题目", query ? "可以补充你的具体场景，或调整范围后重新检索。" : "当前筛选范围没有真实提问。可以放宽条件，或导入面经。");
+    $("results").querySelectorAll("[data-clarification]").forEach(button=>button.addEventListener("click",()=>{$("query").value=button.dataset.clarification;search();}));
     const total = response.meta.sample_counts?.occurrences, pagination=response.meta.pagination;
     $("results-title").textContent=response.meta.route==="CLARIFY" ? "需要补充查询条件" : response.meta.group_by && response.meta.group_by!=="question" ? "统计结果" : response.meta.route==="SQL" ? "题目列表" : "检索结果";
     const unit=response.meta.group_by && response.meta.group_by!=="question" ? "组" : "道题";
     const timing=restored ? "已恢复上次结果" : `${response.elapsed_ms} ms`;
     $("results-caption").textContent = pagination ? `${response.data.length} ${unit} · 范围 ${pagination.total} ${unit}${pagination.result_total!==pagination.total ? ` · 本集合 ${pagination.result_total} ${unit}` : ""}${pagination.top_n ? ` · 前 ${pagination.top_n} ${unit}` : ""} · ${labels.SQL} · ${timing}` : `${response.data.length} 条结果 · ${labels[response.meta.executed_pipeline || pipeline]} · ${timing}`;
-    if(response.meta.route==="CLARIFY") notice("results-notice",response.meta.answer);
+    if(response.meta.route==="CLARIFY") $("results-caption").textContent=restored ? "选择一个方向，继续上次查询" : "选择一个方向继续，也可以补充具体场景";
     if (response.warnings?.length) notice("results-notice",`本次执行有提示：${response.warnings.join("；")}`);
     $("diagnostics-content").textContent = pretty(state.diagnostic); $("search-diagnostics").hidden = false;
+    outcome="completed";
+    if(progress){
+      progressReply.innerHTML=`<div class="assistant-summary"><span class="assistant-avatar">面</span><p>${response.meta.route==="CLARIFY" ? "已明确可选方向" : "本次查询已完成"}</p></div>`;
+      progress.finish(outcome);
+    }
+    if(clarification && !restored && state.page==="library")$("results").scrollIntoView({block:"nearest"});
     await refreshWorkspaceForResult(response.meta);
     if (sequence !== state.searchSequence) return;
     const ids = response.data.map(row=>row.canonical_question_id).filter(Boolean);
@@ -308,12 +310,13 @@ async function search(cursor=null, structured=false, changedField=null,retryBody
   } catch(error) {
     if(sequence===state.searchSequence){
       $("results-caption").textContent="";
-      $("results").innerHTML=empty(error.name==="AbortError" ? "查询已取消" : "查询暂时没有完成",error.message)+
+      progressHost.hidden=true;
+      $("results").innerHTML=empty(error.name==="AbortError" ? "本次查询已停止" : "查询暂时没有完成",error.name==="AbortError" ? "可以修改需求后再次搜索。" : error.message)+
         (error.partial ? `<p>以下为已完成步骤的结果，可恢复本次查询继续处理。</p>${(error.partial.facts?.data || []).map(resultRow).join("")}` : "");
       if(error.name!=="AbortError"){notice("results-notice",error.message,"error");state.diagnostic={query,filters:params,pipeline,error:error.payload || error.message};$("diagnostics-content").textContent=pretty(state.diagnostic);$("search-diagnostics").hidden=false;}
     }
   }
-  finally { if(sequence === state.searchSequence) {$("search-button").disabled=false;$("query-cancel").hidden=true;} }
+  finally { progress?.finish(outcome);if(sequence === state.searchSequence) {$("search-button").disabled=false;$("query-cancel").hidden=true;} }
 }
 
 async function showDetail(id, scope=state.diagnostic?.filters || filters(), origin=null) {
@@ -327,7 +330,8 @@ async function showDetail(id, scope=state.diagnostic?.filters || filters(), orig
     if(detail.data.redirect_to_id) { await showDetail(detail.data.redirect_to_id,scope,origin); return; }
     const reviewState=review.data.states[id] || {};
     state.detail={...detail.data,filters:{...scope},meta:detail.meta,review_version:reviewState.version || 0,
-      origin:origin || {query:state.diagnostic?.query || "",context:state.diagnostic || {filters:scope}}};
+      origin:origin || window.InterviewWorkspace.feedbackOrigin(state.diagnostic?.query || "",
+        {meta:{...(state.diagnostic?.meta || {}),applied_filters:scope}},"library")};
     const data=detail.data, current=review.data.states[id]?.status || "UNSEEN";
     const sourceHTML=(data.sources || []).map((source,index)=>{ const link=safeLink(source.source_url); return `<div class="source-card"><blockquote>${escapeHTML(source.quote)}</blockquote><div class="source-actions"><span>第 ${source.start_line}–${source.end_line} 行</span><button class="text-button" data-source-index="${index}">查看完整原文 ↗</button>${link ? `<a href="${escapeHTML(link)}" target="_blank" rel="noopener noreferrer">打开原帖 ↗</a>` : ""}</div></div>`; }).join("");
     const relations=(data.observed_followups || []).map(item=>`<li><button class="text-button" data-detail="${escapeHTML(item.canonical_question_id)}">${escapeHTML(item.canonical_text)}</button> · ${item.supporting_interview_count} 场面试有原文证据</li>`).join("");
@@ -359,31 +363,186 @@ async function showSource({revision_id,path,start_line=1,end_line=1}) {
   } catch(error) { if(sequence===state.sourceSequence) $("source-content").innerHTML=empty("原文暂时不可用",error.message); }
 }
 
+function clarificationHTML(clarification,showQuestion=true) {
+  if(!clarification)return "";
+  const choices=clarification.options || [];
+  return `<div class="clarification">${showQuestion ? `<p>${escapeHTML(clarification.question)}</p>` : ""}${choices.length ? `<div class="clarification-label">选择一个方向继续</div><div class="clarification-choices" role="group" aria-label="澄清选项">${choices.map((option,index)=>`<button type="button" class="button secondary" data-clarification="${escapeHTML(option)}"><span class="choice-number" aria-hidden="true">${index+1}</span><span>${escapeHTML(option)}</span><span class="choice-arrow" aria-hidden="true">↗</span></button>`).join("")}</div>` : ""}<small>也可以直接补充你的具体场景。</small></div>`;
+}
+
+function canRequery(origin){
+  const action=origin.context?.planning?.spec?.action;
+  return Boolean(origin.query) && (!action || ["SEARCH","LIST","STATS","NEXT","CLARIFY"].includes(action));
+}
+
+function syncContinuationActions(){
+  for(const reply of $("chat-messages").querySelectorAll(".chat-message.assistant")){
+    const origin={context:{run_id:reply.dataset.runId,conversation_id:reply.dataset.conversationId}};
+    for(const button of reply.querySelectorAll("[data-clarification],.chat-next")){
+      const action=button.classList.contains("chat-next") ? "next" : "clarification";
+      const active=window.InterviewWorkspace.canContinueAnswer(origin,state.chatConversation,state.chatContinuation,action,state.chatBusy);
+      button.disabled=!active;
+      button.title=active ? (action==="next" ? "继续当前列表" : "补充当前待澄清的需求") : state.chatBusy ? "请等待当前问答完成" : action==="next" ? "这是历史列表，请重新检索后继续翻页" : "这轮澄清已结束，请在输入框补充当前需求";
+      if(action==="next")button.textContent=active || state.chatBusy ? "下一页 →" : "历史列表 · 下一页";
+    }
+    const clarification=reply.querySelector(".clarification small");
+    if(clarification)clarification.textContent=window.InterviewWorkspace.canContinueAnswer(origin,state.chatConversation,state.chatContinuation,"clarification") ? "也可以直接补充你的具体场景。" : "这轮澄清已结束；仍可在输入框提出新的需求。";
+    const requeryButton=reply.querySelector(".chat-requery");if(requeryButton)requeryButton.disabled=state.chatBusy;
+  }
+}
+
+function renderAssistant(reply,data,message,meta=data.facts?.meta || {}) {
+  const facts=data.facts || {},rows=facts.data || facts.groups || facts.questions || (facts.canonical_question_id ? [facts] : []);
+  const origin=window.InterviewWorkspace.feedbackOrigin(message,data);
+  reply.dataset.runId=origin.context.run_id || "";reply.dataset.conversationId=origin.context.conversation_id || "";
+  const scope=pickFilters(meta.applied_filters || {});
+  const relevance={VERIFIED:"已筛选相关题",UNVERIFIED:"原始召回候选",UNAVAILABLE:"相关性核验未完成"}[meta.relevance_status];
+  const clarification=window.InterviewWorkspace.clarificationFor(data);
+  reply.innerHTML=`<div class="assistant-summary"><span class="assistant-avatar">面</span><p>${escapeHTML(data.answer)}</p></div>${clarification ? clarificationHTML(clarification,data.answer!==clarification.question) : ""}${relevance ? `<div class="answer-caption">${escapeHTML(relevance)}${meta.returned_count!==undefined ? ` · ${meta.returned_count} 道` : ""}</div>` : ""}${(facts.components || []).map(c=>`<details><summary>${escapeHTML(c.answer)}</summary>${(c.facts.data || []).map(resultRow).join("")}</details>`).join("")}${data.warnings?.length ? `<p class="notice">${escapeHTML(data.warnings.join("；"))}</p>` : ""}<div class="answer-results">${Array.isArray(rows) ? rows.map(resultRow).join("") : ""}</div><div class="answer-actions">${meta.pagination?.next_cursor ? '<button class="text-button chat-next">下一页 →</button>' : ""}${canRequery(origin) ? '<button class="text-button chat-requery">↻ 重新检索</button>' : ""}<button class="text-button chat-report">⚑ 反馈</button></div><details class="answer-evidence"><summary>来源与执行过程</summary><pre>${escapeHTML(pretty({run_id:data.run_id,intent:data.intent,planning:data.planning,tool_trace:data.tool_trace,meta}))}</pre></details>`;
+  reply.addEventListener("click",event=>{
+    const button=event.target.closest("button");if(!button)return;event.stopPropagation();
+    if(button.dataset.detail)showDetail(button.dataset.detail,scope,origin);
+    else if(button.dataset.issue!==undefined)openFeedback(button.dataset.issue,origin);
+    else if(button.classList.contains("chat-report"))openFeedback(null,origin);
+    else if(button.classList.contains("chat-requery"))requery(message,[],"chat",origin);
+    else if(button.classList.contains("chat-next") || button.dataset.clarification){
+      const action=button.classList.contains("chat-next") ? "next" : "clarification";
+      if(!window.InterviewWorkspace.canContinueAnswer(origin,state.chatConversation,state.chatContinuation,action,state.chatBusy))return;
+      if(action==="clarification"){button.classList.add("selected");button.setAttribute("aria-pressed","true");}
+      $("chat-input").value=action==="next" ? "下一页" : button.dataset.clarification;sendChat();
+    }
+  });
+}
+
+function startQueryProgress(reply,{follow=true}={}) {
+  const started=performance.now(),steps=[];let finished=false;
+  reply.classList.add("is-running");reply.setAttribute("aria-busy","true");
+  reply.innerHTML='<div class="assistant-summary"><span class="assistant-avatar">面</span><div class="live-answer"><p class="query-status" role="status"><span class="activity-dot" aria-hidden="true"></span><span class="query-stage-label">已收到，正在开始…</span><span class="query-elapsed">0 秒</span></p><p class="streamed-question" hidden></p></div></div><details class="query-progress" open><summary>执行过程</summary><ol></ol></details><p class="query-connection" hidden></p>';
+  const progress=reply.querySelector(".query-progress"),list=progress.querySelector("ol");
+  const followOutput=()=>{
+    if(follow && document.documentElement.scrollHeight-window.innerHeight-window.scrollY<200)
+      reply.scrollIntoView({block:"end",behavior:"auto"});
+  };
+  const elapsed=()=>reply.querySelector(".query-elapsed").textContent=`${Math.floor((performance.now()-started)/1000)} 秒`;
+  const timer=setInterval(elapsed,1000);
+  function update(event){
+    if(finished)return;
+    if(event.type==="connection"){
+      const connection=reply.querySelector(".query-connection");connection.hidden=false;
+      connection.textContent="连接中断，正在恢复本次问答的进度…";return;
+    }
+    reply.querySelector(".query-connection").hidden=true;
+    if(event.type==="clarification_delta"){
+      const draft=reply.querySelector(".streamed-question");draft.hidden=false;draft.textContent=event.text;
+      reply.querySelector(".query-stage-label").textContent="正在生成澄清问题";followOutput();return;
+    }
+    const step=window.InterviewWorkspace.queryStage(event);if(!step)return;
+    reply.querySelector(".query-stage-label").textContent=step.label;
+    const last=steps.at(-1);
+    if(last?.key!==step.key){
+      list.lastElementChild?.classList.remove("active");
+      const item=document.createElement("li");item.className="active";item.textContent=step.label;list.append(item);
+      steps.push(step);
+    }
+    followOutput();
+  }
+  return {update,finish(status){
+    if(finished)return;finished=true;
+    clearInterval(timer);reply.classList.remove("is-running");reply.removeAttribute("aria-busy");
+    const duration=Math.round((performance.now()-started)/1000);
+    if(status==="completed" && steps.length){
+      const details=document.createElement("details");details.className="query-progress completed-progress";
+      const summary=document.createElement("summary");summary.textContent=`已完成 · ${duration} 秒 · 查看执行过程`;
+      for(const item of list.children)item.classList.remove("active");
+      details.append(summary,list);reply.querySelector(".assistant-summary").after(details);
+    }
+  }};
+}
+
+function appendStoredTurns(turns,prepend=false) {
+  if(turns.length)$("page-chat").querySelector(".chat-intro").hidden=true;
+  const fragment=document.createDocumentFragment();
+  for(const turn of turns){
+    const user=document.createElement("div");user.className="chat-message user";user.textContent=turn.message;fragment.append(user);
+    const reply=document.createElement("div");reply.className="chat-message assistant";
+    if(turn.status==="SUCCEEDED")renderAssistant(reply,{...turn.result,run_id:turn.run_id},turn.message);
+    else reply.innerHTML=empty("本次问答未完成",turn.error_code || "可恢复原请求继续处理。");
+    fragment.append(reply);
+  }
+  if(prepend)$("chat-messages").prepend(fragment);else $("chat-messages").append(fragment);
+  syncContinuationActions();
+}
+
+async function requery(message,feedbackIds=[],kind="chat",origin=null) {
+  if(kind==="chat" && state.chatBusy){toast("请等待当前问答完成后重新检索。");return;}
+  const conversation=kind==="chat" ? state.chatConversation : state.libraryConversation;
+  const body={...window.InterviewWorkspace.requeryBody(message,conversation,feedbackIds,origin),request_id:crypto.randomUUID()};
+  if(kind==="chat"){navigate("chat");await sendChat(null,body);}
+  else{
+    navigate("library");$("query").value=message;
+    if(origin?.context?.filters)reflectFilters(origin.context.filters);
+    const originalPlan=origin?.context?.planning?.spec;
+    if(body.requery_of_run_id && originalPlan?.pipeline)$("search-pipeline").value=originalPlan.pipeline;
+    if(!body.requery_of_run_id){body.filters=origin?.context?.filters || filters();body.pipeline=$("search-pipeline").value;body.page_size=Number($("result-limit").value);}
+    await search(null,false,null,body);
+  }
+}
+
 async function sendChat(event,retryBody=null) {
   event?.preventDefault(); const message=retryBody?.message || $("chat-input").value.trim(); if(!message || state.chatBusy) return;
-  state.chatBusy=true; $("chat-button").disabled=true; $("chat-input").value="";
-  chatController=new AbortController();$("chat-cancel").hidden=false;
+  state.chatBusy=true;state.chatContinuation=null;syncContinuationActions(); $("chat-button").disabled=true; $("chat-input").value="";
+  chatController=new AbortController();$("chat-cancel").hidden=false;$("chat-button").hidden=true;
   const user=document.createElement("div"); user.className="chat-message user"; user.textContent=message; $("chat-messages").append(user);
-  const reply=document.createElement("div"); reply.className="chat-message assistant"; reply.innerHTML=loading("正在查询真实面经…"); $("chat-messages").append(reply);
+  const reply=document.createElement("div"); reply.className="chat-message assistant";$("chat-messages").append(reply);
+  const progress=startQueryProgress(reply);let outcome="failed";
+  $("page-chat").querySelector(".chat-intro").hidden=true;reply.scrollIntoView({block:"end"});
   try {
     const body=retryBody || {message,request_id:crypto.randomUUID(),conversation_id:state.chatConversation?.id || null,expected_version:state.chatConversation?.version ?? null};
-    const response=healthSnapshot?.query_router_enabled ? await agentQuery(body,chatController.signal,"chat") :
+    const response=healthSnapshot?.query_router_enabled ? await agentQuery(body,chatController.signal,"chat",progress.update) :
       await api("api/agent/chat",{method:"POST",body,signal:chatController.signal}), data=response.data;
     if(data.conversation_id) state.chatConversation={id:data.conversation_id,version:data.conversation_version};
-    const facts=data.facts || {}, rows=facts.data || facts.groups || facts.questions || (facts.canonical_question_id ? [facts] : []);
-    reply.innerHTML=`<p>${escapeHTML(data.answer)}</p>${(facts.components || []).map(c=>`<details><summary>${escapeHTML(c.answer)}</summary>${(c.facts.data || []).map(resultRow).join("")}</details>`).join("")}${data.warnings?.length ? `<p class="muted">${escapeHTML(data.warnings.join("；"))}</p>` : ""}${Array.isArray(rows) ? rows.map(resultRow).join("") : ""}${facts.meta?.pagination?.next_cursor ? '<button class="button secondary chat-next">下一页 →</button>' : ""}<button class="text-button chat-report">⚑ 记录本次回答的问题</button><details><summary>查看回答依据与执行过程</summary><pre>${escapeHTML(pretty({intent:data.intent,planning:data.planning,tool_trace:data.tool_trace,meta:response.meta,facts:data.facts}))}</pre></details>`;
-    const trace=data.tool_trace?.find(item=>["list_questions","get_question_stats","get_question_details","search_questions","query_question_stats","get_question_detail","get_topic_overview"].includes(item.name));
-    const scope=pickFilters(trace?.parameters?.filters || trace?.parameters || {});
-    const origin={query:message,context:{intent:data.intent,planning:data.planning,tool_trace:data.tool_trace,meta:response.meta,filters:scope,
-      results:Array.isArray(rows) ? rows.slice(0,10).map(row=>({canonical_question_id:row.canonical_question_id,canonical_text:row.canonical_text})) : []}};
-    reply.addEventListener("click",event=>{const button=event.target.closest("button");if(!button)return;
-      if(button.dataset.detail){event.stopPropagation();showDetail(button.dataset.detail,scope,origin);}
-      if(button.dataset.issue!==undefined){event.stopPropagation();openFeedback(button.dataset.issue,origin);}});
-    reply.querySelector(".chat-report").addEventListener("click",()=>openFeedback(null,origin));
-    reply.querySelector(".chat-next")?.addEventListener("click",()=>{$("chat-input").value="下一页";sendChat();});
+    state.chatContinuation=window.InterviewWorkspace.answerContinuation(data);
+    const followAnswer=document.documentElement.scrollHeight-window.innerHeight-window.scrollY<200;
+    renderAssistant(reply,data,message,response.meta);
+    outcome="completed";
+    progress.finish(outcome);
+    if(followAnswer)reply.scrollIntoView({block:reply.offsetHeight<window.innerHeight-$("chat-form").offsetHeight-40 ? "end" : "start"});
+    $("chat-intro-placeholder")?.remove();
+    loadConversations();
     await refreshWorkspaceForResult(response.meta);
-  } catch(error) { reply.innerHTML=empty(error.name==="AbortError" ? "查询已取消" : "本次问答未完成",error.message)+(error.partial ? `<p>以下为已完成步骤的结果，可恢复本次问答继续处理。</p>${(error.partial.facts?.data || []).map(resultRow).join("")}` : ""); }
-  finally { state.chatBusy=false; $("chat-button").disabled=false;$("chat-cancel").hidden=true; }
+  } catch(error) {
+    const cancelled=error.name==="AbortError";
+    const reason={QUERY_DEADLINE_EXCEEDED:"本次处理超时，可以稍后重试。",QUERY_CANCELLED:"本次问答已停止。",
+      MODEL_PROVIDER_UNAVAILABLE:"模型暂时不可用，可以稍后重试。",STREAM_INCOMPLETE:"响应中断，请恢复本次问答。"}[error.message] || error.message;
+    reply.innerHTML=empty(cancelled ? "本次问答已停止" : "本次问答未完成",cancelled ? "可以修改问题后再次发送。" : reason)+(error.partial ? `<p>以下为已完成步骤的结果，可恢复本次问答继续处理。</p>${(error.partial.facts?.data || []).map(resultRow).join("")}` : "");
+  }
+  finally { progress.finish(outcome);state.chatBusy=false;syncContinuationActions(); $("chat-button").disabled=false;$("chat-button").hidden=false;$("chat-cancel").hidden=true; }
+}
+
+let historyCursor=null,historyTurnCursor=null,historySequence=0,historyOpenSequence=0;
+async function loadConversations(more=false){
+  const sequence=++historySequence;
+  try{
+    const response=await api("api/conversations",{params:{q:$("history-query").value.trim(),cursor:more ? historyCursor : null,limit:20}});
+    if(sequence!==historySequence)return;
+    historyCursor=response.data.next_cursor;$("conversation-more").hidden=!historyCursor;
+    const html=response.data.items.map(c=>`<button class="history-item ${c.conversation_id===state.chatConversation?.id ? "selected" : ""}" data-conversation="${escapeHTML(c.conversation_id)}" title="${escapeHTML(c.title)}">${escapeHTML(c.title)}</button>`).join("");
+    if(more)$("conversation-list").insertAdjacentHTML("beforeend",html);else $("conversation-list").innerHTML=html || '<p class="muted">暂无对话</p>';
+  }catch(error){$("conversation-list").textContent=error.message;}
+}
+
+async function openConversation(id,older=false){
+  if(state.chatBusy){toast("当前问答仍在执行，可以先停止再切换对话。");return;}
+  const sequence=++historyOpenSequence;
+  const response=await api(`api/conversations/${encodeURIComponent(id)}`,{params:{cursor:older ? historyTurnCursor : null}}),c=response.data;
+  if(sequence!==historyOpenSequence || state.chatBusy)return;
+  if(!older){state.chatConversation={id:c.conversation_id,version:c.version};state.chatContinuation=window.InterviewWorkspace.historyContinuation(c);sessionStorage.setItem("chatConversation",JSON.stringify(state.chatConversation));$("chat-messages").replaceChildren();sessionStorage.removeItem("chatPending");$("chat-retry").hidden=true;}
+  historyTurnCursor=c.next_cursor;$("chat-history-more").hidden=!historyTurnCursor;
+  appendStoredTurns(c.turns,older);navigate("chat");loadConversations();
+}
+
+async function loadQueryMemory(){
+  const response=await api("api/query-memory");
+  $("query-memory-list").innerHTML=response.data.length ? response.data.map(m=>`<article class="card memory-card"><div><span class="pill">${m.active ? "已记住" : "待应用反馈"} · v${m.version}</span><h3>${escapeHTML(m.query)}</h3><p>${escapeHTML(m.correction)}</p></div><button class="text-button" data-memory="${escapeHTML(m.feedback_id)}" data-active="${m.active}" data-version="${m.version}">${m.active ? "停用记忆" : "记住这条纠正"}</button></article>`).join("") : empty("暂无查询经验","反馈后可以记住纠正，并导出回归样本。");
 }
 
 let ingestSequence=0;
@@ -428,22 +587,30 @@ async function startIngest(mode,paths,runId) {
 
 function openFeedback(questionId=null, supplied=null) {
   const row=state.detail?.canonical_question_id===questionId ? state.detail : state.rows.find(item=>item.canonical_question_id===questionId);
-  const origin=supplied || (row===state.detail ? state.detail?.origin : null) || {query:state.diagnostic?.query || $("query").value.trim(),context:state.diagnostic || {}};
+  const origin=supplied || (row===state.detail ? state.detail?.origin : null) ||
+    window.InterviewWorkspace.feedbackOrigin(state.diagnostic?.query || $("query").value.trim(),{meta:state.diagnostic?.meta || {}},"library");
   state.feedbackContext={...origin,canonical_question_id:questionId || null,context:{...origin.context,
     question:row ? {canonical_question_id:row.canonical_question_id,canonical_text:row.canonical_text,topic_id:row.topic_id,retrieval:row.retrieval} : null}};
   $("feedback-note").value=""; notice("feedback-notice");
+  $("feedback-remember").checked=false;$("feedback-requery").hidden=!canRequery(origin);
   $("feedback-context-caption").textContent=`查询：${state.feedbackContext.query || "无特定查询"}${questionId ? `\n题目：${row?.canonical_text || questionId}` : ""}`;
   if(!$("feedback-dialog").open) $("feedback-dialog").showModal(); $("feedback-note").focus();
 }
 
 async function saveFeedback(event) {
   event.preventDefault(); const button=$("save-feedback"); button.disabled=true;
+  $("feedback-requery").disabled=true;
   const context=state.feedbackContext || {};
   try {
-    await api("api/feedback",{method:"POST",body:{category:$("feedback-category").value,note:$("feedback-note").value.trim(),query:context.query || "",canonical_question_id:context.canonical_question_id || null,context:context.context || {}}});
-    $("feedback-dialog").close(); toast("问题已保存，可在「问题记录」中查看"); if(state.page==="feedback") await loadFeedback();
+    const saved=await api("api/feedback",{method:"POST",body:{category:$("feedback-category").value,note:$("feedback-note").value.trim(),query:context.query || "",canonical_question_id:context.canonical_question_id || null,context:context.context || {},run_id:context.context?.run_id || null,request_id:context.context?.request_id || null}});
+    if($("feedback-remember").checked && $("feedback-category").value==="IRRELEVANT" && context.query){
+      try{await api(`api/query-memory/${saved.data.id}`,{method:"PATCH",body:{active:true,expected_version:0}});}
+      catch(error){toast(`反馈已保存，记忆未保存：${error.message}`);}
+    }
+    $("feedback-dialog").close(); toast("反馈已保存，原问答与完整结果已留证"); if(state.page==="feedback") await loadFeedback();
+    if(event.submitter?.id==="feedback-requery")await requery(context.query,[saved.data.id],context.kind || "library",context);
   } catch(error) { notice("feedback-notice",error.message,"error"); }
-  finally { button.disabled=false; }
+  finally { button.disabled=false;$("feedback-requery").disabled=false; }
 }
 
 async function loadFeedback() {
@@ -455,7 +622,7 @@ async function loadFeedback() {
 }
 
 function navigate(page) {
-  if(!["library","chat","ingest","feedback","preferences","annotations"].includes(page)) page="library"; state.page=page;
+  if(!["library","chat","ingest","feedback","preferences","annotations"].includes(page)) page="chat"; state.page=page;
   document.querySelectorAll(".page").forEach(node=>node.hidden=node.id!==`page-${page}`);
   document.querySelectorAll(".nav-item").forEach(node=>{node.classList.toggle("active",node.dataset.page===page);node.setAttribute("aria-current",node.dataset.page===page ? "page" : "false");});
   $("breadcrumb-page").textContent={library:"题库与检索",chat:"面经问答",ingest:"导入与状态",feedback:"问题记录",preferences:"查询偏好",annotations:"分类核验"}[page];
@@ -463,6 +630,7 @@ function navigate(page) {
   if(page==="ingest") loadIngest(); if(page==="feedback") loadFeedback();
   if(page==="preferences")loadPreferences();
   if(page==="annotations")loadAnnotations();
+  document.body.dataset.page=page;
 }
 
 document.addEventListener("click",event=>{
@@ -487,7 +655,17 @@ $("filter-topic").addEventListener("change",()=>{subtopicOptions();search(null,t
 const filterControls={"filter-subtopic":"topic_l2","filter-company":"company","filter-round":"round","filter-type":"question_type","filter-coding":"coding_focus","filter-response":"response_form","filter-annotation":"annotation_status"};
 [...Object.keys(filterControls),"search-pipeline","browse-sort","result-limit"].forEach(id=>$(id).addEventListener("change",()=>search(null,true,filterControls[id] || null)));
 $("results-next").addEventListener("click",()=>search(state.nextCursor));
-$("chat-reset").addEventListener("click",()=>{chatController?.abort();state.chatConversation=null;sessionStorage.removeItem("chatConversation");sessionStorage.removeItem("chatPending");$("chat-retry").hidden=true;$("chat-messages").replaceChildren();toast("已开始新会话");});
+function newChat(){
+  if(state.chatBusy){toast("请先停止当前问答，再开始新对话。");return;}
+  ++historyOpenSequence;state.chatConversation=null;state.chatContinuation=null;sessionStorage.removeItem("chatConversation");sessionStorage.removeItem("chatPending");$("chat-retry").hidden=true;$("chat-messages").replaceChildren();$("page-chat").querySelector(".chat-intro").hidden=false;historyTurnCursor=null;$("chat-history-more").hidden=true;navigate("chat");loadConversations();$("chat-input").focus();
+}
+$("chat-reset").addEventListener("click",newChat);
+$("sidebar-new-chat").addEventListener("click",newChat);
+$("history-toggle").addEventListener("click",()=>{document.body.classList.toggle("history-visible");loadConversations();});
+$("conversation-list").addEventListener("click",event=>{const button=event.target.closest("[data-conversation]");if(button)openConversation(button.dataset.conversation).catch(error=>toast(error.message));});
+$("conversation-more").addEventListener("click",()=>loadConversations(true));
+$("chat-history-more").addEventListener("click",()=>openConversation(state.chatConversation.id,true).catch(error=>toast(error.message)));
+let historyTimer;$("history-query").addEventListener("input",()=>{clearTimeout(historyTimer);historyTimer=setTimeout(()=>loadConversations(),250);});
 $("browse-button").addEventListener("click",()=>{$("query").value="";search();});
 $("reset-filters").addEventListener("click",()=>{["filter-topic","filter-company","filter-round","filter-type","filter-coding","filter-response","filter-annotation","filter-review"].forEach(id=>$(id).value="");state.listRequest=null;state.libraryConversation=null;sessionStorage.removeItem("libraryConversation");subtopicOptions();search();});
 $("chat-form").addEventListener("submit",sendChat);
@@ -526,11 +704,35 @@ $("preferences-list").addEventListener("click",async event=>{
     params:{expected_version:Number(button.dataset.version)}});await loadPreferences();notice("preferences-notice","偏好已删除。","info");}
   catch(error){notice("preferences-notice",error.message,"error");}
 });
+$("query-memory-list").addEventListener("click",async event=>{
+  const button=event.target.closest("[data-memory]");if(!button)return;button.disabled=true;
+  try{await api(`api/query-memory/${button.dataset.memory}`,{method:"PATCH",body:{active:button.dataset.active!=="true",expected_version:Number(button.dataset.version)}});await loadQueryMemory();}
+  catch(error){toast(error.message);button.disabled=false;}
+});
+$("export-learning").addEventListener("click",async()=>{
+  try{const response=await api("api/query-memory/export"),url=URL.createObjectURL(new Blob([pretty(response.data)],{type:"application/json;charset=utf-8"}));const link=document.createElement("a");link.href=url;link.download="feedback-regression.json";link.click();setTimeout(()=>URL.revokeObjectURL(url),1000);}
+  catch(error){toast(error.message);}
+});
 ["filter-review","review-order"].forEach(id=>$(id).addEventListener("change",()=>search(null,true)));
 setInterval(()=>{if(!document.hidden && state.page==="ingest" && !state.ingestBusy)loadIngest();},12000);
 
+async function checkWorkspaceVersion(){
+  if(document.hidden || state.chatBusy || $("search-button").disabled)return;
+  const current=document.querySelector('meta[name="workspace-version"]')?.content;if(!current)return;
+  try{
+    const latest=await api("api/workspace/version");
+    if(latest.version===current || $("workspace-update"))return;
+    const button=document.createElement("button");button.id="workspace-update";button.className="workspace-update";
+    button.textContent="界面已更新 · 刷新后继续";
+    button.addEventListener("click",()=>{if(!state.chatBusy && !$("search-button").disabled)location.reload();else toast("请等待当前查询结束后刷新。");});
+    document.body.append(button);
+  }catch{}
+}
+document.addEventListener("visibilitychange",()=>{if(!document.hidden)checkWorkspaceVersion();});
+setInterval(checkWorkspaceVersion,60000);
+
 async function init(){
-  let restored=null,restoredFilters=null;
+  let restored=null,restoredFilters=null,restoredChatTurns=[];
   for(const key of ["libraryConversation","chatConversation"]){
     try{
       const saved=JSON.parse(sessionStorage.getItem(key) || "null");if(!saved?.id)continue;
@@ -541,13 +743,15 @@ async function init(){
         if(last){restored=last.result;$("query").value=c.turns.filter(t=>t.message!=="结构化列表操作").at(-1)?.message || "";restoredFilters=c.state.filters || {};
           state.listRequest=c.state.list_request ? {...c.state.list_request,cursor:null} : null;}
       }
-      if(key==="chatConversation")$("chat-messages").innerHTML=c.turns.map(t=>`<div class="chat-message user">${escapeHTML(t.message)}</div><div class="chat-message assistant"><p>${escapeHTML(t.status==="SUCCEEDED" ? t.result.answer : "本次问答尚未完成，可恢复原请求。")}</p>${(t.result?.facts?.data || []).map(resultRow).join("")}</div>`).join("");
+      if(key==="chatConversation"){restoredChatTurns=c.turns;state.chatContinuation=window.InterviewWorkspace.historyContinuation(c);historyTurnCursor=c.next_cursor;$("chat-history-more").hidden=!historyTurnCursor;}
     }catch{sessionStorage.removeItem(key);}
   }
   for(const kind of ["library","chat"])$(kind==="library" ? "query-retry" : "chat-retry").hidden=!sessionStorage.getItem(`${kind}Pending`);
   navigate(location.hash.slice(1));
   try{const topics=await api("api/topics");state.taxonomy=topics.data.topics;for(const [l1,children] of Object.entries(state.taxonomy))for(const [l2,id] of Object.entries(children))state.topicLabels[id]=`${l1} / ${l2}`;topicOptions();}catch(error){notice("global-message",error.message,"error");}
+  if(restoredChatTurns.length)appendStoredTurns(restoredChatTurns);
   await refreshWorkspace();
+  loadConversations();
   if(!restored){
     try{
       const response=await api("api/preferences"),prefs=Object.fromEntries(response.data.filter(p=>p.active).map(p=>[p.key,p.value]));
@@ -556,9 +760,7 @@ async function init(){
     }catch{}
   }
   if(restoredFilters){
-    $("filter-topic").value=restoredFilters.topic_l1 || "";subtopicOptions();
-    const controls={"filter-topic":"topic_l1",...filterControls};
-    for(const [id,key] of Object.entries(controls))$(id).value=restoredFilters[key] || "";
+    reflectFilters(restoredFilters);
   }
   await search(null,false,null,null,restored);
 }

@@ -21,6 +21,7 @@ data/model-call.lock
 data/raw/snapshots/
 data/snapshots/
 data/reports/
+data/feedback/
 data/processed/
 eval/*/results/
 eval/reports/

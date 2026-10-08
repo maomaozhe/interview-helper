@@ -80,3 +80,115 @@ test('changed content stays findable after a reimport enters the queue', () => {
   assert.equal(core.matchesDocumentStatus({...queued,content_changed:false},'CHANGED'),false);
   assert.equal(core.matchesDocumentStatus(queued,''),true);
 });
+
+test('feedback carries an exact run reference without truncating authoritative results', () => {
+  const origin=core.feedbackOrigin('Agent设计题',{run_id:'run-1',conversation_id:'c1',answer:'真实回答',
+    planning:{spec:{action:'SEARCH'}},facts:{data:Array.from({length:40},(_,i)=>({canonical_question_id:String(i)})),
+      meta:{request_id:'request-1',corpus_revision:293,applied_filters:{company:'腾讯'}}}});
+  assert.equal(origin.context.run_id,'run-1');
+  assert.equal(origin.context.answer,'真实回答');
+  assert.deepEqual(origin.context.filters,{company:'腾讯'});
+  assert.equal(origin.context.results,undefined); // Server loads the entire PG receipt, no first-ten snapshot.
+});
+
+test('requery uses current conversation version and explicit feedback instead of replaying an old receipt', () => {
+  const body=core.requeryBody('Agent设计题',{id:'c1',version:7},['f1']);
+  assert.deepEqual(body,{message:'Agent设计题',conversation_id:'c1',expected_version:7,feedback_ids:['f1']});
+  assert.equal(body.request_id,undefined); // Caller must allocate a new request_id.
+});
+
+test('requery binds the original run while keeping the original short message and current conversation', () => {
+  const origin=core.feedbackOrigin('Agent 应用设计',{run_id:'original-run',conversation_id:'old-c',
+    planning:{spec:{action:'SEARCH',relevance_query:'Agent 上下文和记忆设计',pipeline:'HYBRID_RERANK'}},
+    facts:{meta:{request_id:'original-request',applied_filters:{company:'腾讯'}}}});
+  assert.deepEqual(core.requeryBody(origin.query,{id:'current-c',version:12},['correction-1'],origin),
+    {message:'Agent 应用设计',conversation_id:'current-c',expected_version:12,
+      feedback_ids:['correction-1'],requery_of_run_id:'original-run'});
+  const fresh=core.requeryBody(origin.query,null,[],origin);
+  assert.equal(fresh.conversation_id,null);
+  assert.equal(fresh.request_id,undefined);
+  assert.equal(fresh.filters,undefined); // The backend restores the authoritative scope.
+  assert.equal(fresh.pipeline,undefined);
+  assert.equal(fresh.page_size,undefined);
+});
+
+function clarificationResult(run='clarify-run',version=1){
+  return {run_id:run,conversation_id:'c1',conversation_version:version,intent:'CLARIFY',
+    facts:{meta:{route:'CLARIFY',clarification:{question:'准备哪个方向？',options:['Agent 应用设计','业务系统设计']}}}};
+}
+
+test('only the active clarification can continue the current version of the conversation', () => {
+  const result=clarificationResult(),origin=core.feedbackOrigin('场景设计题',result);
+  const continuation=core.answerContinuation(result),conversation={id:'c1',version:1};
+  assert.equal(core.canContinueAnswer(origin,conversation,continuation,'clarification'),true);
+  assert.equal(core.canContinueAnswer(origin,conversation,continuation,'clarification',true),false);
+  assert.equal(core.canContinueAnswer(origin,{id:'c1',version:2},continuation,'clarification'),false);
+  assert.equal(core.canContinueAnswer(origin,{id:'c2',version:1},continuation,'clarification'),false);
+  assert.equal(core.canContinueAnswer({...origin,context:{...origin.context,run_id:'old-run'}},conversation,
+    continuation,'clarification'),false);
+  assert.equal(core.canContinueAnswer(origin,conversation,null,'clarification'),false);
+  assert.equal(core.canContinueAnswer(origin,conversation,continuation,'next'),false);
+});
+
+test('answered clarification and older next-page controls cannot target a new result', () => {
+  const old=core.feedbackOrigin('场景设计题',clarificationResult());
+  const page={run_id:'page-1',conversation_id:'c1',conversation_version:2,
+    facts:{meta:{pagination:{next_cursor:'cursor-2'}}}};
+  const continuation=core.answerContinuation(page),origin=core.feedbackOrigin('腾讯高频题',page);
+  assert.equal(core.canContinueAnswer(old,{id:'c1',version:2},continuation,'clarification'),false);
+  assert.equal(core.canContinueAnswer(origin,{id:'c1',version:2},continuation,'next'),true);
+  const newer=core.answerContinuation({...page,run_id:'page-2',conversation_version:3,
+    facts:{meta:{pagination:{next_cursor:'cursor-3'}}}});
+  assert.equal(core.canContinueAnswer(origin,{id:'c1',version:3},newer,'next'),false);
+});
+
+test('history restoration activates only a latest successful clarification matching pending state', () => {
+  const result=clarificationResult(),history={conversation_id:'c1',version:1,
+    state:{pending_clarification:{question:'准备哪个方向？'}},
+    turns:[{run_id:'clarify-run',status:'SUCCEEDED',result}]};
+  const origin=core.feedbackOrigin('场景设计题',result),conversation={id:'c1',version:1};
+  assert.equal(core.canContinueAnswer(origin,conversation,core.historyContinuation(history),'clarification'),true);
+  assert.equal(core.canContinueAnswer(origin,conversation,
+    core.historyContinuation({...history,state:{}}),'clarification'),false);
+  assert.equal(core.historyContinuation({...history,turns:[...history.turns,
+    {run_id:'failed-follow-up',status:'FAILED'}]}),null);
+  assert.equal(core.historyContinuation({...history,turns:[...history.turns,
+    {run_id:'running-follow-up',status:'RUNNING'}]}),null);
+});
+
+test('restored next-page control requires its exact current cursor', () => {
+  const result={run_id:'page-1',conversation_id:'c1',conversation_version:1,
+    facts:{meta:{pagination:{next_cursor:'cursor-2'}}}};
+  const history={conversation_id:'c1',version:1,state:{list_request:{cursor:'cursor-2'}},
+    turns:[{run_id:'page-1',status:'SUCCEEDED',result}]};
+  const origin=core.feedbackOrigin('腾讯高频题',result),conversation={id:'c1',version:1};
+  assert.equal(core.canContinueAnswer(origin,conversation,core.historyContinuation(history),'next'),true);
+  assert.equal(core.canContinueAnswer(origin,conversation,core.historyContinuation({...history,
+    state:{list_request:{cursor:'cursor-3'}}}),'next'),false);
+  assert.equal(core.canContinueAnswer(origin,conversation,core.historyContinuation({...history,
+    turns:[...history.turns,{run_id:'detail-run',status:'SUCCEEDED',result:{facts:{meta:{}}}}]}),'next'),false);
+});
+
+test('clarification choices survive a missing meta block and are deduplicated', () => {
+  const result={answer:'想看哪个方向？',planning:{spec:{action:'CLARIFY',clarification:'想看哪个方向？',
+    clarification_options:['Agent 应用设计',' 业务系统设计 ','Agent 应用设计','']}}};
+  assert.deepEqual(core.clarificationFor(result),{question:'想看哪个方向？',options:['Agent 应用设计','业务系统设计']});
+  assert.equal(core.clarificationFor({answer:'查到了',planning:{spec:{action:'SEARCH'}}}),null);
+  assert.deepEqual(core.clarificationFor({facts:{meta:{clarification:{question:'输入题号',options:[]}}}}),
+    {question:'输入题号',options:[]});
+});
+
+test('current receipt choices take precedence over older plan choices', () => {
+  const result=clarificationResult();result.planning={spec:{action:'CLARIFY',clarification:'旧问题',clarification_options:['旧选项']}};
+  assert.equal(core.clarificationFor(result).question,'准备哪个方向？');
+  assert.deepEqual(core.clarificationFor(result).options,['Agent 应用设计','业务系统设计']);
+});
+
+test('user-facing progress names actual operations without leaking tool arguments', () => {
+  assert.deepEqual(core.queryStage({type:'stage',stage:'reranking',count:50}),
+    {key:'reranking',label:'正在核对题目相关性 · 50 条候选'});
+  assert.deepEqual(core.queryStage({type:'stage',stage:'tool',action:'CLARIFY'}),
+    {key:'CLARIFY',label:'正在准备可选方向'});
+  assert.equal(core.queryStage({type:'stage',stage:'tool',action:'SEARCH'}),null);
+  assert.equal(core.queryStage({type:'model_request',messages:['secret']}),null);
+});

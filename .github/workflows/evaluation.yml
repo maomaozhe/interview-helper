@@ -1,0 +1,29 @@
+name: Evaluation framework
+on: [push, pull_request, workflow_dispatch]
+jobs:
+  offline:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+      - run: uv python install 3.12
+      - run: uv sync --locked --extra dev --python 3.12
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+      - run: npm ci --ignore-scripts --legacy-peer-deps
+      - run: npm run build:pi
+      - run: npm run check
+      - run: node --test tests/node/pi-runtime.test.mjs tests/web/test_core.cjs tests/web/test_query_stream.cjs
+      - run: uv run --locked --extra dev pytest -q
+      - run: uv run --locked --extra dev python -m eval.demo --output data/reports/ci-evaluation-demo
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: synthetic-evaluation-report
+          path: data/reports/ci-evaluation-demo
+      # Formal quality requires frozen human gold and a prepared live snapshot;
+      # this job deliberately reports framework verification only.

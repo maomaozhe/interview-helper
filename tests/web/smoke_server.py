@@ -4,6 +4,7 @@ import os
 import sqlite3
 import sys
 import tempfile
+from contextlib import closing
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -34,7 +35,7 @@ def main():
         memory_db, _, _ = seed_corpus()
         database_path = root / "smoke.db"
         connection = memory_db.engine.raw_connection()
-        with sqlite3.connect(database_path) as target:
+        with closing(sqlite3.connect(database_path)) as target:
             connection.driver_connection.backup(target)
         connection.close()
         memory_db.engine.dispose()

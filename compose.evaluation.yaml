@@ -1,0 +1,44 @@
+# EVAL_USER_ID must be fresh for each collection. The corpus remains shared;
+# conversations and review writes belong to this dedicated evaluation actor.
+services:
+  evaluation-api:
+    image: interview-intelligence-api
+    env_file: .env
+    environment:
+      DATABASE_URL: postgresql+psycopg://interview:localdev@postgres:5432/interview_intelligence
+      ELASTICSEARCH_URL: http://elasticsearch:9200
+      LOCAL_USER_ID: ${EVAL_USER_ID:?set a fresh eval-prefixed actor}
+      PYTHONPATH: /app/src:/app
+      CORPUS_ROOT: /corpus
+      SNAPSHOT_ROOT: /app/data/snapshots
+      MODEL_LOCK_PATH: /app/runtime/model-call.lock
+      PI_AGENT_URL: http://evaluation-pi:8787
+      PI_AGENT_ENABLED: "true"
+      QUERY_ROUTER_ENABLED: "true"
+      JEV_DECISION_ENABLED: "false"
+      TASK_ANNOTATION_POLICY: KNOWN
+    command: ["python", "-m", "eval.serve", "--host", "0.0.0.0", "--port", "8000"]
+    ports: ["127.0.0.1:18002:8000"]
+    volumes:
+      - ./src:/app/src:ro
+      - ./eval:/app/eval:ro
+      - ./config:/app/config:ro
+      - ./prompts:/app/prompts:ro
+      - ./md:/corpus:ro
+      - ./data:/app/data
+      - model_runtime:/app/runtime
+    networks: [existing]
+  evaluation-pi:
+    image: interview-intelligence-pi-agent
+    environment:
+      INTERNAL_AGENT_TOKEN: ${INTERNAL_AGENT_TOKEN:?configure internal token}
+      AGENT_HOST_URL: http://evaluation-api:8000
+    networks: [existing]
+networks:
+  existing:
+    external: true
+    name: interview-intelligence_default
+volumes:
+  model_runtime:
+    external: true
+    name: interview-intelligence_model_runtime

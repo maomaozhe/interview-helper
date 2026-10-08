@@ -32,6 +32,8 @@ from interview_intelligence.agent.query_service import QueryService, QueryRun
 from interview_intelligence.agent.model_gateway import ModelGateway, completion_sse
 from interview_intelligence.agent.jev import JevPlanner
 from interview_intelligence.agent.preferences import PreferenceUpdate
+from interview_intelligence.agent.feedback_memory import MemoryUpdate
+from interview_intelligence.agent.history import ConversationHistory
 from interview_intelligence.agent.annotation_review import AnnotationReviewer,AnnotationReview,AnnotationPublish
 from interview_intelligence.analytics.listing import ListRequest, list_questions
 from interview_intelligence.providers.runtime import current_limits
@@ -171,7 +173,12 @@ def create_app(database=None, settings: Settings | None = None, retriever=None, 
     query_service = QueryService(database, retriever, user_id=settings.local_user_id,
                                  signing_key=signing_key, deadline_seconds=settings.query_deadline_seconds,
                                  max_tokens=settings.query_max_tokens,task_filters_enabled=settings.task_filters_enabled,
-                                 task_annotation_policy=settings.task_annotation_policy)
+                                 task_annotation_policy=settings.task_annotation_policy,
+                                 compact_context=settings.query_compact_context,
+                                 dynamic_tools=settings.query_dynamic_tools,
+                                 prompt_version=settings.query_prompt_version,
+                                 feedback_root=settings.snapshot_root.parent / "feedback")
+    history = ConversationHistory(database, settings.local_user_id, signing_key)
     query_gate = ModelCallGate(settings.model_lock_path, minimum_interval_seconds=settings.model_min_interval_seconds)
     gateway = ModelGateway(settings, query_gate, record_api_call, query_service.journal.event)
     jev = JevPlanner(settings, database, query_gate, record_api_call) if settings.jev_decision_enabled and settings.jev_api_key else None
@@ -249,7 +256,7 @@ def create_app(database=None, settings: Settings | None = None, retriever=None, 
                         headers={"Authorization": f"Bearer {settings.internal_agent_token}"},
                         json={"run_id": run.id, "conversation_id": run.conversation_id, "context": context,
                               "schema": query_model_schema(),
-                              "prompt": resource_path(f"prompts/{QUERY_AGENT_VERSION}.md").read_text(encoding="utf-8"),
+                              "prompt": resource_path(f"prompts/{settings.query_prompt_version}.md").read_text(encoding="utf-8"),
                               "timeout_ms": int(max(0.01, run.limits.deadline - time.monotonic()) * 1000)})
                         response.raise_for_status()
                         if not run.result or not run.terminal:
@@ -310,8 +317,13 @@ def create_app(database=None, settings: Settings | None = None, retriever=None, 
         run = internal_run(request, run_id)
         payload=await request.json()
         async def streaming():
+            from interview_intelligence.agent.presentation import ClarificationStream
+            presentation = ClarificationStream()
             queue=asyncio.Queue(maxsize=32)
             async def emit(chunk):
+                question = presentation.update(chunk)
+                if question:
+                    await asyncio.to_thread(query_service.journal.event,run.id,"clarification_delta",question)
                 text_delta="".join(c.get("delta",{}).get("content") or "" for c in chunk.get("choices",[]))
                 if text_delta:
                     await asyncio.to_thread(query_service.journal.event,run.id,"text_delta",{"text":text_delta,"temporary":True})
@@ -363,6 +375,7 @@ def create_app(database=None, settings: Settings | None = None, retriever=None, 
         facts = result["facts"]
         return _response(request, database, facts.get("data", []),
                          extra={**facts["meta"], "conversation_id": result["conversation_id"],
+                                "run_id": result["run_id"],
                                 "conversation_version": result["conversation_version"],
                                 "answer": result["answer"], "planning": result["planning"], "tool_trace": result["tool_trace"]},
                          warnings=result.get("warnings"))
@@ -379,6 +392,18 @@ def create_app(database=None, settings: Settings | None = None, retriever=None, 
     @app.get("/api/preferences")
     def preferences(request:Request):
         return _response(request,database,query_service.preferences.list())
+
+    @app.get("/api/query-memory")
+    def query_memories(request: Request):
+        return _response(request, database, query_service.feedback_memory.list())
+
+    @app.patch("/api/query-memory/{feedback_id}")
+    def update_query_memory(request: Request, feedback_id: str, payload: MemoryUpdate):
+        return _response(request, database, query_service.feedback_memory.update(feedback_id, payload))
+
+    @app.get("/api/query-memory/export")
+    def export_query_memories(request: Request):
+        return _response(request, database, query_service.feedback_memory.export())
 
     @app.get("/api/preferences/{key}")
     def preference(request:Request,key:str):
@@ -401,18 +426,17 @@ def create_app(database=None, settings: Settings | None = None, retriever=None, 
             result={"conversation_id":c.id,"version":c.version,"state":c.state}
         return _response(request,database,result,status_code=201)
 
+    @app.get("/api/conversations")
+    def conversations(request: Request, q: str = Query(default="", max_length=200),
+                      cursor: str | None = Query(default=None, max_length=4096),
+                      limit: int = Query(default=30, ge=1, le=50)):
+        return _response(request, database, history.conversations(q, cursor, limit))
+
     @app.get("/api/conversations/{conversation_id}")
-    def conversation(request:Request,conversation_id:str):
-        from interview_intelligence.domain.models import AgentConversation,AgentTurn
-        with database.session() as s:
-            c=s.get(AgentConversation,conversation_id)
-            if not c or c.user_id!=settings.local_user_id: raise KeyError("CONVERSATION_NOT_FOUND")
-            turns=[{"run_id":t.id,"request_id":t.request_id,"message":t.message,"status":t.status,
-                    "result":t.response,"error_code":t.error_code}
-                for t in s.scalars(select(AgentTurn).where(AgentTurn.conversation_id==c.id)
-                    .order_by(AgentTurn.created_at.desc(),AgentTurn.id).limit(10))]
-            result={"conversation_id":c.id,"version":c.version,"state":c.state,"turns":turns[::-1]}
-        return _response(request,database,result)
+    def conversation(request:Request,conversation_id:str,
+                     cursor: str | None = Query(default=None, max_length=4096),
+                     limit: int = Query(default=20, ge=1, le=50)):
+        return _response(request,database,history.turns(conversation_id, cursor, limit))
 
     live_tasks={}
     @app.post("/api/conversations/{conversation_id}/messages",status_code=202)
@@ -475,7 +499,8 @@ def create_app(database=None, settings: Settings | None = None, retriever=None, 
                 if await request.is_disconnected(): break
                 if not view["events"]: yield ": heartbeat\n\n"
                 await asyncio.sleep(.25)
-        return StreamingResponse(events(),media_type="text/event-stream",headers={"Cache-Control":"no-cache"})
+        return StreamingResponse(events(),media_type="text/event-stream",headers={
+            "Cache-Control":"no-cache, no-transform", "X-Accel-Buffering":"no"})
 
     @app.get("/api/questions/list")
     def question_list(request: Request, params: Annotated[ListRequest, Query()]):
@@ -514,10 +539,11 @@ def create_app(database=None, settings: Settings | None = None, retriever=None, 
         message = str(error)
         code = message.split(":", 1)[0] if message.isupper() or ":" in message else "INVALID_OPERATION"
         status = 409 if code in {"IDEMPOTENCY_CONFLICT", "USER_STATE_VERSION_CONFLICT", "SNAPSHOT_CHANGED",
-                               "CONVERSATION_VERSION_CONFLICT", "QUERY_IN_PROGRESS","PREFERENCE_VERSION_CONFLICT"} else 400
+                               "CONVERSATION_VERSION_CONFLICT", "QUERY_IN_PROGRESS","PREFERENCE_VERSION_CONFLICT",
+                               "REQUERY_SOURCE_NOT_READY"} else 400
         if code in {"INDEX_NOT_READY", "EMBEDDING_NOT_READY", "RERANKER_NOT_READY",
                     "MODEL_CONFIGURATION_INCOMPLETE", "MODEL_NOT_READY", "SOURCE_SNAPSHOT_MISSING",
-                    "STREAM_INCOMPLETE", "MODEL_OUTPUT_TRUNCATED", "QUERY_DEADLINE_EXCEEDED",
+                    "STREAM_INCOMPLETE", "MODEL_OUTPUT_TRUNCATED", "QUERY_DEADLINE_EXCEEDED", "LEXICAL_FACET_RETRIEVAL_FAILED",
                     "QUERY_PLAN_MISSING", "QUERY_MODEL_BUDGET_EXCEEDED"}:
             status = 503
         return JSONResponse(status_code=status, content={"error": {
@@ -551,6 +577,10 @@ def create_app(database=None, settings: Settings | None = None, retriever=None, 
                     "task_filters_enabled":settings.task_filters_enabled,
                     "task_annotation_policy":settings.task_annotation_policy,
                     "pi_agent_enabled": settings.pi_agent_enabled,
+                    "query_prompt_version": settings.query_prompt_version,
+                    "query_prompt_sha256": hashlib.sha256(resource_path(
+                        f"prompts/{settings.query_prompt_version}.md").read_bytes()).hexdigest(),
+                    "reranker_version": getattr(getattr(retriever, "reranker", None), "version", None),
                     "jev_decision_enabled": jev is not None,
                     "model": "configured" if settings.model_api_key and settings.model_base_url else "not_configured"}
         return _response(request, database, data)

@@ -1,0 +1,54 @@
+{
+  "schema": "project_quality_bundle_v1",
+  "as_of": "2026-10-05",
+  "threshold_version": "quality_gate_v3",
+  "modules": {
+    "dedup": {
+      "dataset": "data/gold/project-quality-agent-20261006-v7",
+      "report": "data/reports/quality-optimization-20261006/release-v3/dedup/results/20261005T224352483452Z-bedf0cf2"
+    },
+    "retrieval": {
+      "dataset": "data/gold/project-quality-agent-20261006-v7",
+      "report": "data/reports/quality-optimization-20261006/release-v3/retrieval/results/20261005T224353631300Z-6831c318"
+    },
+    "sql": {
+      "dataset": "data/gold/project-quality-agent-20261006-v7",
+      "report": "data/reports/quality-optimization-20261006/release-v3/sql/results/20261005T224352880969Z-1eef8574"
+    },
+    "extraction": {
+      "dataset": "data/gold/evaluation-agent-reviewed-20261005-v5",
+      "report": "data/reports/quality-refinement-20261006/extraction-v5-normalized/extraction/results/20261006T120610400431Z-fce4fe2e"
+    },
+    "task_labels": {
+      "dataset": "data/gold/task-engineering-challenge-agent-20261006-v1",
+      "report": "data/reports/quality-refinement-20261006/engineering-challenge-200-task_annotation_v7/task_labels/results/20261006T122429203804Z-91ff4f80"
+    },
+    "routing": {
+      "dataset": "data/gold/query-generalization-reserved-agent-20261006-v5",
+      "report": "data/reports/quality-refinement-20261006/query-reserved-reference-corrected/routing/results/20261006T123526549133Z-d808f832"
+    }
+  },
+  "required_regressions": {
+    "task-labels-211": {
+      "dataset": "data/gold/evaluation-agent-reviewed-20261005-v5",
+      "report": "data/reports/quality-refinement-20261006/regression-211/task_labels/results/20261006T115032260670Z-bab81a06",
+      "section": "task_labels"
+    },
+    "task-labels-seen-source-200": {
+      "dataset": "data/gold/task-generalization-agent-20261006-v2",
+      "report": "data/reports/quality-refinement-20261006/seen-source-200/task_labels/results/20261006T115203384551Z-41c058b0",
+      "section": "task_labels"
+    },
+    "query-known-50": {
+      "dataset": "data/gold/query-generalization-agent-20261006-v1",
+      "report": "data/reports/quality-refinement-20261006/query-regression/routing/results/20261006T120304150310Z-2f9da8b3",
+      "section": "routing"
+    },
+    "query-reserved-original-first-score": {
+      "dataset": "data/gold/query-generalization-reserved-agent-20261006-v3",
+      "report": "data/reports/quality-refinement-20261006/query-reserved/routing/results/20261006T121905585715Z-e5e95cb9",
+      "section": "routing"
+    }
+  },
+  "scope": "Offline candidates. The routing primary is a post-first-inference reference correction; its original first score is also required. Existing task regressions remain required. Dedup/retrieval/SQL evidence is carried forward without new calls. Experimental prompts remain disabled by default."
+}

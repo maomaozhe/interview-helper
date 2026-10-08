@@ -27,6 +27,19 @@ from interview_intelligence.ingestion.snapshot import decode_source
 
 
 WEB_ROOT = Path(__file__).with_name("web")
+WEB_ASSETS = ("app.css", "workspace.css", "core.js", "query-stream.js", "app.js")
+
+
+def workspace_version():
+    return hashlib.sha256(b"".join((WEB_ROOT / "assets" / name).read_bytes()
+                                   for name in WEB_ASSETS)).hexdigest()[:12]
+
+
+class RevalidatedStaticFiles(StaticFiles):
+    async def get_response(self, path, scope):
+        response = await super().get_response(path, scope)
+        response.headers["Cache-Control"] = "no-cache, must-revalidate"
+        return response
 
 
 class FeedbackRequest(StrictModel):
@@ -35,6 +48,8 @@ class FeedbackRequest(StrictModel):
     query: str = Field(default="", max_length=2000)
     canonical_question_id: str | None = Field(default=None, max_length=36)
     context: dict = Field(default_factory=dict)
+    run_id: str | None = Field(default=None, max_length=36)
+    request_id: str | None = Field(default=None, max_length=128)
 
     @field_validator("context")
     @classmethod
@@ -137,12 +152,21 @@ def run_summary(run) -> dict:
 
 
 def register_web(app, database, settings, respond):
-    app.mount("/assets", StaticFiles(directory=WEB_ROOT / "assets"), name="web-assets")
+    app.mount("/assets", RevalidatedStaticFiles(directory=WEB_ROOT / "assets"), name="web-assets")
+
+    @app.get("/api/workspace/version", include_in_schema=False)
+    def version():
+        from fastapi.responses import JSONResponse
+        return JSONResponse({"version":workspace_version()}, headers={"Cache-Control":"no-store"})
 
     @app.get("/", response_class=HTMLResponse, include_in_schema=False)
     def home(request: Request):
         prefix = request.scope.get("root_path", "").rstrip("/") + "/"
         page = (WEB_ROOT / "index.html").read_text(encoding="utf-8")
+        for asset in WEB_ASSETS:
+            fingerprint = hashlib.sha256((WEB_ROOT / "assets" / asset).read_bytes()).hexdigest()[:12]
+            page = page.replace(f'assets/{asset}"', f'assets/{asset}?v={fingerprint}"')
+        page = page.replace("</head>", f'<meta name="workspace-version" content="{workspace_version()}"></head>')
         return HTMLResponse(page.replace("__BASE_PATH__", html.escape(prefix, quote=True)),
                             headers={"Cache-Control": "no-cache"})
 
@@ -207,8 +231,21 @@ def register_web(app, database, settings, respond):
             with database.session() as session:
                 if session.get(CanonicalQuestion, payload.canonical_question_id) is None:
                     raise KeyError("QUESTION_NOT_FOUND")
+        from interview_intelligence.domain.models import AgentTurn
         record = {"id": str(uuid4()), "created_at": datetime.now(timezone.utc).isoformat(),
-                  **payload.model_dump(mode="json")}
+                  **payload.model_dump(mode="json"), "user_id": settings.local_user_id}
+        run_id = payload.run_id or payload.context.get("run_id")
+        request_id = payload.request_id or (payload.context.get("meta") or {}).get("request_id")
+        if run_id or request_id:
+            with database.session() as session:
+                turn = session.scalar(select(AgentTurn).where(AgentTurn.user_id == settings.local_user_id,
+                    AgentTurn.id == run_id if run_id else AgentTurn.request_id == request_id))
+                if not turn:
+                    raise KeyError("QUERY_RECEIPT_NOT_FOUND")
+                record.update(run_id=turn.id, request_id=turn.request_id, conversation_id=turn.conversation_id)
+                record["context"] = {**record["context"], "receipt": {"run_id": turn.id,
+                    "request_id": turn.request_id, "conversation_id": turn.conversation_id,
+                    "message": turn.message, "status": turn.status, "result": turn.response}}
         feedback_root.mkdir(parents=True, exist_ok=True)
         temporary = feedback_root / f"{record['id']}.tmp"
         target = feedback_root / f"{record['id']}.json"
@@ -223,7 +260,8 @@ def register_web(app, database, settings, respond):
             for path in feedback_root.glob("*.json"):
                 try:
                     record = json.loads(path.read_text(encoding="utf-8"))
-                    if isinstance(record, dict) and "created_at" in record and "id" in record:
+                    if (isinstance(record, dict) and "created_at" in record and "id" in record
+                            and record.get("user_id", "local") == settings.local_user_id):
                         records.append(record)
                 except (OSError, ValueError):
                     continue

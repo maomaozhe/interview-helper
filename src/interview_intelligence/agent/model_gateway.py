@@ -16,6 +16,7 @@ class ModelGateway:
     def __init__(self, settings, gate, on_call=None, on_event=None):
         self.settings, self.gate, self.on_call = settings, gate, on_call
         self.on_event=on_event
+        self.prompt_version = getattr(settings, "query_prompt_version", QUERY_AGENT_VERSION)
 
     async def complete(self, run, payload, emit=None):
         if not self.settings.model_api_key or not self.settings.model_base_url:
@@ -29,6 +30,10 @@ class ModelGateway:
         body = {k: v for k, v in payload.items() if k in {
             "messages", "tools", "tool_choice", "response_format", "max_tokens", "max_completion_tokens"}}
         body.update(model=model, stream=False, temperature=0)
+        if body.get("tools"):
+            # Clarification is a domain action too. A free-text reply cannot
+            # establish a checked terminal result or a recoverable state.
+            body["tool_choice"] = "required"
         if emit:
             body.update(stream=True,stream_options={"include_usage":True})
         body.setdefault("max_tokens", 4096)
@@ -48,6 +53,8 @@ class ModelGateway:
         entered = False
         try:
             if self.on_event:
+                await asyncio.to_thread(self.on_event,run.id,"stage",{
+                    "stage":"waiting_for_model", "attempt":run.model_calls})
                 await asyncio.to_thread(self.on_event,run.id,"model_request",body)
             acquisition = asyncio.create_task(asyncio.to_thread(gate_context.__enter__))
             try:
@@ -62,6 +69,9 @@ class ModelGateway:
                     await asyncio.to_thread(gate_context.__exit__, None, None, None)
                 raise
             entered = True
+            if self.on_event:
+                await asyncio.to_thread(self.on_event,run.id,"stage",{
+                    "stage":"planning", "attempt":run.model_calls})
             # The yielded dictionary is shared and holds measured queue/interval time.
             # Enter is performed only once so the file lock spans this actual HTTP call.
             provider_started = time.perf_counter()
@@ -138,7 +148,7 @@ class ModelGateway:
                 await asyncio.to_thread(self.on_call, {"request_id": run.request.request_id,
                     "query_run_id":run.id,"token_budget_charge":actual if actual is not None else reserved if provider_started else 0,
                     "operation_type": "QUERY_PLAN", "model": model, "model_revision": response.get("model"),
-                    "prompt_version": QUERY_AGENT_VERSION, "input_tokens": usage.get("prompt_tokens"),
+                    "prompt_version": self.prompt_version, "input_tokens": usage.get("prompt_tokens"),
                     "output_tokens": usage.get("completion_tokens"), "latency_ms": int((time.perf_counter() - started) * 1000),
                     **measured, "ttft_ms":ttft,
                     "status": "FAILED" if error else "SUCCEEDED", "retry_count": 0,
@@ -147,11 +157,11 @@ class ModelGateway:
 
     async def plan(self, run, context):
         response = await self.complete(run, {"messages": [
-            {"role": "system", "content": resource_path(f"prompts/{QUERY_AGENT_VERSION}.md").read_text(encoding="utf-8") +
+            {"role": "system", "content": resource_path(f"prompts/{self.prompt_version}.md").read_text(encoding="utf-8") +
              "\n当前模式直接输出 QuerySpec JSON，不调用工具。"},
             {"role": "user", "content": json.dumps(context, ensure_ascii=False)}],
             "response_format": {"type": "json_schema", "json_schema": {
-                "name": "QuerySpec", "strict": False, "schema": query_model_schema()}}})
+                "name": "QuerySpec", "strict": False, "schema": query_model_schema(context.get("tool_policy"))}}})
         return validate_model_plan(json.loads(response["choices"][0]["message"]["content"]))
 
 

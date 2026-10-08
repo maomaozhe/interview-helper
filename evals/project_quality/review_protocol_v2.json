@@ -1,0 +1,39 @@
+{
+  "version": "project_quality_agent_v2",
+  "reviewer_kind": "agent",
+  "human_verified": false,
+  "authorization": "The user delegated annotation decisions in the current project task.",
+  "scope": [
+    "retrieval relevance",
+    "semantic deduplication",
+    "query trajectories",
+    "exact SQL"
+  ],
+  "relevance": {
+    "2": "Directly asks for the concrete technical object, condition or operation in the query.",
+    "1": "Explicitly related but asks about a broader mechanism or adjacent condition.",
+    "0": "No selected source-grounded relevance; sharing a broad domain alone is insufficient.",
+    "coverage": "Reviewed source-catalogue searches and selected original evidence. Completeness is limited by this review; the benchmark is not a claim of universal semantic ground truth."
+  },
+  "dedup": {
+    "SAME": "Same primary technical demand and answer boundary; wording and interview timing may differ.",
+    "RELATED": "Shared topic but different operation, narrower constraints, ambiguous context or answer boundary.",
+    "DIFFERENT": "Different primary technical demand even when wording or domain overlaps."
+  },
+  "routing": "Author scenario requirements before inference. Check actual rows, state, invocation sequence, authorization and idempotency instead of an agent-reported success flag.",
+  "splits": "Keep feedback in dev. Hold out scenario families together; do not fit a decision threshold on the final test set.",
+  "freeze": "Store every label file hash. Changing a label creates a new dataset version; failures and superseded versions are retained.",
+  "minimum_test_size": {
+    "retrieval_positive": 50,
+    "routing_scenarios": 50,
+    "dedup_pairs": 150,
+    "sql_scopes": 20
+  },
+  "dedup_review_corrections": "evals/project_quality/audit_dedup_gold.py",
+  "scope_normalization": [
+    "Use reasonable interview answer scope, not literal question grammar. Technical familiarity questions invite explanation.",
+    "Named products, versions, concrete project identity, algorithm constraints and missing SQL tasks are material; never infer them from the other candidate.",
+    "A new constraint or independent subtask changes scope. Presentation style and interview completion time do not change the underlying technical question."
+  ],
+  "limitations": "Post-run source audit corrects ten labels in a new immutable version. All comparisons rescore both variants on that version; it is regression evidence, not an independent holdout."
+}

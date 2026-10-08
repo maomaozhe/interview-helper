@@ -18,6 +18,7 @@ from interview_intelligence.providers.budget import CallBudget
 from interview_intelligence.providers.gate import ModelCallGate
 from interview_intelligence.search.elasticsearch import ElasticsearchRetriever, rebuild_index
 from interview_intelligence.search.reranker import LLMReranker
+from interview_intelligence.resources import resource_path
 
 
 def build_worker_services(database, settings, run_id: str | None = None):
@@ -54,13 +55,20 @@ def build_worker_services(database, settings, run_id: str | None = None):
                                            on_call=record_call, budget=budget, call_gate=gate,
                                            timeout_seconds=settings.model_request_timeout_seconds,
                                            stream=settings.extraction_stream,
-                                           max_tokens=settings.extraction_max_tokens)
+                                           max_tokens=settings.extraction_max_tokens,
+                                           thinking_mode=settings.extraction_thinking_mode,
+                                           topic_ids=settings.extraction_prompt_version in {"extract_question_v4", "extract_question_v5"},
+                                           prompt_path=resource_path(f"prompts/{settings.extraction_prompt_version}.md"))
     judge = OpenAICompatibleJudge(model=settings.judge_model,
                                   api_key=settings.model_api_key,
                                   base_url=settings.model_base_url,
                                   on_call=record_call, budget=budget, call_gate=gate,
-                                  timeout_seconds=settings.model_request_timeout_seconds)
-    deduper = DedupService(encoder=encoder, judge=judge)
+                                  timeout_seconds=settings.model_request_timeout_seconds,
+                                  verify_equivalence=settings.dedup_verify_equivalence)
+    from interview_intelligence.dedup.candidates import ElasticsearchCandidateHead
+    candidate_head = ElasticsearchCandidateHead(settings.elasticsearch_url) if settings.elasticsearch_url else None
+    deduper = DedupService(encoder=encoder, judge=judge, candidate_head=candidate_head,
+        candidate_backend=settings.dedup_candidate_backend, ann_min_size=settings.dedup_ann_min_size)
     ingestor = IngestService(database, settings.corpus_root, settings.snapshot_root,
                              extractor, deduper)
     reranker = (LLMReranker(model=settings.reranker_model, api_key=settings.model_api_key,

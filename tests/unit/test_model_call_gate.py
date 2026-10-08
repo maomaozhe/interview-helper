@@ -67,14 +67,21 @@ def test_embedding_and_rerank_hold_gate_during_network_request():
     def create_rerank(**kwargs):
         assert gate.active
         return SimpleNamespace(choices=[SimpleNamespace(message=SimpleNamespace(
-            content=json.dumps({"rankings": [{"candidate_id": "c0", "relevance_grade": 3}]}),
+            content=json.dumps({
+                "query_object": "Redis", "query_focus": "Redis查询",
+                "rankings": [{
+                    "candidate_id": "c0",
+                    "object_evidence": "Redis", "focus_evidence": "Redis查询",
+                    "object_relation": "EXPLICIT", "focus_relation": "DIRECT",
+                }],
+            }),
         ))])
 
     reranker = LLMReranker(
         model="local-test", call_gate=gate,
         client=SimpleNamespace(chat=SimpleNamespace(completions=SimpleNamespace(create=create_rerank))),
     )
-    assert reranker.rerank("Redis", [{"canonical_question_id": "a"}])[0]["rerank_rank"] == 1
+    assert reranker.rerank("Redis", [{"canonical_question_id": "a", "canonical_text": "Redis查询"}])[0]["rerank_rank"] == 1
 
     class Response:
         def raise_for_status(self):

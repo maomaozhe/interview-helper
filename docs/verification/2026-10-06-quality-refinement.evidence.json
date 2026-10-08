@@ -1,0 +1,1781 @@
+{
+  "schema": "quality_refinement_evidence_v1",
+  "generated_at": "2026-10-06T12:59:21.544220+00:00",
+  "snapshot": {
+    "corpus_revision": 293,
+    "indexed_revision": 293,
+    "task_annotation_revision": 30,
+    "as_of": "2026-10-05",
+    "task_annotation_policy": "KNOWN"
+  },
+  "threshold_version": "quality_gate_v3",
+  "review_policy": "delegated_agent",
+  "human_verified": false,
+  "protocols": {
+    "protocol.json": {
+      "path": "data/reports/quality-refinement-20261006/protocol.json",
+      "sha256": "9d277be4c638ebe77ededf9d15f6070fdae45d7e3c1fa35fc4f40e768f52a330"
+    },
+    "protocol.v2.json": {
+      "path": "data/reports/quality-refinement-20261006/protocol.v2.json",
+      "sha256": "35f2c9bcafdea7ea0733f58862f7b0d4a659e38b7810c04b68fc3447822c12e5"
+    }
+  },
+  "reports": {
+    "labels/regression-211": {
+      "report": "data/reports/quality-refinement-20261006/regression-211/task_labels/results/20261006T115032260670Z-bab81a06",
+      "manifest": {
+        "dataset_version": "evaluation-agent-reviewed-20261005-v5",
+        "kind": "corpus",
+        "section": "task_labels",
+        "split": "test",
+        "sample_count": 211,
+        "test_count": 211,
+        "human_verified_count": 0,
+        "agent_verified_count": 211,
+        "review_policy": "delegated_agent",
+        "dataset_sha256": "6254ed7fee74aa9204c9593104d9411cb39aabf572c17df2bc50817d4f3407d7",
+        "predictions_sha256": "bacdf675a033404376f32f120860b4c30d7b00f1c39008e127f9f20ebe9e49ed",
+        "alignments_sha256": null,
+        "snapshot": {
+          "corpus_revision": 293,
+          "indexed_revision": 293,
+          "task_annotation_revision": 30,
+          "as_of": "2026-10-05",
+          "task_annotation_policy": "KNOWN"
+        },
+        "run_id": "20261006T115032260670Z-bab81a06"
+      },
+      "metrics": {
+        "response_form": {
+          "tp": 23,
+          "fp": 0,
+          "fn": 2,
+          "precision": 1.0,
+          "recall": 0.92,
+          "f1": 0.9583333333333334,
+          "accuracy": 0.990521327014218,
+          "macro_f1": 0.9861111111111112,
+          "per_class": {
+            "CODE": {
+              "tp": 23,
+              "fp": 0,
+              "fn": 2,
+              "precision": 1.0,
+              "recall": 0.92,
+              "f1": 0.9583333333333334
+            },
+            "SQL": {
+              "tp": 2,
+              "fp": 0,
+              "fn": 0,
+              "precision": 1.0,
+              "recall": 1.0,
+              "f1": 1.0
+            },
+            "VERBAL": {
+              "tp": 184,
+              "fp": 0,
+              "fn": 0,
+              "precision": 1.0,
+              "recall": 1.0,
+              "f1": 1.0
+            }
+          },
+          "evaluated_samples": 211,
+          "confusion": {
+            "VERBAL": {
+              "VERBAL": 184
+            },
+            "CODE": {
+              "CODE": 23,
+              "UNKNOWN": 2
+            },
+            "SQL": {
+              "SQL": 2
+            }
+          }
+        },
+        "coding_focus": {
+          "tp": 14,
+          "fp": 4,
+          "fn": 0,
+          "precision": 0.7777777777777778,
+          "recall": 1.0,
+          "f1": 0.875,
+          "accuracy": 0.9715639810426541,
+          "macro_f1": 0.7012192588899967,
+          "per_class": {
+            "ALGORITHM": {
+              "tp": 16,
+              "fp": 1,
+              "fn": 1,
+              "precision": 0.9411764705882353,
+              "recall": 0.9411764705882353,
+              "f1": 0.9411764705882353
+            },
+            "ENGINEERING": {
+              "tp": 14,
+              "fp": 4,
+              "fn": 0,
+              "precision": 0.7777777777777778,
+              "recall": 1.0,
+              "f1": 0.875
+            },
+            "MIXED": {
+              "tp": 0,
+              "fp": 0,
+              "fn": 1,
+              "precision": null,
+              "recall": 0.0,
+              "f1": 0.0
+            },
+            "NONE": {
+              "tp": 175,
+              "fp": 0,
+              "fn": 4,
+              "precision": 1.0,
+              "recall": 0.9776536312849162,
+              "f1": 0.9887005649717514
+            }
+          },
+          "evaluated_samples": 211,
+          "confusion": {
+            "NONE": {
+              "NONE": 175,
+              "ENGINEERING": 3,
+              "ALGORITHM": 1
+            },
+            "ALGORITHM": {
+              "ALGORITHM": 16,
+              "UNKNOWN": 1
+            },
+            "ENGINEERING": {
+              "ENGINEERING": 14
+            },
+            "MIXED": {
+              "ENGINEERING": 1
+            }
+          }
+        },
+        "joint_accuracy": 0.966824644549763,
+        "known_gold": 211,
+        "predicted_coverage": 0.990521327014218,
+        "covered_accuracy": 0.9760765550239234,
+        "task_filter_metrics": {
+          "engineering": {
+            "tp": 15,
+            "fp": 3,
+            "fn": 0,
+            "precision": 0.8333333333333334,
+            "recall": 1.0,
+            "f1": 0.9090909090909091,
+            "evaluated_samples": 211,
+            "unknown_gold_samples": 0,
+            "definition": "MIXED qualifies for both focus filters; CODE additionally requires response_form=CODE."
+          },
+          "algorithm": {
+            "tp": 16,
+            "fp": 1,
+            "fn": 2,
+            "precision": 0.9411764705882353,
+            "recall": 0.8888888888888888,
+            "f1": 0.9142857142857143,
+            "evaluated_samples": 211,
+            "unknown_gold_samples": 0,
+            "definition": "MIXED qualifies for both focus filters; CODE additionally requires response_form=CODE."
+          },
+          "code_engineering": {
+            "tp": 11,
+            "fp": 0,
+            "fn": 0,
+            "precision": 1.0,
+            "recall": 1.0,
+            "f1": 1.0,
+            "evaluated_samples": 211,
+            "unknown_gold_samples": 0,
+            "definition": "MIXED qualifies for both focus filters; CODE additionally requires response_form=CODE."
+          },
+          "code_algorithm": {
+            "tp": 12,
+            "fp": 0,
+            "fn": 3,
+            "precision": 1.0,
+            "recall": 0.8,
+            "f1": 0.8888888888888888,
+            "evaluated_samples": 211,
+            "unknown_gold_samples": 0,
+            "definition": "MIXED qualifies for both focus filters; CODE additionally requires response_form=CODE."
+          }
+        },
+        "efficiency": {
+          "latency_samples": 211,
+          "p50_ms": 13551.162015995942,
+          "p95_ms": 14623.083518003114,
+          "percentile_method": "nearest_rank",
+          "failed_samples": 0,
+          "model_calls": 6,
+          "observed_model_calls": 6,
+          "telemetry_unavailable_samples": 0,
+          "unknown_usage_calls": 0,
+          "input_tokens_known": 38518,
+          "output_tokens_known": 4631,
+          "estimated_cost": null,
+          "phase_p95_ms": {
+            "queue_ms": 0,
+            "interval_ms": 0,
+            "provider_ms": 0,
+            "ttft_ms": null,
+            "tool_ms": null
+          }
+        },
+        "slices": {
+          "boundary_supplement": {
+            "samples": 11,
+            "passed": 11,
+            "unknown": 0
+          },
+          "random_source_sample": {
+            "samples": 200,
+            "passed": 193,
+            "unknown": 0
+          },
+          "task_labels": {
+            "samples": 211,
+            "passed": 204,
+            "unknown": 0
+          },
+          "user_field_adjudication": {
+            "samples": 1,
+            "passed": 0,
+            "unknown": 0
+          }
+        }
+      },
+      "gate": "BELOW_GATE",
+      "manifest_file_sha256": "2ccb380f718fc414e88a7ccfc24de1f195aa19d2ab3d3006e578ac12d952e71b",
+      "metrics_file_sha256": "8bcf9d90a38874ba8288cb0b250b454813f49305f92d311e8aa12abb562e76b9"
+    },
+    "labels/seen-source-200": {
+      "report": "data/reports/quality-refinement-20261006/seen-source-200/task_labels/results/20261006T115203384551Z-41c058b0",
+      "manifest": {
+        "dataset_version": "task-generalization-agent-20261006-v2",
+        "kind": "corpus",
+        "section": "task_labels",
+        "split": "test",
+        "sample_count": 200,
+        "test_count": 200,
+        "human_verified_count": 0,
+        "agent_verified_count": 200,
+        "review_policy": "delegated_agent",
+        "dataset_sha256": "d1672697968579c2d3e652d03b6f0b69c140d3c082d9af312b600a0844328b71",
+        "predictions_sha256": "8800b6d6f7325c496fe6966a8589f14ea3be04e22324576b414c6accc3be5d70",
+        "alignments_sha256": null,
+        "snapshot": {
+          "corpus_revision": 293,
+          "indexed_revision": 293,
+          "task_annotation_revision": 30,
+          "as_of": "2026-10-05",
+          "task_annotation_policy": "KNOWN"
+        },
+        "run_id": "20261006T115203384551Z-41c058b0"
+      },
+      "metrics": {
+        "response_form": {
+          "tp": 17,
+          "fp": 1,
+          "fn": 1,
+          "precision": 0.9444444444444444,
+          "recall": 0.9444444444444444,
+          "f1": 0.9444444444444444,
+          "accuracy": 0.99,
+          "macro_f1": 0.9138863097080367,
+          "per_class": {
+            "CODE": {
+              "tp": 17,
+              "fp": 1,
+              "fn": 1,
+              "precision": 0.9444444444444444,
+              "recall": 0.9444444444444444,
+              "f1": 0.9444444444444444
+            },
+            "UNKNOWN": {
+              "tp": 2,
+              "fp": 1,
+              "fn": 0,
+              "precision": 0.6666666666666666,
+              "recall": 1.0,
+              "f1": 0.8
+            },
+            "VERBAL": {
+              "tp": 179,
+              "fp": 0,
+              "fn": 1,
+              "precision": 1.0,
+              "recall": 0.9944444444444445,
+              "f1": 0.9972144846796658
+            }
+          },
+          "evaluated_samples": 200,
+          "confusion": {
+            "CODE": {
+              "CODE": 17,
+              "UNKNOWN": 1
+            },
+            "VERBAL": {
+              "VERBAL": 179,
+              "CODE": 1
+            },
+            "UNKNOWN": {
+              "UNKNOWN": 2
+            }
+          }
+        },
+        "coding_focus": {
+          "tp": 3,
+          "fp": 1,
+          "fn": 0,
+          "precision": 0.75,
+          "recall": 1.0,
+          "f1": 0.8571428571428571,
+          "accuracy": 0.985,
+          "macro_f1": 0.9329234667262836,
+          "per_class": {
+            "ALGORITHM": {
+              "tp": 17,
+              "fp": 0,
+              "fn": 2,
+              "precision": 1.0,
+              "recall": 0.8947368421052632,
+              "f1": 0.9444444444444444
+            },
+            "ENGINEERING": {
+              "tp": 3,
+              "fp": 1,
+              "fn": 0,
+              "precision": 0.75,
+              "recall": 1.0,
+              "f1": 0.8571428571428571
+            },
+            "NONE": {
+              "tp": 177,
+              "fp": 0,
+              "fn": 1,
+              "precision": 1.0,
+              "recall": 0.9943820224719101,
+              "f1": 0.9971830985915493
+            }
+          },
+          "evaluated_samples": 200,
+          "confusion": {
+            "ENGINEERING": {
+              "ENGINEERING": 3
+            },
+            "NONE": {
+              "NONE": 177,
+              "ENGINEERING": 1
+            },
+            "ALGORITHM": {
+              "ALGORITHM": 17,
+              "UNKNOWN": 2
+            }
+          }
+        },
+        "joint_accuracy": 0.985,
+        "known_gold": 198,
+        "predicted_coverage": 0.9949494949494949,
+        "covered_accuracy": 0.9949238578680203,
+        "task_filter_metrics": {
+          "engineering": {
+            "tp": 3,
+            "fp": 1,
+            "fn": 0,
+            "precision": 0.75,
+            "recall": 1.0,
+            "f1": 0.8571428571428571,
+            "evaluated_samples": 200,
+            "unknown_gold_samples": 0,
+            "definition": "MIXED qualifies for both focus filters; CODE additionally requires response_form=CODE."
+          },
+          "algorithm": {
+            "tp": 17,
+            "fp": 0,
+            "fn": 2,
+            "precision": 1.0,
+            "recall": 0.8947368421052632,
+            "f1": 0.9444444444444444,
+            "evaluated_samples": 200,
+            "unknown_gold_samples": 0,
+            "definition": "MIXED qualifies for both focus filters; CODE additionally requires response_form=CODE."
+          },
+          "code_engineering": {
+            "tp": 2,
+            "fp": 1,
+            "fn": 0,
+            "precision": 0.6666666666666666,
+            "recall": 1.0,
+            "f1": 0.8,
+            "evaluated_samples": 198,
+            "unknown_gold_samples": 2,
+            "definition": "MIXED qualifies for both focus filters; CODE additionally requires response_form=CODE."
+          },
+          "code_algorithm": {
+            "tp": 15,
+            "fp": 0,
+            "fn": 1,
+            "precision": 1.0,
+            "recall": 0.9375,
+            "f1": 0.967741935483871,
+            "evaluated_samples": 198,
+            "unknown_gold_samples": 2,
+            "definition": "MIXED qualifies for both focus filters; CODE additionally requires response_form=CODE."
+          }
+        },
+        "efficiency": {
+          "latency_samples": 200,
+          "p50_ms": 13549.211488003493,
+          "p95_ms": 16904.51659100654,
+          "percentile_method": "nearest_rank",
+          "failed_samples": 0,
+          "model_calls": 5,
+          "observed_model_calls": 5,
+          "telemetry_unavailable_samples": 0,
+          "unknown_usage_calls": 0,
+          "input_tokens_known": 35543,
+          "output_tokens_known": 4382,
+          "estimated_cost": null,
+          "phase_p95_ms": {
+            "queue_ms": 0,
+            "interval_ms": 0,
+            "provider_ms": 0,
+            "ttft_ms": null,
+            "tool_ms": null
+          }
+        },
+        "slices": {
+          "source_disjoint_holdout": {
+            "samples": 200,
+            "passed": 197,
+            "unknown": 0
+          },
+          "task_labels": {
+            "samples": 200,
+            "passed": 197,
+            "unknown": 0
+          }
+        }
+      },
+      "gate": "BELOW_GATE",
+      "manifest_file_sha256": "0af7f815ae9548bb1bf3b47f3070ab0936d01b6a85cd214223499db09f69f10c",
+      "metrics_file_sha256": "f76a61098112d166a3f285f3a61ccc11d07f6366dfc7f92114a7f70e0d6af83b"
+    },
+    "query-regression/query-regression": {
+      "report": "data/reports/quality-refinement-20261006/query-regression/routing/results/20261006T120304150310Z-2f9da8b3",
+      "manifest": {
+        "dataset_version": "query-generalization-agent-20261006-v1",
+        "kind": "corpus",
+        "section": "routing",
+        "split": "test",
+        "sample_count": 50,
+        "test_count": 50,
+        "human_verified_count": 0,
+        "agent_verified_count": 50,
+        "review_policy": "delegated_agent",
+        "dataset_sha256": "ecf56064148613893503f37cb5c4760bdb7f47668e7a8a328b927e35fb532640",
+        "predictions_sha256": "50cbeb4039e5512aea9caecf66ac367d53f201ece7ef4d72b448dce6c4c38b0c",
+        "alignments_sha256": null,
+        "snapshot": {
+          "corpus_revision": 293,
+          "indexed_revision": 293,
+          "task_annotation_revision": 30,
+          "as_of": "2026-10-05",
+          "task_annotation_policy": "KNOWN"
+        },
+        "run_id": "20261006T120304150310Z-2f9da8b3"
+      },
+      "metrics": {
+        "task_success_rate": 1,
+        "evaluated_queries": 50,
+        "tool_selection_accuracy": 1,
+        "argument_accuracy": 1,
+        "argument_fields": 358,
+        "complete_plan_accuracy": 1,
+        "unauthorized_write_count": 0,
+        "mean_tool_calls": 1,
+        "unknown_assertions": 0,
+        "efficiency": {
+          "latency_samples": 50,
+          "p50_ms": 11891.284158002236,
+          "p95_ms": 19384.171895995678,
+          "percentile_method": "nearest_rank",
+          "failed_samples": 0,
+          "model_calls": 85,
+          "observed_model_calls": 85,
+          "telemetry_unavailable_samples": 0,
+          "unknown_usage_calls": 0,
+          "input_tokens_known": 578631,
+          "output_tokens_known": 21410,
+          "estimated_cost": null,
+          "phase_p95_ms": {
+            "queue_ms": 1,
+            "interval_ms": 4869,
+            "provider_ms": 13589,
+            "ttft_ms": null,
+            "tool_ms": null
+          }
+        },
+        "slices": {
+          "cross_filters": {
+            "samples": 25,
+            "passed": 25,
+            "unknown": 0
+          },
+          "explicit_ui": {
+            "samples": 5,
+            "passed": 5,
+            "unknown": 0
+          },
+          "field_clear_and_inherit": {
+            "samples": 10,
+            "passed": 10,
+            "unknown": 0
+          },
+          "multi_identity_reference": {
+            "samples": 5,
+            "passed": 5,
+            "unknown": 0
+          },
+          "new_page_boundaries": {
+            "samples": 5,
+            "passed": 5,
+            "unknown": 0
+          },
+          "query_compositional_holdout": {
+            "samples": 50,
+            "passed": 50,
+            "unknown": 0
+          }
+        }
+      },
+      "gate": "PASSED",
+      "manifest_file_sha256": "b72306be762ce2b622f20b803264b9fe6679548875e95187847d59ad520874f8",
+      "metrics_file_sha256": "a1b92eb387bf64efd0de9a66443e8a7093153e244cd5f97294c867c185a73091"
+    },
+    "extraction/v5-disabled": {
+      "report": "data/reports/quality-refinement-20261006/extraction-v5/extraction/results/20261006T115735603314Z-94adb8c4",
+      "manifest": {
+        "dataset_version": "evaluation-agent-reviewed-20261005-v5",
+        "kind": "corpus",
+        "section": "extraction",
+        "split": "test",
+        "sample_count": 32,
+        "test_count": 32,
+        "human_verified_count": 0,
+        "agent_verified_count": 32,
+        "review_policy": "delegated_agent",
+        "dataset_sha256": "6254ed7fee74aa9204c9593104d9411cb39aabf572c17df2bc50817d4f3407d7",
+        "predictions_sha256": "73523c748fb27898d69650e9997c4f821f6266b26b80a7a1387fb18b874e78d1",
+        "alignments_sha256": "7d8c55641b59985613972d1d38a222538611d7232ac1b9c120c663399d065e45",
+        "snapshot": {
+          "corpus_revision": 293,
+          "indexed_revision": 293,
+          "task_annotation_revision": 30,
+          "as_of": "2026-10-05",
+          "task_annotation_policy": "KNOWN"
+        },
+        "run_id": "20261006T115735603314Z-94adb8c4"
+      },
+      "metrics": {
+        "tp": 460,
+        "fp": 28,
+        "fn": 51,
+        "precision": 0.9426229508196722,
+        "recall": 0.9001956947162426,
+        "f1": 0.9209209209209209,
+        "document_macro_f1": 0.9039386001321674,
+        "null_field_hallucination_count": 1,
+        "invalid_citation_count": 0,
+        "citation_valid_rate": 1.0,
+        "negative_exclusion_accuracy": 1,
+        "followups": {
+          "tp": 0,
+          "fp": 0,
+          "fn": 3,
+          "precision": null,
+          "recall": 0.0,
+          "f1": 0.0
+        },
+        "matched_attribute_accuracy": {
+          "topic_l1": 0.908695652173913,
+          "topic_l2": 0.8065217391304348,
+          "question_type": 0.7913043478260869
+        },
+        "matched_attribute_counts": {
+          "topic_l1": 460,
+          "topic_l2": 460,
+          "question_type": 460
+        },
+        "matched_attribute_pending_review_count": 0,
+        "metadata_accuracy": {
+          "company": 0.8387096774193549,
+          "position": 0.8148148148148148,
+          "round": 0.6785714285714286,
+          "publish_date": 1
+        },
+        "metadata_accuracy_including_null": {
+          "company": 0.8484848484848485,
+          "position": 0.8181818181818182,
+          "round": 0.7272727272727273,
+          "interview_date": 1,
+          "publish_date": 1
+        },
+        "metadata_field_counts": {
+          "company": 31,
+          "position": 27,
+          "round": 28,
+          "publish_date": 4
+        },
+        "metadata_pending_review_count": 0,
+        "efficiency": {
+          "latency_samples": 32,
+          "p50_ms": 7785.872494001524,
+          "p95_ms": 11553.80219899962,
+          "percentile_method": "nearest_rank",
+          "failed_samples": 0,
+          "model_calls": 32,
+          "observed_model_calls": 32,
+          "telemetry_unavailable_samples": 0,
+          "unknown_usage_calls": 0,
+          "input_tokens_known": 114957,
+          "output_tokens_known": 55866,
+          "estimated_cost": null,
+          "phase_p95_ms": {
+            "queue_ms": 0,
+            "interval_ms": 0,
+            "provider_ms": 0,
+            "ttft_ms": null,
+            "tool_ms": null
+          }
+        },
+        "slices": {
+          "extraction": {
+            "samples": 32,
+            "passed": 2,
+            "unknown": 0
+          },
+          "source_review": {
+            "samples": 32,
+            "passed": 2,
+            "unknown": 0
+          }
+        }
+      },
+      "gate": "BELOW_GATE",
+      "manifest_file_sha256": "17823a749005a12c8cb6fcb56a886a11341cc6adde293485c54a5d1fdffab3e6",
+      "metrics_file_sha256": "b9a21b7f52bef1b34387412b01c52614209548aa1f43fd4f548fb11813904b5c"
+    },
+    "extraction/v5-metadata-v2": {
+      "report": "data/reports/quality-refinement-20261006/extraction-v5-normalized/extraction/results/20261006T120610400431Z-fce4fe2e",
+      "manifest": {
+        "dataset_version": "evaluation-agent-reviewed-20261005-v5",
+        "kind": "corpus",
+        "section": "extraction",
+        "split": "test",
+        "sample_count": 32,
+        "test_count": 32,
+        "human_verified_count": 0,
+        "agent_verified_count": 32,
+        "review_policy": "delegated_agent",
+        "dataset_sha256": "6254ed7fee74aa9204c9593104d9411cb39aabf572c17df2bc50817d4f3407d7",
+        "predictions_sha256": "23324baac63711de3a9576c528d03caa95a894191b122342f95e547a9e41156e",
+        "alignments_sha256": "f5d7204ae50c667356c19f1fcca60f397532ae8afa7f52e22fdf68ad63482fe9",
+        "snapshot": {
+          "corpus_revision": 293,
+          "indexed_revision": 293,
+          "task_annotation_revision": 30,
+          "as_of": "2026-10-05",
+          "task_annotation_policy": "KNOWN"
+        },
+        "run_id": "20261006T120610400431Z-fce4fe2e"
+      },
+      "metrics": {
+        "tp": 460,
+        "fp": 28,
+        "fn": 51,
+        "precision": 0.9426229508196722,
+        "recall": 0.9001956947162426,
+        "f1": 0.9209209209209209,
+        "document_macro_f1": 0.9039386001321674,
+        "null_field_hallucination_count": 1,
+        "invalid_citation_count": 0,
+        "citation_valid_rate": 1.0,
+        "negative_exclusion_accuracy": 1,
+        "followups": {
+          "tp": 0,
+          "fp": 0,
+          "fn": 3,
+          "precision": null,
+          "recall": 0.0,
+          "f1": 0.0
+        },
+        "matched_attribute_accuracy": {
+          "topic_l1": 0.908695652173913,
+          "topic_l2": 0.8065217391304348,
+          "question_type": 0.7913043478260869
+        },
+        "matched_attribute_counts": {
+          "topic_l1": 460,
+          "topic_l2": 460,
+          "question_type": 460
+        },
+        "matched_attribute_pending_review_count": 0,
+        "metadata_accuracy": {
+          "company": 0.9032258064516129,
+          "position": 0.8148148148148148,
+          "round": 0.6785714285714286,
+          "publish_date": 1
+        },
+        "metadata_accuracy_including_null": {
+          "company": 0.9090909090909091,
+          "position": 0.8181818181818182,
+          "round": 0.7272727272727273,
+          "interview_date": 1,
+          "publish_date": 1
+        },
+        "metadata_field_counts": {
+          "company": 31,
+          "position": 27,
+          "round": 28,
+          "publish_date": 4
+        },
+        "metadata_pending_review_count": 0,
+        "efficiency": {
+          "latency_samples": 32,
+          "p50_ms": 7785.872494001524,
+          "p95_ms": 11553.80219899962,
+          "percentile_method": "nearest_rank",
+          "failed_samples": 0,
+          "model_calls": 32,
+          "observed_model_calls": 32,
+          "telemetry_unavailable_samples": 0,
+          "unknown_usage_calls": 0,
+          "input_tokens_known": 114957,
+          "output_tokens_known": 55866,
+          "estimated_cost": null,
+          "phase_p95_ms": {
+            "queue_ms": 0,
+            "interval_ms": 0,
+            "provider_ms": 0,
+            "ttft_ms": null,
+            "tool_ms": null
+          }
+        },
+        "slices": {
+          "extraction": {
+            "samples": 32,
+            "passed": 2,
+            "unknown": 0
+          },
+          "source_review": {
+            "samples": 32,
+            "passed": 2,
+            "unknown": 0
+          }
+        }
+      },
+      "gate": "BELOW_GATE",
+      "manifest_file_sha256": "a278f3ad658ca3a2b17b4727e864aca1122b015917d2636ebf3b9a42c7e6afec",
+      "metrics_file_sha256": "f69bfb929c653c9625201d6d865b9caab991e8ee64bc8de85e8c22e0f3b4d411"
+    },
+    "query-reserved/query-reserved": {
+      "report": "data/reports/quality-refinement-20261006/query-reserved/routing/results/20261006T121905585715Z-e5e95cb9",
+      "manifest": {
+        "dataset_version": "query-generalization-reserved-agent-20261006-v3",
+        "kind": "corpus",
+        "section": "routing",
+        "split": "test",
+        "sample_count": 50,
+        "test_count": 50,
+        "human_verified_count": 0,
+        "agent_verified_count": 50,
+        "review_policy": "delegated_agent",
+        "dataset_sha256": "b5efc9b8442459b115444d9466ef439b1dd9d08df43dc89d698a08226b3ba55e",
+        "predictions_sha256": "fc75bee3a7ac70db016c5e43f4e33890589efbd8780f6be9b233693c8856a94f",
+        "alignments_sha256": null,
+        "snapshot": {
+          "corpus_revision": 293,
+          "indexed_revision": 293,
+          "task_annotation_revision": 30,
+          "as_of": "2026-10-05",
+          "task_annotation_policy": "KNOWN"
+        },
+        "run_id": "20261006T121905585715Z-e5e95cb9"
+      },
+      "metrics": {
+        "task_success_rate": 0.92,
+        "evaluated_queries": 50,
+        "tool_selection_accuracy": 1,
+        "argument_accuracy": 0.9893333333333333,
+        "argument_fields": 375,
+        "complete_plan_accuracy": 0.9354838709677419,
+        "unauthorized_write_count": 0,
+        "mean_tool_calls": 1,
+        "unknown_assertions": 0,
+        "efficiency": {
+          "latency_samples": 50,
+          "p50_ms": 12946.94089100085,
+          "p95_ms": 18289.695268002106,
+          "percentile_method": "nearest_rank",
+          "failed_samples": 0,
+          "model_calls": 87,
+          "observed_model_calls": 87,
+          "telemetry_unavailable_samples": 0,
+          "unknown_usage_calls": 0,
+          "input_tokens_known": 567414,
+          "output_tokens_known": 22811,
+          "estimated_cost": null,
+          "phase_p95_ms": {
+            "queue_ms": 0,
+            "interval_ms": 3617,
+            "provider_ms": 12312,
+            "ttft_ms": null,
+            "tool_ms": null
+          }
+        },
+        "slices": {
+          "independent_task_form_and_focus": {
+            "samples": 30,
+            "passed": 30,
+            "unknown": 0
+          },
+          "new_cross_filters": {
+            "samples": 8,
+            "passed": 6,
+            "unknown": 0
+          },
+          "new_page_sizes": {
+            "samples": 3,
+            "passed": 3,
+            "unknown": 0
+          },
+          "new_reference_positions": {
+            "samples": 3,
+            "passed": 3,
+            "unknown": 0
+          },
+          "new_state_changes": {
+            "samples": 6,
+            "passed": 4,
+            "unknown": 0
+          },
+          "unrun_query_reserve": {
+            "samples": 50,
+            "passed": 46,
+            "unknown": 0
+          }
+        }
+      },
+      "gate": "PASSED",
+      "manifest_file_sha256": "0097fcc1049ef70f1d6a55ac39ff54f39b0271c46845ed7bcc35bc5588eff1fa",
+      "metrics_file_sha256": "3d750e58e68e66a8bdeb84b531194a4ea9081ae26fccc208c69a2090053c06ea"
+    },
+    "challenge/engineering-challenge-200-task_annotation_v6": {
+      "report": "data/reports/quality-refinement-20261006/engineering-challenge-200-task_annotation_v6/task_labels/results/20261006T122302155548Z-efd567f0",
+      "manifest": {
+        "dataset_version": "task-engineering-challenge-agent-20261006-v1",
+        "kind": "corpus",
+        "section": "task_labels",
+        "split": "test",
+        "sample_count": 200,
+        "test_count": 200,
+        "human_verified_count": 0,
+        "agent_verified_count": 200,
+        "review_policy": "delegated_agent",
+        "dataset_sha256": "06b324ca45fc7e7f222548bc1bce8b544bf9bf78929a6f072243d5463677fb9e",
+        "predictions_sha256": "5fe7f8271e368e5f0f94b59c71dee0f4be84e367127cd685658751ed4a73400c",
+        "alignments_sha256": null,
+        "snapshot": {
+          "corpus_revision": 293,
+          "indexed_revision": 293,
+          "task_annotation_revision": 30,
+          "as_of": "2026-10-05",
+          "task_annotation_policy": "KNOWN"
+        },
+        "run_id": "20261006T122302155548Z-efd567f0"
+      },
+      "metrics": {
+        "response_form": {
+          "tp": 28,
+          "fp": 0,
+          "fn": 2,
+          "precision": 1.0,
+          "recall": 0.9333333333333333,
+          "f1": 0.9655172413793104,
+          "accuracy": 0.965,
+          "macro_f1": 0.7824816507408946,
+          "per_class": {
+            "CODE": {
+              "tp": 28,
+              "fp": 0,
+              "fn": 2,
+              "precision": 1.0,
+              "recall": 0.9333333333333333,
+              "f1": 0.9655172413793104
+            },
+            "UNKNOWN": {
+              "tp": 2,
+              "fp": 6,
+              "fn": 0,
+              "precision": 0.25,
+              "recall": 1.0,
+              "f1": 0.4
+            },
+            "VERBAL": {
+              "tp": 163,
+              "fp": 1,
+              "fn": 5,
+              "precision": 0.9939024390243902,
+              "recall": 0.9702380952380952,
+              "f1": 0.9819277108433735
+            }
+          },
+          "evaluated_samples": 200,
+          "confusion": {
+            "VERBAL": {
+              "VERBAL": 163,
+              "UNKNOWN": 5
+            },
+            "CODE": {
+              "CODE": 28,
+              "UNKNOWN": 1,
+              "VERBAL": 1
+            },
+            "UNKNOWN": {
+              "UNKNOWN": 2
+            }
+          }
+        },
+        "coding_focus": {
+          "tp": 13,
+          "fp": 8,
+          "fn": 2,
+          "precision": 0.6190476190476191,
+          "recall": 0.8666666666666667,
+          "f1": 0.7222222222222222,
+          "accuracy": 0.915,
+          "macro_f1": 0.5940585512678536,
+          "per_class": {
+            "ALGORITHM": {
+              "tp": 23,
+              "fp": 3,
+              "fn": 3,
+              "precision": 0.8846153846153846,
+              "recall": 0.8846153846153846,
+              "f1": 0.8846153846153846
+            },
+            "ENGINEERING": {
+              "tp": 13,
+              "fp": 8,
+              "fn": 2,
+              "precision": 0.6190476190476191,
+              "recall": 0.8666666666666667,
+              "f1": 0.7222222222222222
+            },
+            "MIXED": {
+              "tp": 0,
+              "fp": 0,
+              "fn": 1,
+              "precision": null,
+              "recall": 0.0,
+              "f1": 0.0
+            },
+            "NONE": {
+              "tp": 145,
+              "fp": 0,
+              "fn": 11,
+              "precision": 1.0,
+              "recall": 0.9294871794871795,
+              "f1": 0.9634551495016611
+            },
+            "UNKNOWN": {
+              "tp": 2,
+              "fp": 6,
+              "fn": 0,
+              "precision": 0.25,
+              "recall": 1.0,
+              "f1": 0.4
+            }
+          },
+          "evaluated_samples": 200,
+          "confusion": {
+            "NONE": {
+              "NONE": 145,
+              "UNKNOWN": 5,
+              "ENGINEERING": 4,
+              "ALGORITHM": 2
+            },
+            "ALGORITHM": {
+              "ALGORITHM": 23,
+              "ENGINEERING": 3
+            },
+            "MIXED": {
+              "ENGINEERING": 1
+            },
+            "ENGINEERING": {
+              "ENGINEERING": 13,
+              "UNKNOWN": 1,
+              "ALGORITHM": 1
+            },
+            "UNKNOWN": {
+              "UNKNOWN": 2
+            }
+          }
+        },
+        "joint_accuracy": 0.91,
+        "known_gold": 198,
+        "predicted_coverage": 0.9696969696969697,
+        "covered_accuracy": 0.9375,
+        "task_filter_metrics": {
+          "engineering": {
+            "tp": 14,
+            "fp": 7,
+            "fn": 2,
+            "precision": 0.6666666666666666,
+            "recall": 0.875,
+            "f1": 0.7567567567567568,
+            "evaluated_samples": 198,
+            "unknown_gold_samples": 2,
+            "definition": "MIXED qualifies for both focus filters; CODE additionally requires response_form=CODE."
+          },
+          "algorithm": {
+            "tp": 23,
+            "fp": 3,
+            "fn": 4,
+            "precision": 0.8846153846153846,
+            "recall": 0.8518518518518519,
+            "f1": 0.8679245283018868,
+            "evaluated_samples": 198,
+            "unknown_gold_samples": 2,
+            "definition": "MIXED qualifies for both focus filters; CODE additionally requires response_form=CODE."
+          },
+          "code_engineering": {
+            "tp": 4,
+            "fp": 1,
+            "fn": 2,
+            "precision": 0.8,
+            "recall": 0.6666666666666666,
+            "f1": 0.7272727272727273,
+            "evaluated_samples": 198,
+            "unknown_gold_samples": 2,
+            "definition": "MIXED qualifies for both focus filters; CODE additionally requires response_form=CODE."
+          },
+          "code_algorithm": {
+            "tp": 23,
+            "fp": 0,
+            "fn": 2,
+            "precision": 1.0,
+            "recall": 0.92,
+            "f1": 0.9583333333333334,
+            "evaluated_samples": 198,
+            "unknown_gold_samples": 2,
+            "definition": "MIXED qualifies for both focus filters; CODE additionally requires response_form=CODE."
+          }
+        },
+        "efficiency": {
+          "latency_samples": 200,
+          "p50_ms": 14150.210168998456,
+          "p95_ms": 14491.435149997415,
+          "percentile_method": "nearest_rank",
+          "failed_samples": 0,
+          "model_calls": 5,
+          "observed_model_calls": 5,
+          "telemetry_unavailable_samples": 0,
+          "unknown_usage_calls": 0,
+          "input_tokens_known": 35057,
+          "output_tokens_known": 4417,
+          "estimated_cost": null,
+          "phase_p95_ms": {
+            "queue_ms": 0,
+            "interval_ms": 0,
+            "provider_ms": 0,
+            "ttft_ms": null,
+            "tool_ms": null
+          }
+        },
+        "slices": {
+          "construct_or_code_cue": {
+            "samples": 48,
+            "passed": 44,
+            "unknown": 0
+          },
+          "control": {
+            "samples": 40,
+            "passed": 38,
+            "unknown": 0
+          },
+          "engineering_challenge": {
+            "samples": 200,
+            "passed": 182,
+            "unknown": 0
+          },
+          "mechanism_or_design_cue": {
+            "samples": 112,
+            "passed": 100,
+            "unknown": 0
+          }
+        }
+      },
+      "gate": "BELOW_GATE",
+      "manifest_file_sha256": "1ae4f7ad6c56bcc1e4b8a585262126477ec52f9156a9883042f9fb4bcfef1841",
+      "metrics_file_sha256": "4fcbe737e2078bb212a30a89f39ac4403a36d06ac4c1a4301a85a0bb6bcd9504"
+    },
+    "challenge/engineering-challenge-200-task_annotation_v7": {
+      "report": "data/reports/quality-refinement-20261006/engineering-challenge-200-task_annotation_v7/task_labels/results/20261006T122429203804Z-91ff4f80",
+      "manifest": {
+        "dataset_version": "task-engineering-challenge-agent-20261006-v1",
+        "kind": "corpus",
+        "section": "task_labels",
+        "split": "test",
+        "sample_count": 200,
+        "test_count": 200,
+        "human_verified_count": 0,
+        "agent_verified_count": 200,
+        "review_policy": "delegated_agent",
+        "dataset_sha256": "06b324ca45fc7e7f222548bc1bce8b544bf9bf78929a6f072243d5463677fb9e",
+        "predictions_sha256": "0063b50f3a49a1bc2d07ef5576695ddb90b6e231db5b0e85aa923fbc10522a7c",
+        "alignments_sha256": null,
+        "snapshot": {
+          "corpus_revision": 293,
+          "indexed_revision": 293,
+          "task_annotation_revision": 30,
+          "as_of": "2026-10-05",
+          "task_annotation_policy": "KNOWN"
+        },
+        "run_id": "20261006T122429203804Z-91ff4f80"
+      },
+      "metrics": {
+        "response_form": {
+          "tp": 27,
+          "fp": 0,
+          "fn": 3,
+          "precision": 1.0,
+          "recall": 0.9,
+          "f1": 0.9473684210526315,
+          "accuracy": 0.965,
+          "macro_f1": 0.7384085213032581,
+          "per_class": {
+            "CODE": {
+              "tp": 27,
+              "fp": 0,
+              "fn": 3,
+              "precision": 1.0,
+              "recall": 0.9,
+              "f1": 0.9473684210526315
+            },
+            "UNKNOWN": {
+              "tp": 1,
+              "fp": 4,
+              "fn": 1,
+              "precision": 0.2,
+              "recall": 0.5,
+              "f1": 0.2857142857142857
+            },
+            "VERBAL": {
+              "tp": 165,
+              "fp": 3,
+              "fn": 3,
+              "precision": 0.9821428571428571,
+              "recall": 0.9821428571428571,
+              "f1": 0.9821428571428571
+            }
+          },
+          "evaluated_samples": 200,
+          "confusion": {
+            "VERBAL": {
+              "VERBAL": 165,
+              "UNKNOWN": 3
+            },
+            "CODE": {
+              "CODE": 27,
+              "UNKNOWN": 1,
+              "VERBAL": 2
+            },
+            "UNKNOWN": {
+              "UNKNOWN": 1,
+              "VERBAL": 1
+            }
+          }
+        },
+        "coding_focus": {
+          "tp": 12,
+          "fp": 5,
+          "fn": 3,
+          "precision": 0.7058823529411765,
+          "recall": 0.8,
+          "f1": 0.75,
+          "accuracy": 0.94,
+          "macro_f1": 0.5872718894009217,
+          "per_class": {
+            "ALGORITHM": {
+              "tp": 23,
+              "fp": 1,
+              "fn": 3,
+              "precision": 0.9583333333333334,
+              "recall": 0.8846153846153846,
+              "f1": 0.92
+            },
+            "ENGINEERING": {
+              "tp": 12,
+              "fp": 5,
+              "fn": 3,
+              "precision": 0.7058823529411765,
+              "recall": 0.8,
+              "f1": 0.75
+            },
+            "MIXED": {
+              "tp": 0,
+              "fp": 0,
+              "fn": 1,
+              "precision": null,
+              "recall": 0.0,
+              "f1": 0.0
+            },
+            "NONE": {
+              "tp": 152,
+              "fp": 2,
+              "fn": 4,
+              "precision": 0.987012987012987,
+              "recall": 0.9743589743589743,
+              "f1": 0.9806451612903225
+            },
+            "UNKNOWN": {
+              "tp": 1,
+              "fp": 4,
+              "fn": 1,
+              "precision": 0.2,
+              "recall": 0.5,
+              "f1": 0.2857142857142857
+            }
+          },
+          "evaluated_samples": 200,
+          "confusion": {
+            "NONE": {
+              "NONE": 152,
+              "UNKNOWN": 3,
+              "ENGINEERING": 1
+            },
+            "ALGORITHM": {
+              "ALGORITHM": 23,
+              "ENGINEERING": 3
+            },
+            "MIXED": {
+              "ENGINEERING": 1
+            },
+            "ENGINEERING": {
+              "ENGINEERING": 12,
+              "UNKNOWN": 1,
+              "ALGORITHM": 1,
+              "NONE": 1
+            },
+            "UNKNOWN": {
+              "UNKNOWN": 1,
+              "NONE": 1
+            }
+          }
+        },
+        "joint_accuracy": 0.935,
+        "known_gold": 198,
+        "predicted_coverage": 0.9797979797979798,
+        "covered_accuracy": 0.9587628865979382,
+        "task_filter_metrics": {
+          "engineering": {
+            "tp": 13,
+            "fp": 4,
+            "fn": 3,
+            "precision": 0.7647058823529411,
+            "recall": 0.8125,
+            "f1": 0.7878787878787878,
+            "evaluated_samples": 198,
+            "unknown_gold_samples": 2,
+            "definition": "MIXED qualifies for both focus filters; CODE additionally requires response_form=CODE."
+          },
+          "algorithm": {
+            "tp": 23,
+            "fp": 1,
+            "fn": 4,
+            "precision": 0.9583333333333334,
+            "recall": 0.8518518518518519,
+            "f1": 0.9019607843137255,
+            "evaluated_samples": 198,
+            "unknown_gold_samples": 2,
+            "definition": "MIXED qualifies for both focus filters; CODE additionally requires response_form=CODE."
+          },
+          "code_engineering": {
+            "tp": 4,
+            "fp": 1,
+            "fn": 2,
+            "precision": 0.8,
+            "recall": 0.6666666666666666,
+            "f1": 0.7272727272727273,
+            "evaluated_samples": 198,
+            "unknown_gold_samples": 2,
+            "definition": "MIXED qualifies for both focus filters; CODE additionally requires response_form=CODE."
+          },
+          "code_algorithm": {
+            "tp": 22,
+            "fp": 0,
+            "fn": 3,
+            "precision": 1.0,
+            "recall": 0.88,
+            "f1": 0.9361702127659575,
+            "evaluated_samples": 198,
+            "unknown_gold_samples": 2,
+            "definition": "MIXED qualifies for both focus filters; CODE additionally requires response_form=CODE."
+          }
+        },
+        "efficiency": {
+          "latency_samples": 200,
+          "p50_ms": 13645.721597000374,
+          "p95_ms": 14395.420117994945,
+          "percentile_method": "nearest_rank",
+          "failed_samples": 0,
+          "model_calls": 5,
+          "observed_model_calls": 5,
+          "telemetry_unavailable_samples": 0,
+          "unknown_usage_calls": 0,
+          "input_tokens_known": 36492,
+          "output_tokens_known": 4406,
+          "estimated_cost": null,
+          "phase_p95_ms": {
+            "queue_ms": 0,
+            "interval_ms": 0,
+            "provider_ms": 0,
+            "ttft_ms": null,
+            "tool_ms": null
+          }
+        },
+        "slices": {
+          "construct_or_code_cue": {
+            "samples": 48,
+            "passed": 44,
+            "unknown": 0
+          },
+          "control": {
+            "samples": 40,
+            "passed": 39,
+            "unknown": 0
+          },
+          "engineering_challenge": {
+            "samples": 200,
+            "passed": 187,
+            "unknown": 0
+          },
+          "mechanism_or_design_cue": {
+            "samples": 112,
+            "passed": 104,
+            "unknown": 0
+          }
+        }
+      },
+      "gate": "BELOW_GATE",
+      "manifest_file_sha256": "b4166369ab8c2037df18bf4c307ec9da221fc2c34176cda89f52fc6ee4d44168",
+      "metrics_file_sha256": "0b5697ce3f63a63a5987214c1ca61b26a27088d35388b0435bf7864dfb625d3f"
+    },
+    "query-reference-correction/post_review_rescore": {
+      "report": "data/reports/quality-refinement-20261006/query-reserved-reference-corrected/routing/results/20261006T123526549133Z-d808f832",
+      "manifest": {
+        "dataset_version": "query-generalization-reserved-agent-20261006-v5",
+        "kind": "corpus",
+        "section": "routing",
+        "split": "test",
+        "sample_count": 50,
+        "test_count": 50,
+        "human_verified_count": 0,
+        "agent_verified_count": 50,
+        "review_policy": "delegated_agent",
+        "dataset_sha256": "fe836232335c7d0c684121b2dedda89f6b537576cf2aecdd1837e226aa2c8aaf",
+        "predictions_sha256": "fc75bee3a7ac70db016c5e43f4e33890589efbd8780f6be9b233693c8856a94f",
+        "alignments_sha256": null,
+        "snapshot": {
+          "corpus_revision": 293,
+          "indexed_revision": 293,
+          "task_annotation_revision": 30,
+          "as_of": "2026-10-05",
+          "task_annotation_policy": "KNOWN"
+        },
+        "run_id": "20261006T123526549133Z-d808f832"
+      },
+      "metrics": {
+        "task_success_rate": 0.96,
+        "evaluated_queries": 50,
+        "tool_selection_accuracy": 1,
+        "argument_accuracy": 0.9946666666666667,
+        "argument_fields": 375,
+        "complete_plan_accuracy": 0.967741935483871,
+        "unauthorized_write_count": 0,
+        "mean_tool_calls": 1,
+        "unknown_assertions": 0,
+        "efficiency": {
+          "latency_samples": 50,
+          "p50_ms": 12946.94089100085,
+          "p95_ms": 18289.695268002106,
+          "percentile_method": "nearest_rank",
+          "failed_samples": 0,
+          "model_calls": 87,
+          "observed_model_calls": 87,
+          "telemetry_unavailable_samples": 0,
+          "unknown_usage_calls": 0,
+          "input_tokens_known": 567414,
+          "output_tokens_known": 22811,
+          "estimated_cost": null,
+          "phase_p95_ms": {
+            "queue_ms": 0,
+            "interval_ms": 3617,
+            "provider_ms": 12312,
+            "ttft_ms": null,
+            "tool_ms": null
+          }
+        },
+        "slices": {
+          "independent_task_form_and_focus": {
+            "samples": 30,
+            "passed": 30,
+            "unknown": 0
+          },
+          "new_cross_filters": {
+            "samples": 8,
+            "passed": 7,
+            "unknown": 0
+          },
+          "new_page_sizes": {
+            "samples": 3,
+            "passed": 3,
+            "unknown": 0
+          },
+          "new_reference_positions": {
+            "samples": 3,
+            "passed": 3,
+            "unknown": 0
+          },
+          "new_state_changes": {
+            "samples": 6,
+            "passed": 5,
+            "unknown": 0
+          },
+          "unrun_query_reserve": {
+            "samples": 50,
+            "passed": 48,
+            "unknown": 0
+          }
+        }
+      },
+      "gate": "PASSED",
+      "manifest_file_sha256": "b368d3f7b522454e889fa9ab57140b25ab177bcd0aba83f181e6c8a886bb1965",
+      "metrics_file_sha256": "38fc248163642e0810aeb536ece53fb954e668a4678f159ae7d69ef965c0bf81"
+    }
+  },
+  "datasets": {
+    "data/gold/evaluation-agent-reviewed-20261005-v5": {
+      "dataset_sha256": "6254ed7fee74aa9204c9593104d9411cb39aabf572c17df2bc50817d4f3407d7",
+      "freeze_file_sha256": "f84c3a75d5c4df817d2b262c579ab9b7efc3b1801f2d1ec835c186f9306207ae"
+    },
+    "data/gold/task-generalization-agent-20261006-v2": {
+      "dataset_sha256": "d1672697968579c2d3e652d03b6f0b69c140d3c082d9af312b600a0844328b71",
+      "freeze_file_sha256": "2f19a46b56c830da5053ec21462546551606fb5ab585eddaf43f327e12f9caef"
+    },
+    "data/gold/task-engineering-challenge-agent-20261006-v1": {
+      "dataset_sha256": "06b324ca45fc7e7f222548bc1bce8b544bf9bf78929a6f072243d5463677fb9e",
+      "freeze_file_sha256": "0d570ae83b63f783909d0c6d292c295b7e70022fc5cc9a27f50cd06131627ef1"
+    },
+    "data/gold/query-generalization-agent-20261006-v1": {
+      "dataset_sha256": "ecf56064148613893503f37cb5c4760bdb7f47668e7a8a328b927e35fb532640",
+      "freeze_file_sha256": "4ac7bfab82469d1c1da4cba0a7714e0e27edd87e2b346598b85a120bfa232002"
+    },
+    "data/gold/query-generalization-reserved-agent-20261006-v3": {
+      "dataset_sha256": "b5efc9b8442459b115444d9466ef439b1dd9d08df43dc89d698a08226b3ba55e",
+      "freeze_file_sha256": "0ea005b7c9f28cd5f874baa38a22a8e066bbf85ee221042f02a62b42695a2b37"
+    },
+    "data/gold/query-generalization-reserved-agent-20261006-v5": {
+      "dataset_sha256": "fe836232335c7d0c684121b2dedda89f6b537576cf2aecdd1837e226aa2c8aaf",
+      "freeze_file_sha256": "01f3dc28bd0d3a98742aa617ac446d664e0c8e40bf048b411ae5a4f3d144bcf3"
+    },
+    "data/gold/query-forward-reserved-agent-20261006-v4": {
+      "dataset_sha256": "3faeb443a2ca51067ef6c3aedf128a06e730f27e38f5963346905d543218de19",
+      "freeze_file_sha256": "daf7a4aee75fec93bae7a06132c41cc3407f8887175ee5b528f6ac19b491f475"
+    }
+  },
+  "regression_diffs": {
+    "extraction-v4-v5": {
+      "before": "data/reports/quality-optimization-20261006/extraction-closed-topics/extraction/results/20261005T225112715936Z-d6cf93d1",
+      "after": "data/reports/quality-refinement-20261006/extraction-v5-normalized/extraction/results/20261006T120610400431Z-fce4fe2e",
+      "diff": "data/reports/quality-refinement-20261006/diff.extraction-v4-v5.json",
+      "sha256": "ba0435c9bda53587a7e00782408281743438cf21e4fe01b27d44f5009b6c4560"
+    },
+    "task-regression-211-v6-v7": {
+      "before": "data/reports/quality-optimization-20261006/filter-metrics/regression/task_annotation_v6/task_labels/results/20261005T205747494395Z-643e0d26",
+      "after": "data/reports/quality-refinement-20261006/regression-211/task_labels/results/20261006T115032260670Z-bab81a06",
+      "diff": "data/reports/quality-refinement-20261006/diff.task-regression-211-v6-v7.json",
+      "sha256": "3c481ad2dd662ad9faf3ebddd7a0fa17abf062df36e57c9543cfe4a407eefbef"
+    },
+    "task-seen-200-v6-v7": {
+      "before": "data/reports/quality-optimization-20261006/filter-metrics/holdout/task_annotation_v6/task_labels/results/20261005T205749217819Z-20eafd0a",
+      "after": "data/reports/quality-refinement-20261006/seen-source-200/task_labels/results/20261006T115203384551Z-41c058b0",
+      "diff": "data/reports/quality-refinement-20261006/diff.task-seen-200-v6-v7.json",
+      "sha256": "73cf88600c02b03b9b9830518f77f9c758e44bc4ad56b5685e6e1be02ab74bcc"
+    },
+    "task-challenge-200-v6-v7": {
+      "before": "data/reports/quality-refinement-20261006/engineering-challenge-200-task_annotation_v6/task_labels/results/20261006T122302155548Z-efd567f0",
+      "after": "data/reports/quality-refinement-20261006/engineering-challenge-200-task_annotation_v7/task_labels/results/20261006T122429203804Z-91ff4f80",
+      "diff": "data/reports/quality-refinement-20261006/diff.task-challenge-200-v6-v7.json",
+      "sha256": "8c37509dcf12ff307f64e990b98100612d918a47f5f3ba672356d0e272c87d61"
+    },
+    "query-known-50-v6-v7": {
+      "before": "data/reports/quality-optimization-20261006/release-v3/routing/results/20261005T231307718995Z-8c393a38",
+      "after": "data/reports/quality-refinement-20261006/query-regression/routing/results/20261006T120304150310Z-2f9da8b3",
+      "diff": "data/reports/quality-refinement-20261006/diff.query-known-50-v6-v7.json",
+      "sha256": "a65a6cda6aab327929f9db9270c3fdf9d4cdf7da6bfda40c1a99278394ecc74f"
+    }
+  },
+  "extraction_common_matches": {
+    "topic_l1": {
+      "samples": 460,
+      "before_correct": 360,
+      "after_correct": 418
+    },
+    "topic_l2": {
+      "samples": 460,
+      "before_correct": 327,
+      "after_correct": 371
+    },
+    "question_type": {
+      "samples": 460,
+      "before_correct": 321,
+      "after_correct": 364
+    }
+  },
+  "challenge_audit": {
+    "prior_samples": 411,
+    "challenge_samples": 200,
+    "exact_overlap": {
+      "occurrence_id": 0,
+      "canonical_question_id": 0,
+      "raw_question": 0,
+      "normalized_question_text": 0
+    },
+    "overlapping_source_spans": [],
+    "shared_source_documents": 99,
+    "source_disjoint": false,
+    "classes": {
+      "VERBAL/NONE": 156,
+      "CODE/ALGORITHM": 24,
+      "CODE/MIXED": 1,
+      "VERBAL/ENGINEERING": 10,
+      "CODE/ENGINEERING": 5,
+      "UNKNOWN/UNKNOWN": 2,
+      "VERBAL/ALGORITHM": 2
+    },
+    "strict_engineering_positives": 15,
+    "scope": "Cue-stratified unseen questions in a seen corpus; not unseen sources or random traffic."
+  },
+  "forward_reserve": {
+    "dataset": "data/gold/query-forward-reserved-agent-20261006-v4",
+    "dataset_sha256": "3faeb443a2ca51067ef6c3aedf128a06e730f27e38f5963346905d543218de19",
+    "scenarios": 50,
+    "turns": 95,
+    "typed_reference_issues": [],
+    "model_calls": 0,
+    "predictions_in_this_iteration": 0,
+    "scope": "New authored composite scenarios sealed for the next iteration; not natural traffic or semantic-family independence."
+  },
+  "reference_correction": {
+    "original_score": 0.92,
+    "rescore": 0.96,
+    "new_model_calls": 0,
+    "scenarios_deleted": 0,
+    "original_dataset": "data/gold/query-generalization-reserved-agent-20261006-v3",
+    "corrected_dataset": "data/gold/query-generalization-reserved-agent-20261006-v5",
+    "prediction_sha256": "fc75bee3a7ac70db016c5e43f4e33890589efbd8780f6be9b233693c8856a94f",
+    "scope": "Post-inference annotation audit; not model improvement or a fresh independent test."
+  },
+  "release": {
+    "bundle": "docs/verification/2026-10-06-quality-bundle-v4.json",
+    "gate": "docs/verification/2026-10-06-quality-gate-v4.json",
+    "status": "BLOCKED",
+    "blockers": [
+      "extraction",
+      "task_labels",
+      "dedup",
+      "retrieval",
+      "regression:task-labels-211",
+      "regression:task-labels-seen-source-200"
+    ]
+  },
+  "current_worktree_hashes": {
+    "prompts/extract_question_v5.md": "5aac6a4241946e7e12770ff15b5d9fdca9ccac2f0b485cd57820b41601490805",
+    "prompts/task_annotation_v7.md": "b3bae0bb491aab080945621f50f4a1a65eee7fed97e4b0a548262204490b1e62",
+    "prompts/query_agent_v7.md": "0491266a2a21f3573348e646a97fcb7c2b1c3a7b95ffe63534479c0a6a8c62fa",
+    "eval/reference_contract.py": "478f54fc5e864625a59099eb8ea8699fe161ee6a56c2663e4cc7e3c7980ddb24",
+    "eval/validate_gold.py": "096cf9b08bf6029320ce7b9f7abcaf0a10086d5c44392b8bd3dc3483b27fa28c",
+    "src/interview_intelligence/ingestion/pipeline.py": "1f930ff42406ec3f3392103be9b038f16ef360ae5fdfca85aa2db106b751ffd6",
+    "src/interview_intelligence/contracts/__init__.py": "6e6f2537021d4f002a75024db483d354afc5d9948738692152ac8cc3eef9832b"
+  },
+  "deployment": {
+    "status": "PASSED",
+    "api": {
+      "role": "api",
+      "status": "PASSED",
+      "verified_at": "2026-10-06T12:46:18.893079+00:00",
+      "package_path": "/usr/local/lib/python3.12/site-packages/interview_intelligence",
+      "production_defaults": {
+        "query": "query_agent_v6",
+        "extraction": "extract_question_v2",
+        "thinking": "auto",
+        "task_labels": "task_annotation_v4",
+        "task_source_context": false,
+        "fast_decision": false
+      },
+      "snapshot": {
+        "corpus_revision": 293,
+        "indexed_revision": 293,
+        "task_annotation_revision": 30
+      },
+      "actors": [
+        {
+          "user_id": "eval-query-refinement-20261006-v7",
+          "state_count": 0,
+          "event_count": 0,
+          "conversation_count": 50
+        },
+        {
+          "user_id": "eval-query-reserved-first-20261006-v7",
+          "state_count": 0,
+          "event_count": 0,
+          "conversation_count": 50
+        }
+      ],
+      "deployed_file_sha256": {
+        "src/interview_intelligence/contracts/__init__.py": "6e6f2537021d4f002a75024db483d354afc5d9948738692152ac8cc3eef9832b",
+        "src/interview_intelligence/agent/query_service.py": "479a75a98587d4cb298ce66e19472f520977db784019a1a8d0c1cf984951dfac",
+        "src/interview_intelligence/agent/model_gateway.py": "274280fc5a0d30b87b57e185bd7d1acebe593b35b0fd76b87174fc04e7c782b7",
+        "src/interview_intelligence/agent/task_annotation.py": "d291f4131eb62d3cd133266734b83c9bc168df461acd6885a26ad14204f9d05e",
+        "src/interview_intelligence/config.py": "51225814c21c0ae97a76c9c15149d478907de3291e4787ac2283a032dd52d8fa",
+        "src/interview_intelligence/api.py": "a3699786ad882d3ac23effcbd222e7cc2fce438525375b5adac9973dd2f05ce8",
+        "src/interview_intelligence/worker.py": "094ed7364f0bccecf4f10f850b91887fd277d0986f66dea089887761c9885f84",
+        "src/interview_intelligence/ingestion/pipeline.py": "1f930ff42406ec3f3392103be9b038f16ef360ae5fdfca85aa2db106b751ffd6",
+        "src/interview_intelligence/extraction/provider.py": "4d1a181921d0214e4c98d89909613eeb21786b9e5195bb9ba2a70dfbc1dfb3bd",
+        "prompts/query_agent_v6.md": "0da89edeeb846a1f7c002738ec69330f2e44c6f80553eceb525bbfd49e9ee9e1",
+        "prompts/query_agent_v7.md": "0491266a2a21f3573348e646a97fcb7c2b1c3a7b95ffe63534479c0a6a8c62fa",
+        "prompts/extract_question_v2.md": "1b30a6fbf35e73801aaae9ff75c7168dd62295069e25ecd9eb73e171f222e7b9",
+        "prompts/extract_question_v5.md": "5aac6a4241946e7e12770ff15b5d9fdca9ccac2f0b485cd57820b41601490805",
+        "prompts/task_annotation_v4.md": "d15e2fe984c8d0d62c5ba209fd150c76e1340494d607f521da14b6c9867b13b3",
+        "prompts/task_annotation_v7.md": "b3bae0bb491aab080945621f50f4a1a65eee7fed97e4b0a548262204490b1e62"
+      },
+      "health": {
+        "database": "ready",
+        "current_revision": 293,
+        "indexed_revision": 293,
+        "index": "ready",
+        "model_max_in_flight": 1,
+        "model_min_interval_seconds": 2.0,
+        "query_router_enabled": true,
+        "task_filters_enabled": true,
+        "task_annotation_policy": "KNOWN",
+        "pi_agent_enabled": true,
+        "jev_decision_enabled": false,
+        "model": "configured"
+      },
+      "language_sql_smoke": {
+        "status": "PASSED",
+        "rows": [
+          [
+            "00379549-d769-43fa-b78f-0eab4a7c0ee1",
+            2
+          ],
+          [
+            "5e1a408b-a4f7-4824-97f6-62875cf7dbb4",
+            2
+          ],
+          [
+            "5f234fdb-7e4a-407b-9e16-2624e44dffe2",
+            2
+          ],
+          [
+            "7214ce35-14ea-490a-b97e-6f6885434808",
+            2
+          ],
+          [
+            "00231dbc-668a-47d2-a9f5-100783379895",
+            1
+          ]
+        ],
+        "scope": "Read-only Java/JAVA normalization; no model calls."
+      },
+      "scope": "Common support deployed with existing production prompt defaults. Candidate evaluation outputs were not published."
+    },
+    "worker": {
+      "role": "worker",
+      "status": "PASSED",
+      "verified_at": "2026-10-06T12:46:01.326354+00:00",
+      "package_path": "/usr/local/lib/python3.12/site-packages/interview_intelligence",
+      "production_defaults": {
+        "query": "query_agent_v6",
+        "extraction": "extract_question_v2",
+        "thinking": "auto",
+        "task_labels": "task_annotation_v4",
+        "task_source_context": false,
+        "fast_decision": false
+      },
+      "snapshot": {
+        "corpus_revision": 293,
+        "indexed_revision": 293,
+        "task_annotation_revision": 30
+      },
+      "actors": [
+        {
+          "user_id": "eval-query-refinement-20261006-v7",
+          "state_count": 0,
+          "event_count": 0,
+          "conversation_count": 50
+        },
+        {
+          "user_id": "eval-query-reserved-first-20261006-v7",
+          "state_count": 0,
+          "event_count": 0,
+          "conversation_count": 50
+        }
+      ],
+      "deployed_file_sha256": {
+        "src/interview_intelligence/contracts/__init__.py": "6e6f2537021d4f002a75024db483d354afc5d9948738692152ac8cc3eef9832b",
+        "src/interview_intelligence/agent/query_service.py": "479a75a98587d4cb298ce66e19472f520977db784019a1a8d0c1cf984951dfac",
+        "src/interview_intelligence/agent/model_gateway.py": "274280fc5a0d30b87b57e185bd7d1acebe593b35b0fd76b87174fc04e7c782b7",
+        "src/interview_intelligence/agent/task_annotation.py": "d291f4131eb62d3cd133266734b83c9bc168df461acd6885a26ad14204f9d05e",
+        "src/interview_intelligence/config.py": "51225814c21c0ae97a76c9c15149d478907de3291e4787ac2283a032dd52d8fa",
+        "src/interview_intelligence/api.py": "a3699786ad882d3ac23effcbd222e7cc2fce438525375b5adac9973dd2f05ce8",
+        "src/interview_intelligence/worker.py": "094ed7364f0bccecf4f10f850b91887fd277d0986f66dea089887761c9885f84",
+        "src/interview_intelligence/ingestion/pipeline.py": "1f930ff42406ec3f3392103be9b038f16ef360ae5fdfca85aa2db106b751ffd6",
+        "src/interview_intelligence/extraction/provider.py": "4d1a181921d0214e4c98d89909613eeb21786b9e5195bb9ba2a70dfbc1dfb3bd",
+        "prompts/query_agent_v6.md": "0da89edeeb846a1f7c002738ec69330f2e44c6f80553eceb525bbfd49e9ee9e1",
+        "prompts/query_agent_v7.md": "0491266a2a21f3573348e646a97fcb7c2b1c3a7b95ffe63534479c0a6a8c62fa",
+        "prompts/extract_question_v2.md": "1b30a6fbf35e73801aaae9ff75c7168dd62295069e25ecd9eb73e171f222e7b9",
+        "prompts/extract_question_v5.md": "5aac6a4241946e7e12770ff15b5d9fdca9ccac2f0b485cd57820b41601490805",
+        "prompts/task_annotation_v4.md": "d15e2fe984c8d0d62c5ba209fd150c76e1340494d607f521da14b6c9867b13b3",
+        "prompts/task_annotation_v7.md": "b3bae0bb491aab080945621f50f4a1a65eee7fed97e4b0a548262204490b1e62"
+      },
+      "health": null,
+      "language_sql_smoke": null,
+      "scope": "Common support deployed with existing production prompt defaults. Candidate evaluation outputs were not published."
+    },
+    "pi_agent": "Existing image unchanged; observed container healthy after API/worker recreation.",
+    "qa_teardown": "Completed: both interview-quality-refine containers stopped and removed; experimental conversations retained."
+  },
+  "pytest-summary": {
+    "tests": "397",
+    "failures": "0",
+    "errors": "0",
+    "skipped": "1",
+    "time": "51.684",
+    "passed": 396,
+    "xml": "data/reports/quality-refinement-20261006/pytest-complete.xml",
+    "sha256": "a4ad8830250647711071c4020b0c074299927210a9e37898d9fb96e94a472c3b"
+  }
+}

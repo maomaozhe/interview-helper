@@ -37,14 +37,29 @@ def eligible_canonical_ids(session: Session, filters: FilterSpec) -> list[str]:
 
 def search_questions(
     session: Session, retriever, query: str, filters: FilterSpec,
-    *, pipeline: str = "HYBRID", top_k: int = 10,
+    *, pipeline: str = "HYBRID", top_k: int = 10, relevance_query: str | None = None,
+    lexical_facets: list[str] | None = None, on_progress=None,
 ) -> dict:
     if not 1 <= len(query) <= 500 or not 1 <= top_k <= 50:
         raise ValueError("invalid search query or top_k")
+    if on_progress:
+        on_progress({"stage":"eligibility"})
     eligible = eligible_canonical_ids(session, filters)
     if not eligible:
         return {"data": [], "meta": {"pipeline": pipeline, "eligible_count": 0}}
-    retrieval = retriever.retrieve(query, eligible, pipeline, top_k)
+    options = {}
+    if on_progress:
+        if getattr(retriever, "supports_progress", False):
+            options["on_progress"] = on_progress
+        else:
+            on_progress({"stage":"retrieving"})
+    if getattr(retriever, "supports_relevance_query", False):
+        options["relevance_query"] = relevance_query
+    if lexical_facets and getattr(retriever, "supports_lexical_facets", False):
+        options["lexical_facets"] = lexical_facets
+    retrieval = retriever.retrieve(query, eligible, pipeline, top_k, **options)
+    if on_progress:
+        on_progress({"stage":"assembling", "count":len(retrieval["data"])})
     data = []
     for match in retrieval["data"]:
         canonical_id = match["canonical_question_id"]

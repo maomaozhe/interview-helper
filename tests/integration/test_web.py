@@ -56,6 +56,21 @@ def test_workspace_counts_and_facets_use_published_occurrences(workspace):
     assert data["companies"] == ["字节", "腾讯"]
 
 
+def test_versioned_assets_revalidate_and_match_the_proxy_shell(workspace):
+    import re
+    client,_,_,_=workspace
+    shell=client.get("/")
+    version=re.search(r'name="workspace-version" content="([0-9a-f]+)"',shell.text).group(1)
+    response=client.get("/api/workspace/version")
+    assert response.json() == {"version":version}
+    assert response.headers["cache-control"] == "no-store"
+    for name in ("app.js","core.js","query-stream.js","workspace.css"):
+        asset=re.search(r'assets/'+re.escape(name)+r'\?v=([0-9a-f]+)',shell.text).group(1)
+        body=client.get(f"/assets/{name}?v={asset}")
+        assert hashlib.sha256(body.content).hexdigest().startswith(asset)
+        assert body.headers["cache-control"] == "no-cache, must-revalidate"
+
+
 def test_document_inventory_distinguishes_pending_files(workspace):
     client, _, _, _ = workspace
     response = client.get("/api/corpus/documents")

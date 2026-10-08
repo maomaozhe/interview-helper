@@ -7,7 +7,7 @@ from enum import StrEnum
 import re
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 
 class StrictModel(BaseModel):
@@ -57,6 +57,17 @@ class FilterSpec(StrictModel):
     start_date: date | None = None
     end_date: date | None = None
     date_basis: DateBasis = DateBasis.BEST_AVAILABLE
+
+    @field_validator("language")
+    @classmethod
+    def canonical_language(cls, value):
+        # The planner, UI and SQL share one representation for supported tags.
+        # Unknown tags remain literal; do not silently reinterpret a language.
+        if value is not None and value.upper() in {
+            "JAVA", "PYTHON", "CPP", "GO", "JAVASCRIPT", "TYPESCRIPT"
+        }:
+            return value.upper()
+        return value
 
     @model_validator(mode="after")
     def valid_window(self) -> FilterSpec:

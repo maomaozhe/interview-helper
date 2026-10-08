@@ -25,8 +25,11 @@ def test_gateway_streams_real_deltas_and_only_accepts_checked_completion(monkeyp
                        "usage":{"prompt_tokens":10,"completion_tokens":5,"total_tokens":15}})
         if terminal!="incomplete": frames.append("[DONE]")
         original=httpx.AsyncClient
-        monkeypatch.setattr(httpx,"AsyncClient",lambda **kwargs:original(transport=httpx.MockTransport(
-            lambda request:httpx.Response(200,stream=Stream(frames))),**kwargs))
+        def handle(request):
+            body=json.loads(request.content)
+            assert body["tool_choice"]=="required"
+            return httpx.Response(200,stream=Stream(frames))
+        monkeypatch.setattr(httpx,"AsyncClient",lambda **kwargs:original(transport=httpx.MockTransport(handle),**kwargs))
         settings=SimpleNamespace(model_api_key="test",model_base_url="https://fixture.invalid/v1",
                                  query_model="test",judge_model="test",query_max_model_calls=3)
         audit=[]
@@ -38,11 +41,11 @@ def test_gateway_streams_real_deltas_and_only_accepts_checked_completion(monkeyp
             assert not audit, "Deltas must arrive before provider completion is logged"
             emitted.append(chunk)
         if terminal=="complete":
-            result=await gateway.complete(run,{"messages":[]},emit)
+            result=await gateway.complete(run,{"messages":[],"tools":[{"type":"function","function":{"name":"list_questions"}}]},emit)
             assert result["choices"][0]["message"]["tool_calls"][0]["function"]["arguments"]=='{"action":"LIST"}'
         else:
             with pytest.raises(ValueError,match="STREAM_INCOMPLETE" if terminal=="incomplete" else "MODEL_OUTPUT_TRUNCATED"):
-                await gateway.complete(run,{"messages":[]},emit)
+                await gateway.complete(run,{"messages":[],"tools":[{"type":"function","function":{"name":"list_questions"}}]},emit)
         assert emitted and all(c.get("finish_reason") is None for e in emitted for c in e.get("choices",[]))
         assert audit[0]["ttft_ms"] is not None and audit[0]["query_run_id"]=="run"
         assert run.limits.tokens==15

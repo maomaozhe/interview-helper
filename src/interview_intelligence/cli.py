@@ -14,7 +14,8 @@ app = typer.Typer(help="Interview Intelligence 本地命令")
 @app.command("annotate-tasks")
 def annotate_tasks_command(limit: int = 1000, batch_size: int = 40,
                            max_calls: int = 30, max_tokens: int = 300000,
-                           dry_run: bool = False):
+                           dry_run: bool = False, prompt_version: str = "task_annotation_v4",
+                           source_context: bool = False):
     """增量补齐任务标签，不重跑抽取与归并；模型调用使用共享锁。"""
     from interview_intelligence.agent.task_annotation import annotate_tasks
     from interview_intelligence.config import load_settings
@@ -22,7 +23,8 @@ def annotate_tasks_command(limit: int = 1000, batch_size: int = 40,
     settings = load_settings()
     result = annotate_tasks(create_database(settings.database_url), settings,
                             limit=limit, batch_size=batch_size, max_calls=max_calls,
-                            max_tokens=max_tokens, dry_run=dry_run)
+                            max_tokens=max_tokens, dry_run=dry_run,
+                            prompt_version=prompt_version, source_context=source_context)
     typer.echo(json.dumps(result, ensure_ascii=False, indent=2))
 
 

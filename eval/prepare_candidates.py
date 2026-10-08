@@ -7,6 +7,8 @@ import json
 import random
 from pathlib import Path
 
+from interview_intelligence.config import discover_corpus_documents
+
 
 REQUIRED_NAMES = [
     "百度秋招一面二面三面面经(三面挂)-炒肉多.md",
@@ -18,7 +20,7 @@ REQUIRED_NAMES = [
 
 
 def prepare(corpus_root: Path, output: Path, *, count: int = 30, seed: int = 20260930) -> list[dict]:
-    files = sorted(corpus_root.rglob("*.md"))
+    files = discover_corpus_documents(corpus_root)
     by_name = {path.name: path for path in files}
     missing = [name for name in REQUIRED_NAMES if name not in by_name]
     if missing:
