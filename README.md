@@ -102,7 +102,7 @@ uv sync --locked --extra dev
 uv run --locked --extra dev python tests/web/smoke_server.py
 ```
 
-打开 **http://localhost:8011/#library**，可以浏览示例题目、筛选并查看详情。此模式用于体验界面与数据链路；真实 Agent 对话需要下面的模型服务配置。
+打开[示例题库](http://localhost:8011/#library)，可以浏览示例题目、筛选并查看详情。此模式用于体验界面与数据链路；真实 Agent 对话需要下面的模型服务配置。
 
 ### 启动完整服务
 
@@ -114,13 +114,13 @@ cp .env.example .env
 docker compose up -d --build --wait
 ```
 
-将你有权使用的 Markdown 面经放入 `md/`，打开 **http://localhost:8000/**，在“导入与状态”提交导入。初次导入需要实际模型调用，耗时和用量取决于语料规模。
+将你有权使用的 Markdown 面经放入 `md/`，打开[完整服务首页](http://localhost:8000/)，在“导入与状态”提交导入。初次导入需要实际模型调用，耗时和用量取决于语料规模。
 
 | 入口 | 地址 / 命令 |
 | --- | --- |
-| 题库与检索 | http://localhost:8000/#library |
-| 面经问答 | http://localhost:8000/#chat |
-| OpenAPI 文档 | http://localhost:8000/docs |
+| 题库与检索 | [题库页面](http://localhost:8000/#library) |
+| 面经问答 | [对话页面](http://localhost:8000/#chat) |
+| OpenAPI 文档 | [API 文档](http://localhost:8000/docs) |
 | 服务状态 | `docker compose exec api ii status` |
 | CLI 查询 | `docker compose exec api ii chat "Redis 高频问题有哪些"` |
 
