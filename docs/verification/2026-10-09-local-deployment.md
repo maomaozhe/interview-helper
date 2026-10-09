@@ -10,7 +10,8 @@
 2. **Docker Hub 元数据超时。** 普通构建器仍无法取得 Python/Node 基础镜像元数据，WSL 到 registry 的请求超时。本次使用已有官方服务镜像作为缓存基底，重新安装当前锁文件依赖、复制完整源码与资源并构建 API/worker/Pi 镜像，随后启动和验证。没有验证从空缓存开始的完整构建；原失败日志与实际基底镜像 ID 保留。构建使用临时忽略目录中的覆盖文件，不改全局 Docker、代理或 DNS 配置。
 3. **v13 把 COUNT 范围纠正误判为 LIST。** 真实 Pi 三轮“Redis 高频问题有哪些”→“一共有多少道题”→“我说的是redis的高频率问题啊，这个会话不是才说过”，原 v13 第三轮返回列表。模型输入已有 COUNT focus 与 Redis 范围，原因是工程找题版本压缩了 v12-r2 的强纠正规则，删除了完整三轮示例。恢复 `get_question_count` 约束与两个示例，明确已正确计数后的范围重申仍是 COUNT；保留明确新操作切换及工程 SEARCH 规则，没有增加宿主关键词路由。
 4. **修订后的提示词超出预算。** 第一修订版真实六轮通过，但 14,658 bytes 超过既有 14,000 bytes 门槛，专项测试两项失败，未作为最终版交付。精简重复说明后最终为 13,996 bytes；专项 69 项通过，再重新构建并完整复验六轮。两版失败和修订记录均保留，没有提高预算检查上限。
-5. **GitHub DNS 超时。** 普通 SSH fetch 无法解析 GitHub。通过本机已配置代理查询 HTTPS DNS，临时指定已解析的 SSH HostName，仍按 `github.com` 严格验证已知主机密钥；没有持久修改 Git remote、SSH 配置或关闭主机校验。
+5. **终端保活没有持续。** 首次提交后的独立健康检查发现原隐藏子进程已退出，WSL 自动停止，API 拒绝连接。直接 WMI 创建及新增隐藏控制台的尝试也立即退出，不能作为已解决方案。改由当前用户的任务计划程序运行隐藏 PowerShell 保活脚本：`Interactive` / `Limited`、`PT0S` 无限运行、`IgnoreNew`，无登录触发器，只按需启动。项目与发行版摘要决定任务名；重复运行启动脚本复用任务，不创建重复保活。结束其余测试保活后，不调用任何 WSL 命令，分别在 0、45、95 秒从 Windows 检查 API 和任务状态，以避免健康检查顺带唤醒发行版造成误判。设置依据：[WSL 用户范围](https://learn.microsoft.com/en-us/windows/wsl/setup/environment)、[任务运行时限](https://learn.microsoft.com/en-us/windows/win32/api/taskschd/nf-taskschd-itasksettings-get_executiontimelimit)、[systemd 生命周期](https://learn.microsoft.com/en-us/windows/wsl/systemd)。
+6. **GitHub DNS 超时。** 普通 SSH fetch 无法解析 GitHub。通过本机已配置代理查询 HTTPS DNS，临时指定已解析的 SSH HostName，仍按 `github.com` 严格验证已知主机密钥；没有持久修改 Git remote、SSH 配置或关闭主机校验。
 
 ## 验证结果
 
@@ -24,6 +25,7 @@
 | 数据保留 | 更新前备份 78,072,061 bytes；八张既有表逐行比对，旧记录全部保留，新验收会话只增加记录。 |
 | 安装源码 | API、worker 各 88 个源码/资源文件 SHA-256 与工作区一致；两容器内实际提示词、Pi runtime/server/lock、七个公开页面资源分别核对一致。 |
 | 依赖与服务 | 安装后的 API `pip check` 通过；五服务运行，四个配置了健康检查的服务均 healthy，数据库与索引 ready。 |
+| 持续保活 | 只保留正式隐藏任务，0/45/95 秒 Windows HTTP 与任务检查均通过，最后实测 95.77 秒；期间没有 WSL 调用。最终启动脚本复用同一任务并成功，检查任务身份/权限/时限与运行状态。 |
 | 本地浏览器 | 实际拖动侧栏 244→308 px，主区与输入框同步；隐藏/恢复和刷新保留宽度通过，无横向溢出；旧会话重载前后均四条消息。随后测试连接超时，未取得最终截图，也没有据此声称最终 Markdown 重载或手机点击通过。 |
 
 最终版本真实消息接口与 SSE 共六轮，均经 Pi 规划并成功完成：

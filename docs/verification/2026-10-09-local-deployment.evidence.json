@@ -279,6 +279,51 @@
     "admin_session_status": 503,
     "qwen_default_provider_acceptance": "in_progress"
   },
+  "keepalive": {
+    "method": "Current-user Windows scheduled task running hidden PowerShell",
+    "task": "InterviewIntelligence-WSL-4adbf90e6327",
+    "logon_type": "Interactive",
+    "run_level": "Limited",
+    "execution_time_limit": "PT0S",
+    "multiple_instances": "IgnoreNew",
+    "triggers": [],
+    "reused_by_start_script": true,
+    "probes_without_any_wsl_command": [
+      {
+        "elapsed_seconds": 0.86,
+        "checked_at_utc": "2026-10-09T08:06:08.3174807Z",
+        "task": "InterviewIntelligence-WSL-4adbf90e6327",
+        "task_running": true,
+        "database": "ready",
+        "index": "ready",
+        "query_prompt_sha256": "88c1b1d4c907eafc6e88153c1614138ced1bb3bf2408d690d223057fe7f40a93"
+      },
+      {
+        "elapsed_seconds": 45.87,
+        "checked_at_utc": "2026-10-09T08:06:53.3223893Z",
+        "task": "InterviewIntelligence-WSL-4adbf90e6327",
+        "task_running": true,
+        "database": "ready",
+        "index": "ready",
+        "query_prompt_sha256": "88c1b1d4c907eafc6e88153c1614138ced1bb3bf2408d690d223057fe7f40a93"
+      },
+      {
+        "elapsed_seconds": 95.77,
+        "checked_at_utc": "2026-10-09T08:07:43.2232659Z",
+        "task": "InterviewIntelligence-WSL-4adbf90e6327",
+        "task_running": true,
+        "database": "ready",
+        "index": "ready",
+        "query_prompt_sha256": "88c1b1d4c907eafc6e88153c1614138ced1bb3bf2408d690d223057fe7f40a93"
+      }
+    ],
+    "before_fix": "Original hidden child process exited and API refused connection",
+    "unsuccessful_alternatives": [
+      "Direct WMI process",
+      "WMI CREATE_NEW_CONSOLE"
+    ],
+    "native_exit_codes_for_unsuccessful_alternatives": "not captured"
+  },
   "build": {
     "method": "Cached official service image bases plus full current source and lock files",
     "clean_from_scratch_build_verified": false,

@@ -53,7 +53,9 @@ docker compose exec api ii chat "Redis 高频问题有哪些"
 
 脚本通过 `wslpath` 将当前仓库目录转换为WSL路径，无需预先创建固定的 `/opt` 链接。`-WaitTimeoutSeconds` 默认120秒，可在30–600秒间调整。中文等非ASCII路径暂时使用普通Compose构建器，绕过当前Bake共享会话头的字符限制；此兼容路径使用 `COMPOSE_BAKE=false`，升级Compose时应复验并移除兼容分支。
 
-脚本创建或复用隐藏的 WSL 保活会话，并等待服务就绪。若构建网络无法解析依赖站点，可以使用 `compose.build-wsl.yaml` 的构建配置；运行服务仍采用常规网络，不需修改全局 DNS。
+脚本创建或复用当前用户的隐藏保活任务 `InterviewIntelligence-WSL-<项目与发行版摘要>`，由 Windows 任务计划程序运行 `scripts/wsl-keepalive.ps1`，并等待服务就绪。任务使用 `Interactive` / `Limited`、无限运行时间与重复实例忽略，只按需启动，没有登录触发器；终端结束不会结束该任务。启动输出显示任务名，可在任务计划程序中停止；再次执行启动脚本会复用并启动它。需要本机 ScheduledTasks PowerShell 模块及创建当前用户任务的权限。
+
+若构建网络无法解析依赖站点，可以使用 `compose.build-wsl.yaml` 的构建配置；运行服务仍采用常规网络，不需修改全局 DNS。实际构建、数据保留和保活故障处理见[本地验收](verification/2026-10-09-local-deployment.md)。
 
 ## 模型调用与数据
 
