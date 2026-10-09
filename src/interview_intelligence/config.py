@@ -41,10 +41,10 @@ class Settings(BaseSettings):
     pi_agent_url: str = "http://pi-agent:8787"
     internal_agent_token: str | None = None
     query_model: str | None = None
-    query_prompt_version: Literal["query_agent_v6", "query_agent_v7", "query_agent_v8", "query_agent_v9", "query_agent_v10"] = "query_agent_v10"
-    query_deadline_seconds: float = Field(default=90, gt=0, le=180)
-    query_max_model_calls: int = Field(default=3, ge=1, le=6)
-    query_max_tokens: int = Field(default=65536, ge=4096, le=128000)
+    query_prompt_version: Literal["query_agent_v6", "query_agent_v7", "query_agent_v8", "query_agent_v9", "query_agent_v10", "query_agent_v11", "query_agent_v12", "query_agent_v13"] = "query_agent_v13"
+    query_deadline_seconds: float = Field(default=180, gt=0, le=180)
+    query_max_model_calls: int = Field(default=4, ge=1, le=6)
+    query_max_tokens: int = Field(default=96000, ge=4096, le=128000)
     query_compact_context: bool = True
     query_dynamic_tools: bool = True
     dedup_candidate_backend: Literal["auto","exact","hnsw"] = "auto"

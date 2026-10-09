@@ -156,12 +156,19 @@ class ModelGateway:
             if budget_error: raise budget_error
 
     async def plan(self, run, context):
+        from interview_intelligence.agent.presentation import AnswerStream
+        answers = AnswerStream(content_json=True)
+        async def emit(chunk):
+            for answer in answers.update(chunk):
+                await asyncio.to_thread(self.on_event,run.id,"answer_delta",{
+                    **answer,"run_id":run.id,"model_call":run.model_calls})
         response = await self.complete(run, {"messages": [
             {"role": "system", "content": resource_path(f"prompts/{self.prompt_version}.md").read_text(encoding="utf-8") +
              "\n当前模式直接输出 QuerySpec JSON，不调用工具。"},
             {"role": "user", "content": json.dumps(context, ensure_ascii=False)}],
             "response_format": {"type": "json_schema", "json_schema": {
-                "name": "QuerySpec", "strict": False, "schema": query_model_schema(context.get("tool_policy"))}}})
+                "name": "QuerySpec", "strict": False, "schema": query_model_schema(context.get("tool_policy"))}}},
+            emit=emit if self.on_event else None)
         return validate_model_plan(json.loads(response["choices"][0]["message"]["content"]))
 
 

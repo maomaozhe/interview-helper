@@ -4,7 +4,9 @@
 
 一个面向个人面试准备的 RAG + Query Agent 工程项目。输入本地 Markdown 面经，系统抽取真实提问、归并不同问法、保留原文证据，再提供题库检索、连续对话和复习记录。
 
-例如，输入“场景设计题”，Agent 会先提供 **Agent 应用 / 业务系统 / 线上排障 / 全部方向**供选择；补齐范围后再检索。问“Redis 高频题有哪些”时，频次与排名来自数据库中的完整事实，而不是检索到的几个片段。
+例如，输入“工程系统设计题，类似设计一个排行榜这种”，按工程设计这一宽类别找题；明确“只要排行榜”时限定对象，问“解释如何设计排行榜”时给出参考解答。仅输入“场景设计题”、范围尚不明确时，Agent 提供 **Agent 应用 / 业务系统 / 线上排障 / 全部方向**供选择。
+
+问“Redis 高频题有哪些”时，频次与排名来自数据库中的完整事实，而不是检索到的几个片段。当前 SSH 工程设计检索修复及限制见[验收报告](docs/verification/2026-10-08-engineering-design.md)。
 
 `Python 3.12` · `FastAPI` · `PostgreSQL` · `Elasticsearch` · `Pi Agent Loop` · `Docker Compose`
 
@@ -136,6 +138,8 @@ docker compose up -d --build --wait
 | 完整 SQL 范围 | 20 组排序、计数和全分页核对通过；模型调用 0 | 独立事实 oracle；标签正确性另行评测。[SQL 验证](docs/verification/2026-10-06-resume-quality.md)。 |
 | 去重候选性能 | 候选计算 P95：330.11 ms → 114.17 ms | 2,668 条缓存向量、60 次探针，Python 精确扫描对比 HNSW + 精确增量；不是完整请求延迟。小语料默认走向量化精确路径。[实验细节](docs/verification/2026-10-06-resume-quality.md)。 |
 | 检索消融 | 扩充判断池后，Dense / Hybrid + Rerank 的 Recall@10 为 69.04% / 60.29% | 同一 55 查询集，四路 Top 10 增补 828 条判断；重排过滤存在召回损失。[四路对比](docs/verification/2026-10-06-quality-optimization.md)。 |
+| 本地检索定向修复 | 同23轮确认相关39/48→69/80，参照16/19→19/19；宏平均89.17%→87.98%，SEARCH中位41.1→49.0秒 | 修复推断硬筛漏题与异常隔离；仍有6邻近、5不确定及旧题损失，H01保持开放。两宽查询独立为34/35相关；开发Agent审核。[完整修复报告](docs/verification/2026-10-08-retrieval-fixes.md)。 |
+| 工程系统设计题修复（SSH） | 原会话从 1 道变为 17 道主设计题；11 轮隔离回归通过，原 3 轮历史保留 | 先核原文冻结 69 题参考，其中主设计 23 道；线上命中 17/23，独立覆盖请求命中 15/23、另含 1 道邻近题。本次线上耗时 138 秒，仍有漏召回；query v13 / rerank r14。[问题、改进与评测](docs/verification/2026-10-08-engineering-design.md)。 |
 | 页面交互 | 澄清点选、同会话继续检索、真实阶段展示通过 | 真实模型与本地题库验收；[问答交互](docs/verification/2026-10-08-chat-interaction.md)、[题库入口](docs/verification/2026-10-08-library-deployment.md)。 |
 
 这些是固定开发语料上的实验，参考标注主要由 Agent 审核，`human_verified=false`。**完整 V1 质量门禁仍为 BLOCKED**；已见回归、首次测试和修订后重评分分别记录，不把局部通过当作生产质量或全库泛化结论。[门禁结果](docs/verification/2026-10-06-quality-gate-v4.json)与[评测操作手册](eval/README.md)提供详细口径。

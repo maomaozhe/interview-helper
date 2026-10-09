@@ -18,6 +18,7 @@ from sqlalchemy.exc import IntegrityError
 from interview_intelligence.agent.query_contract import QueryRequest, QuerySpec, StructuredQueryRequest, TOOL_ACTIONS, QUERY_AGENT_VERSION
 from interview_intelligence.agent.harness import ContextCompiler, ToolPolicy, authorized_statuses
 from interview_intelligence.analytics.detail import get_question_detail
+from interview_intelligence.analytics.counts import count_questions
 from interview_intelligence.analytics.listing import ListRequest, StatsListRequest, filter_fields, list_questions
 from interview_intelligence.agent.preferences import PreferenceService
 from interview_intelligence.agent.feedback_memory import FeedbackMemory
@@ -29,6 +30,11 @@ from interview_intelligence.domain.models import AgentConversation, AgentTurn, C
 from interview_intelligence.providers.runtime import RequestLimits, current_limits
 from interview_intelligence.review.service import ReviewService
 from interview_intelligence.search.service import search_questions
+
+
+SEARCH_FILTER_POLICY_VERSION = "search_question_type_origin_v1"
+SEARCH_DIMENSION_POLICY_VERSION = "search_semantic_dimensions_origin_v1"
+SEARCH_SEMANTIC_FIELDS = ("topic_l1", "topic_l2", "coding_focus")
 
 
 @dataclass
@@ -82,8 +88,83 @@ class QueryService:
 
     @staticmethod
     def _explicit_filters(request):
-        return request.filters.model_dump(mode="json", exclude_unset=True,
-                                          exclude_none=request.requery_of_run_id is None)
+        filters = request.filters.model_dump(mode="json", exclude_unset=True,
+                                             exclude_none=request.requery_of_run_id is None)
+        # Clearing the legacy type is meaningful when a previous explicit scope
+        # exists. Other ordinary-request null semantics remain unchanged.
+        for key in ("question_type", *SEARCH_SEMANTIC_FIELDS):
+            if key in request.filters.model_fields_set:
+                filters[key] = request.filters.model_dump(mode="json")[key]
+        return filters
+
+    @staticmethod
+    def _search_filter_scope(state):
+        saved = state.get("search_filter_scope") or {}
+        scopes = {key: value for key, value in saved.get("fields", {}).items()
+                  if saved.get("version") == SEARCH_DIMENSION_POLICY_VERSION
+                  and key in SEARCH_SEMANTIC_FIELDS and isinstance(value, dict)
+                  and value.get("source") in {"explicit_ui", "sql_list"} and value.get("value") is not None}
+        for key in SEARCH_SEMANTIC_FIELDS:
+            value = (state.get("list_request") or {}).get(key)
+            if key not in scopes and value is not None:
+                scopes[key] = {"value": value, "source": "sql_list"}
+        return scopes
+
+    def _search_semantic_dimensions(self, run, plan, explicit, automatic_annotation):
+        scopes = self._search_filter_scope(run.state)
+        changes, fields = {}, {}
+        for key in SEARCH_SEMANTIC_FIELDS:
+            requested = getattr(plan.filters, key)
+            scope = scopes.get(key, {})
+            if key in explicit:
+                source, decision, applied = "explicit_ui", "explicit_clear" if explicit[key] is None else "explicit", requested
+            elif requested is not None and requested == scope.get("value"):
+                source, decision, applied = "inherited_" + scope["source"], "trusted_inherited", requested
+            elif key == "coding_focus" and requested is not None and plan.filters.response_form in {"CODE", "SQL"}:
+                source, decision, applied = "programming_response_form", "programming_task_preserved", requested
+            else:
+                source = "model_intent" if requested is not None else "unspecified"
+                decision, applied = ("model_inferred_softened" if requested is not None else "unspecified"), None
+            changes[key] = applied
+            fields[key] = {"planned": requested, "applied": applied, "source": source, "decision": decision}
+        cleared_annotation = bool(automatic_annotation and not plan.filters.response_form and not changes["coding_focus"])
+        if cleared_annotation:
+            changes["annotation_status"] = None
+        return plan.model_copy(update={"filters": plan.filters.model_copy(update=changes)}), {
+            "version": SEARCH_DIMENSION_POLICY_VERSION, "fields": fields,
+            "automatic_annotation_cleared": cleared_annotation}
+
+    @staticmethod
+    def _question_type_scope(state):
+        scope = state.get("question_type_scope") or {}
+        if scope.get("version") == SEARCH_FILTER_POLICY_VERSION and scope.get("source") in {"explicit_ui", "sql_list"}:
+            return scope
+        # A saved SQL list is an exact category scope, including old receipts.
+        # A bare last_plan/filter from semantic search has no such provenance.
+        value = (state.get("list_request") or {}).get("question_type")
+        if value is not None:
+            return {"version": SEARCH_FILTER_POLICY_VERSION, "value": value, "source": "sql_list"}
+        return {}
+
+    def _search_question_type(self, run, plan, explicit):
+        """Legacy extraction labels are soft intent unless a host scope binds them."""
+        requested = plan.filters.model_dump(mode="json")["question_type"]
+        scope = self._question_type_scope(run.state)
+        if "question_type" in explicit:
+            source, hard_scope = "explicit_ui", explicit["question_type"] is not None
+            decision = "explicit" if hard_scope else "explicit_clear"
+        elif requested is not None and requested == scope.get("value"):
+            source, hard_scope = "inherited_" + scope["source"], True
+            decision = "trusted_inherited"
+        else:
+            source, hard_scope = "model_intent" if requested is not None else "unspecified", False
+            decision = "model_inferred_softened" if requested is not None else "unspecified"
+        if requested is not None and not hard_scope:
+            plan = plan.model_copy(update={"filters": plan.filters.model_copy(update={"question_type": None})})
+        return plan, {"version": SEARCH_FILTER_POLICY_VERSION, "planned_question_type": requested,
+                      "applied_question_type": plan.filters.model_dump(mode="json")["question_type"],
+                      "source": source, "decision": decision,
+                      "mode": "hard_filter" if hard_scope else "semantic_intent"}
 
     def _restore_requery(self, session, request):
         """Reconstruct query intent, never a historical result or write capability."""
@@ -96,7 +177,7 @@ class QueryService:
         if source.status != "SUCCEEDED":
             raise ValueError("REQUERY_SOURCE_NOT_READY")
         response = source.response or {}
-        allowed = {"LIST", "STATS", "SEARCH", "NEXT", "CLARIFY"}
+        allowed = {"LIST", "STATS", "SEARCH", "NEXT", "CLARIFY", "COUNT"}
         payload = (response.get("planning") or {}).get("spec") or {}
         if response.get("intent") not in allowed or payload.get("action") not in allowed:
             raise ValueError("REQUERY_ACTION_NOT_ALLOWED")
@@ -127,6 +208,13 @@ class QueryService:
             original_filters = {key: value for key, value in (source_payload.get("filters") or {}).items()
                 if key in FilterSpec.model_fields and value not in (None, "") and
                    value != FilterSpec.model_fields[key].default}
+        source_type_scope = self._question_type_scope(after)
+        if plan.action == "SEARCH" and source_type_scope:
+            original_filters.setdefault("question_type", source_type_scope["value"])
+        source_search_scope = self._search_filter_scope(after)
+        if plan.action == "SEARCH":
+            for key, scope in source_search_scope.items():
+                original_filters.setdefault(key, scope["value"])
         bound_filters = {**original_filters, **self._explicit_filters(request)}
         normalized["filters"].update(bound_filters)
         effective = {"filters": FilterSpec.model_validate(bound_filters)}
@@ -141,6 +229,11 @@ class QueryService:
         request = request.model_copy(update=effective)
         state = {"filters": deepcopy(normalized["filters"]), "sort": normalized["sort"],
                  "last_plan": normalized, "recent_messages": []}
+        if source_type_scope:
+            state["question_type_scope"] = deepcopy(source_type_scope)
+        if source_search_scope:
+            state["search_filter_scope"] = {"version": SEARCH_DIMENSION_POLICY_VERSION,
+                                            "fields": deepcopy(source_search_scope)}
         if listing:
             listing.update(normalized["filters"])
             listing.update(cursor=None, page_size=normalized["page_size"])
@@ -178,11 +271,28 @@ class QueryService:
             # their digest, and accept receipts from the transitional schema too.
             digest = hashlib.sha256(request.model_dump_json(exclude={"requery_of_run_id"}).encode()).hexdigest()
             compatible_digests = {digest, hashlib.sha256(request.model_dump_json().encode()).hexdigest()}
+            legacy_digests = set(compatible_digests)
+            explicit_type_clear = "question_type" in request.filters.model_fields_set and request.filters.question_type is None
+            if explicit_type_clear:
+                digest = hashlib.sha256((digest + ":explicit_question_type_clear").encode()).hexdigest()
+                compatible_digests = {digest}
+            legacy_dimension_digests = set(compatible_digests)
+            dimension_clears = [key for key in SEARCH_SEMANTIC_FIELDS
+                                if key in request.filters.model_fields_set and getattr(request.filters, key) is None]
+            if dimension_clears:
+                digest = hashlib.sha256((digest + ":explicit_search_dimension_clears:" + ",".join(dimension_clears)).encode()).hexdigest()
+                compatible_digests = {digest}
         with self.database.session() as session, session.begin():
             receipt = session.scalar(select(AgentTurn).where(
                 AgentTurn.user_id == self.user_id, AgentTurn.request_id == request.request_id).with_for_update())
             if receipt:
-                if receipt.payload_hash not in compatible_digests:
+                legacy_clear = (not request.requery_of_run_id and explicit_type_clear and
+                    (receipt.request_payload or {}).get("query_filter_policy_version") != SEARCH_FILTER_POLICY_VERSION and
+                    receipt.payload_hash in legacy_digests)
+                legacy_dimensions = (not request.requery_of_run_id and bool(dimension_clears) and
+                    (receipt.request_payload or {}).get("search_dimension_policy_version") != SEARCH_DIMENSION_POLICY_VERSION
+                    and receipt.payload_hash in legacy_dimension_digests)
+                if receipt.payload_hash not in compatible_digests and not legacy_clear and not legacy_dimensions:
                     raise ValueError("IDEMPOTENCY_CONFLICT")
                 if receipt.status == "SUCCEEDED":
                     return dict(receipt.response)
@@ -220,9 +330,10 @@ class QueryService:
                 session.add(receipt)
             receipt.owner_id,receipt.lease_until=self.owner_id,now_utc()+timedelta(seconds=self.deadline_seconds+10)
             receipt.request_payload=request.model_dump(mode="json")
-            if request.requery_of_run_id:
-                receipt.request_payload = {**receipt.request_payload,
-                    "resolved_explicit_filters": self._explicit_filters(effective_request)}
+            receipt.request_payload = {**receipt.request_payload,
+                "query_filter_policy_version": SEARCH_FILTER_POLICY_VERSION,
+                "search_dimension_policy_version": SEARCH_DIMENSION_POLICY_VERSION,
+                "resolved_explicit_filters": self._explicit_filters(effective_request)}
             initial_state = (deepcopy(receipt.state_before) if request.requery_of_run_id and receipt.state_before else
                              requery_state if requery_state is not None else dict(conversation.state))
             if not receipt.state_before: receipt.state_before=deepcopy(initial_state)
@@ -258,11 +369,15 @@ class QueryService:
         return run
 
     def model_context(self, run):
+        session_state = {**run.state}
+        focus = self.context_compiler.conversation_focus(run.state)
+        if focus:
+            session_state["conversation_focus"] = focus
         context = {"message": run.request.message, "today": self.today().isoformat(),
                 "explicit_filters": self._explicit_filters(run.request),
                 "default_page_size":run.request.page_size if "page_size" in run.request.model_fields_set else self.preferences.defaults().get("page_size",run.request.page_size),
                 "requested_pipeline": run.request.pipeline if "pipeline" in run.request.model_fields_set else self.preferences.defaults().get("pipeline",run.request.pipeline),
-                "preferences":self.preferences.defaults(),"session": run.state,
+                "preferences":self.preferences.defaults(),"session": session_state,
                 "query_feedback":self.feedback_memory.selected(run.request.feedback_ids),
                 "query_memory":self.feedback_memory.matching(run.request.message),
                 "requery_origin":run.requery_origin,
@@ -293,6 +408,7 @@ class QueryService:
             requested_pipeline=run.request.pipeline, terminal=run.terminal,
             remaining_tools=8-run.tool_calls, requery_origin=run.requery_origin)
         metadata = {"context_contract": compiled["context_contract"], "session": compiled["session"]}
+        metadata["evidence"] = [self.context_compiler.evidence_row(row) for row in run.result["facts"].get("data", [])[:5]]
         if self.dynamic_tools:
             metadata["tool_policy"] = compiled["tool_policy"]
         run.result["facts"]["meta"]["harness"] = metadata
@@ -312,12 +428,24 @@ class QueryService:
         # Exposure is an optimization; authorization always remains a host check,
         # including when the decision provider bypasses Pi's visible tool schema.
         self.tool_policy(run).require(name, plan.action)
+        if plan.action == "ANSWER":
+            if any(identity not in run.state.get("current_page_ids", []) for identity in plan.question_ids):
+                raise ValueError("QUESTION_NOT_IN_SESSION")
+            has_aggregate_evidence = any(part["intent"] in {"COUNT", "STATS"} or
+                part["intent"] in {"LIST", "NEXT"} and
+                type(part["facts"].get("meta", {}).get("pagination", {}).get("result_total")) is int
+                for part in run.parts)
+            if plan.answer_basis in {"CORPUS", "MIXED"} and not plan.question_ids and not has_aggregate_evidence:
+                raise ValueError("QUERY_ANSWER_EVIDENCE_REQUIRED")
+            if plan.answer_basis == "GENERAL_KNOWLEDGE" and plan.question_ids:
+                raise ValueError("QUERY_ANSWER_BASIS_CONFLICT")
         if plan.action == "RECORD_REVIEW" and any(
             item.status not in authorized_statuses(run.request.message) for item in plan.review_items
         ):
             raise ValueError("QUERY_WRITE_STATUS_CONFLICT")
         run.tool_calls += 1
-        if (plan.filters.response_form or plan.filters.coding_focus) and not plan.filters.annotation_status:
+        automatic_annotation = bool((plan.filters.response_form or plan.filters.coding_focus) and not plan.filters.annotation_status)
+        if automatic_annotation:
             plan=plan.model_copy(update={"filters":plan.filters.model_copy(update={"annotation_status":self.task_annotation_policy})})
         if not self.task_filters_enabled and (plan.filters.coding_focus or plan.filters.response_form):
             raise ValueError("TASK_FILTERS_DISABLED")
@@ -334,6 +462,11 @@ class QueryService:
         explicit = self._explicit_filters(run.request)
         if any(plan.filters.model_dump(mode="json").get(k) != v for k, v in explicit.items()) and plan.action != "CLARIFY":
             raise ValueError("EXPLICIT_FILTER_CONFLICT")
+        question_type_policy = None
+        search_dimension_policy = None
+        if plan.action == "SEARCH":
+            plan, question_type_policy = self._search_question_type(run, plan, explicit)
+            plan, search_dimension_policy = self._search_semantic_dimensions(run, plan, explicit, automatic_annotation)
         invocation_id,previous=self.journal.prepare(run,run.tool_calls,name,plan)
         if previous:
             run.result=previous
@@ -353,7 +486,7 @@ class QueryService:
                 if plan.action in {"LIST", "NEXT","STATS"}:
                     req = (run.request.list_request if isinstance(run.request, StructuredQueryRequest) else
                            (StatsListRequest if run.state["list_request"].get("group_by") else ListRequest).model_validate(run.state["list_request"]) if plan.action == "NEXT" else
-                           StatsListRequest(**plan.filters.model_dump(),group_by=plan.group_by,sort=plan.sort,
+                           StatsListRequest(**plan.filters.model_dump(),group_by=plan.group_by,topic_level=plan.topic_level,sort=plan.sort,
                                top_n=plan.top_n,page_size=plan.page_size,review_statuses=plan.review_statuses,review_order=plan.review_order) if plan.action=="STATS" else
                            ListRequest(**plan.filters.model_dump(), sort=plan.sort, top_n=plan.top_n, page_size=plan.page_size,
                                        review_statuses=plan.review_statuses,review_order=plan.review_order))
@@ -366,7 +499,22 @@ class QueryService:
                     next_filters = filter_fields(req)
                     plan = plan.model_copy(update={"filters": next_filters, "sort": req.sort,
                                                   "top_n": req.top_n, "page_size": req.page_size,
-                                                  "group_by":getattr(req,"group_by","question")})
+                                                  "group_by":getattr(req,"group_by","question"),
+                                                  "topic_level":getattr(req,"topic_level","L1")})
+                elif plan.action == "COUNT":
+                    counts = count_questions(session, plan.filters, user_id=self.user_id, review_statuses=plan.review_statuses)
+                    scoped = any(value is not None for key, value in plan.filters.model_dump(mode="json").items()
+                                 if key != "date_basis") or bool(plan.review_statuses)
+                    result = {"data": [], "meta": {"route": "SQL", "counts": counts,
+                        "count_scope": "filtered_corpus" if scoped else "full_corpus"}}
+                elif plan.action == "ANSWER":
+                    rows = [get_question_detail(session, identity, plan.filters) for identity in plan.question_ids]
+                    if any(not row.get("occurrence_count") for row in rows):
+                        raise ValueError("QUERY_ANSWER_EVIDENCE_OUT_OF_SCOPE")
+                    result = {"data": rows, "meta": {"route": "ANSWER", "answer_kind": plan.answer_kind,
+                        "answer_basis": plan.answer_basis, "evidence_question_ids": list(plan.question_ids),
+                        "evidence_notice": ("根据通用知识生成的参考回答。" if plan.answer_basis == "GENERAL_KNOWLEDGE" else
+                            "题库来源仅证明题目与提问记录；解答为模型生成的参考内容。")}}
                 elif plan.action == "SEARCH":
                     corpus = session.get(CorpusState, 1)
                     if not self.retriever or not corpus.current_revision or corpus.indexed_revision != corpus.current_revision:
@@ -380,6 +528,8 @@ class QueryService:
                                 top_k=plan.page_size, pipeline=executed, relevance_query=plan.relevance_query or
                                 ((run.state.get("pending_clarification") or {}).get("original_message", "") + " " + run.request.message).strip(),
                                 lexical_facets=plan.lexical_facets,
+                                preferred_question_type=(plan.preferred_question_type or (question_type_policy["planned_question_type"]
+                                    if question_type_policy and question_type_policy["decision"] == "model_inferred_softened" else None)),
                                 on_progress=lambda event:self.journal.event(run.id,"stage",event))
                             break
                         except (httpx.HTTPError, APIError, ValidationError, ValueError) as failure:
@@ -391,10 +541,20 @@ class QueryService:
                     executed=result["meta"].get("pipeline",executed)
                     if result["meta"].get("rerank_status") in {"SKIPPED_BUDGET","FAILED"}:
                         warnings.append("重排未完成，已保留混合召回结果。")
-                    verified = executed == "HYBRID_RERANK" and result["meta"].get("rerank_status") == "COMPLETED"
+                    partial = (result["meta"].get("rerank_status") == "COMPLETED_PARTIAL"
+                               and result["meta"].get("candidate_verification_status") == "PARTIAL"
+                               and type(result["meta"].get("invalid_candidate_count")) is int
+                               and result["meta"]["invalid_candidate_count"] > 0)
+                    verified = executed == "HYBRID_RERANK" and (
+                        result["meta"].get("rerank_status") == "COMPLETED"
+                        and result["meta"].get("candidate_verification_status") in {None, "COMPLETE"}
+                        and result["meta"].get("invalid_candidate_count", 0) == 0
+                        or partial and bool(result["data"]))
                     if plan.pipeline == "HYBRID_RERANK" and not verified and result["meta"].get("eligible_count", 0):
                         result["data"] = []
                         warnings = ["相关性核验未完成，请重新检索，或明确选择原始混合检索查看候选。"]
+                    if partial:
+                        warnings.append(f"已排除 {result['meta']['invalid_candidate_count']} 个结构异常候选，结果可能不完整。")
                     result["meta"].update({"relevance_status": "VERIFIED" if verified else
                         "UNAVAILABLE" if plan.pipeline == "HYBRID_RERANK" else "UNVERIFIED",
                         "returned_count": len(result["data"])})
@@ -443,12 +603,25 @@ class QueryService:
             "request_id": run.request.request_id,
             "task_annotation_revision": run.revisions[1], "user_state_revision": latest[2],
             "applied_filters": plan.filters.model_dump(mode="json")})
+        if question_type_policy:
+            result["meta"]["question_type_filter_policy"] = question_type_policy
+        if search_dimension_policy:
+            result["meta"]["search_filter_policy"] = search_dimension_policy
         if run.request.requery_of_run_id:
             result["meta"]["requery_of_run_id"] = run.request.requery_of_run_id
         result["meta"].setdefault("timings",{}).update({"tool_ms":int((time.perf_counter()-started)*1000)})
         run.plan = plan
         rows = result.get("data", [])
-        answer = (plan.clarification if plan.action == "CLARIFY" else
+        count_labels = [str(value) for value in (plan.filters.company, plan.filters.topic_l1,
+                                                 plan.filters.topic_l2) if value]
+        count_scope = (f"当前筛选范围（{' / '.join(count_labels)}）" if count_labels else "当前筛选范围")
+        answer = (plan.answer_text if plan.action == "ANSWER" else
+                  (f"{count_scope if result['meta']['count_scope'] == 'filtered_corpus' else '当前全库'}共有 "
+                   f"{result['meta']['counts']['canonical_questions']:,} 道去重题目，"
+                   f"{result['meta']['counts']['occurrences']:,} 条提问记录，来自 "
+                   f"{result['meta']['counts']['interviews']:,} 场面试、"
+                   f"{result['meta']['counts']['source_documents']:,} 篇面经。") if plan.action == "COUNT" else
+                  plan.clarification if plan.action == "CLARIFY" else
                   f"已保存 {len(plan.review_items)} 道题的复习记录。" if plan.action == "RECORD_REVIEW" else
                   "已读取当前题目的复习状态。" if plan.action == "REVIEW_STATE" else
                   f"返回 {len(rows)} 道题，按真实提问频次排序。" if plan.action in {"LIST", "NEXT"} and plan.sort == "frequency" else
@@ -473,29 +646,60 @@ class QueryService:
             self.journal.complete(run,invocation_id)
             return run.result
         run.state.pop("pending_clarification", None)
+        if plan.action == "COUNT":
+            run.state["last_count"] = {"filters": plan.filters.model_dump(mode="json"),
+                "review_statuses": list(plan.review_statuses), "counts": result["meta"]["counts"],
+                "count_scope": result["meta"]["count_scope"], "message": run.request.message}
         # Reading details or review state must retain the page and scope for later
         # references such as "第3题" and "下一页".
-        if plan.action in {"DETAILS", "REVIEW_STATE", "RECORD_REVIEW"}:
+        if plan.action in {"DETAILS", "REVIEW_STATE", "RECORD_REVIEW", "ANSWER", "COUNT"}:
             self._remember(run)
             self._attach_harness(run)
             self.journal.complete(run,invocation_id)
             return run.result
+        inherited_search_scope = self._search_filter_scope(run.state)
         run.state = {**run.state, "filters": result["meta"]["applied_filters"], "sort": plan.sort,
                      "last_plan": plan.model_dump(mode="json"), "corpus_revision": run.revisions[0],
                      "task_annotation_revision": run.revisions[1],
                      "current_page_ids": [r["canonical_question_id"] for r in rows if r.get("canonical_question_id")],
                      "recent_messages": run.state.get("recent_messages", [])}
+        run.state["current_page_summary"] = [self.context_compiler.evidence_row(row) for row in rows[:10]]
+        if plan.filters.question_type is None:
+            run.state.pop("question_type_scope", None)
+        elif plan.action in {"LIST", "STATS", "NEXT", "SEARCH"}:
+            inherited = self._question_type_scope(run.state)
+            source = ("explicit_ui" if "question_type" in explicit else
+                      inherited.get("source", "sql_list") if plan.action == "SEARCH" else "sql_list")
+            run.state["question_type_scope"] = {"version": SEARCH_FILTER_POLICY_VERSION,
+                "value": plan.filters.model_dump(mode="json")["question_type"], "source": source}
+        search_scope = {}
+        for key in SEARCH_SEMANTIC_FIELDS:
+            value = getattr(plan.filters, key)
+            inherited = inherited_search_scope.get(key, {})
+            if value is None:
+                continue
+            if key in explicit or plan.action in {"LIST", "STATS", "NEXT"}:
+                search_scope[key] = {"value": value, "source": "explicit_ui" if key in explicit else "sql_list"}
+            elif value == inherited.get("value"):
+                search_scope[key] = inherited
+        if search_scope:
+            run.state["search_filter_scope"] = {"version": SEARCH_DIMENSION_POLICY_VERSION, "fields": search_scope}
+        else:
+            run.state.pop("search_filter_scope", None)
         self._remember(run)
         if plan.action in {"LIST", "NEXT","STATS"}:
             run.state["list_request"] = list_state
             run.state["result_set_id"]=result["meta"].get("result_set_id")
             if plan.action in {"LIST", "STATS"}:
+                run.state["list_goal"] = {"message": run.request.message, "run_id": run.id,
+                                          "intent": plan.action}
                 run.state["list_explicit_filters"] = self._explicit_filters(run.request)
             elif "list_explicit_filters" in run.state or self._explicit_filters(run.request):
                 run.state["list_explicit_filters"] = {**run.state.get("list_explicit_filters", {}),
                                                        **self._explicit_filters(run.request)}
         elif plan.action != "CLARIFY":
             run.state.pop("list_request", None)
+            run.state.pop("list_goal", None)
             run.state.pop("list_explicit_filters", None)
         self._attach_harness(run)
         self.journal.complete(run,invocation_id)
@@ -506,6 +710,23 @@ class QueryService:
         messages=run.state.get("recent_messages", [])
         if not messages or messages[-1]!=run.request.message:
             run.state["recent_messages"]=[*messages[-7:],run.request.message]
+        plan = run.plan
+        if not run.terminal or not plan or plan.action not in {"LIST", "NEXT", "STATS", "SEARCH", "COUNT", "ANSWER"}:
+            return
+        previous = ContextCompiler.conversation_focus(run.state)
+        intent = plan.action
+        message = run.request.message
+        if intent == "NEXT":
+            intent = "STATS" if (run.state.get("list_request") or {}).get("group_by") else "LIST"
+            message = ((run.state.get("list_goal") or {}).get("message") or
+                       (previous.get("message") if previous.get("intent") in {"LIST", "STATS"} else None) or message)
+        run.state["conversation_focus"] = {
+            "intent": intent, "source_action": plan.action, "message": message,
+            "filters": plan.filters.model_dump(mode="json"), "sort": plan.sort, "top_n": plan.top_n,
+            "review_statuses": list(plan.review_statuses), "review_order": plan.review_order,
+            "group_by": plan.group_by, "topic_level": plan.topic_level, "run_id": run.id,
+            **({"answer_kind": plan.answer_kind, "answer_basis": plan.answer_basis,
+                "question_ids": list(plan.question_ids)} if plan.action == "ANSWER" else {})}
 
     def finish(self, run: QueryRun, *, provider: str, timings: dict | None = None):
         if not run.result:
@@ -516,6 +737,8 @@ class QueryService:
                 for p in run.parts[:-1]]
             response["tool_trace"]=[i for p in run.parts for i in p["tool_trace"]]
         response["planning"]["provider"] = provider
+        run.state["last_response"] = {"message": run.request.message, "intent": response["intent"],
+                                      "answer": response["answer"]}
         meta = response["facts"]["meta"]
         meta["timings"].update(timings or {})
         with self.database.session() as session, session.begin():

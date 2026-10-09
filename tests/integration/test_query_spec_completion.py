@@ -154,10 +154,10 @@ def test_restart_recovers_review_intention_without_replanning_or_duplicate_event
     class NoPlanner:
         def plan(self,*args): raise AssertionError("a saved write must not be replanned")
     with TestClient(create_app(db,Settings(),query_planner=NoPlanner())) as client:
-        response=client.post("/api/questions/query",json=body.model_dump(mode="json"))
+        response=client.post("/api/questions/query",json=body.model_dump(mode="json",exclude_unset=True))
         assert response.status_code==200,response.text
         assert response.json()["meta"]["planning"]["provider"] in {"recovered_receipt","recovered_write"}
-        assert client.post("/api/questions/query",json=body.model_dump(mode="json")).json()==response.json()
+        assert client.post("/api/questions/query",json=body.model_dump(mode="json",exclude_unset=True)).json()==response.json()
     with db.session() as s:
         assert s.scalar(select(func.count()).select_from(ReviewEvent))==40
 

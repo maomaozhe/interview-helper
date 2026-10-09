@@ -139,6 +139,30 @@ test("search tool schema preserves optional bounded lexical facets and forwards 
   assert.equal(h.received[0].plan.relevance_query,"Agent运行框架设计");
 });
 
+test("soft question type preference survives the actual Pi tool schema and host boundary",async t=>{
+  const h=await host(t);
+  const searchPlan={action:"SEARCH",filters:{},top_n:null,page_size:20,
+    search_query:"如何设计一个系统",pipeline:"HYBRID_RERANK",preferred_question_type:"SYSTEM_DESIGN"};
+  const searchSchema={...schema,additionalProperties:false,properties:{...schema.properties,
+    top_n:{type:"null"},search_query:{type:"string"},pipeline:{type:"string"},
+    preferred_question_type:{anyOf:[{type:"string",enum:["SYSTEM_DESIGN","CODE"]},{type:"null"}]}}};
+  const fake=stream([fauxAssistantMessage(fauxToolCall("search_questions",searchPlan))]);
+  const schemas=[];
+  const result=await runQuery({run_id:"soft-type",schema:searchSchema,prompt:"Use the optional soft preference",
+    context:{message:"工程系统设计题",tool_policy:{allowed_actions:{search_questions:["SEARCH"]}}}},
+    {hostUrl:h.url,token:"internal",streamFn:(m,c,o)=>{
+      for(const message of c.messages.filter(x=>x.role==="system"))
+        for(const tool of message.toolsAdded || []) if(tool.name==="search_questions") schemas.push(tool.parameters);
+      return fake.fn(m,c,o);
+    }});
+  assert.equal(result.provider_calls,1);
+  assert.equal(h.received.length,1);
+  assert.equal(h.received[0].plan.preferred_question_type,"SYSTEM_DESIGN");
+  assert.deepEqual(h.received[0].plan.filters,{});
+  assert.ok(schemas.length>0);
+  assert.deepEqual(schemas[0].properties.preferred_question_type,searchSchema.properties.preferred_question_type);
+});
+
 test("search count constraints reject global top_n and oversized pages before host execution",async t=>{
   const h=await host(t);
   const valid={action:"SEARCH",filters:{},top_n:null,page_size:15,search_query:"Agent设计",pipeline:"HYBRID_RERANK"};
@@ -159,4 +183,130 @@ test("search count constraints reject global top_n and oversized pages before ho
   // The shared input schema and LIST's global top_n remain valid for other tools.
   assert.equal(searchSchema.properties.page_size.maximum,100);
   assert.equal(searchSchema.properties.top_n.anyOf[0].type,"integer");
+});
+
+const answerSchema={...schema,additionalProperties:false,properties:{...schema.properties,
+  top_n:{anyOf:[{type:"integer"},{type:"null"}]},
+  review_statuses:{type:"array",maxItems:4,items:{type:"string",enum:["UNSEEN","WEAK","REVIEWED","MASTERED"]}},
+  final:{type:"boolean"},question_ids:{type:"array",maxItems:100,items:{type:"string"}},
+  answer_text:{type:"string",minLength:1,maxLength:12000},
+  answer_kind:{type:"string",enum:["EXPLAIN","COMPARE","SOLVE","STUDY_PLAN","CHAT"]},
+  answer_basis:{type:"string",enum:["GENERAL_KNOWLEDGE","CORPUS","MIXED"]}}};
+const answerPlan={...plan,action:"ANSWER",top_n:null,final:true,
+  answer_text:"Redis 的速度主要来自内存访问及高效的数据结构。\n这是参考解释。",
+  answer_kind:"EXPLAIN",answer_basis:"MIXED",question_ids:["q1"]};
+
+test("pinned Pi reads detail evidence before a final answer and preserves answer fields",async t=>{
+  const detail="Redis为什么快？来源中的原始提问。";
+  const h=await host(t,(args,result)=>args.action==="DETAILS" ? {...result,
+    planning:{spec:{final:false}},facts:{data:[{canonical_question_id:"q1",canonical_text:detail}],
+      meta:{route:"SQL",harness:{session:{current_page_ids:["q1"]},
+        tool_policy:{allowed_actions:{answer_question:["ANSWER"]}}}}}} : {...result,
+    answer:args.answer_text,planning:{spec:{final:true}},facts:{data:[],meta:{route:"ANSWER"}}});
+  const fake=stream([
+    fauxAssistantMessage(fauxToolCall("get_question_details",{...plan,action:"DETAILS",question_ids:["q1"],final:false})),
+    fauxAssistantMessage(fauxToolCall("answer_question",answerPlan)),
+  ]),contexts=[];
+  const result=await runQuery({run_id:"explain",schema:answerSchema,prompt:"Read the question, then explain it.",
+    context:{message:"解释第一题",tool_policy:{allowed_actions:{get_question_details:["DETAILS"]}}}},
+    {hostUrl:h.url,token:"internal",streamFn:(m,c,o)=>{contexts.push(c);return fake.fn(m,c,o);}});
+  assert.equal(result.completed,true);assert.equal(result.provider_calls,2);assert.equal(result.tool_calls,2);
+  assert.deepEqual(h.received.map(row=>row.plan.action),["DETAILS","ANSWER"]);
+  assert.deepEqual(h.received[1].plan,answerPlan);
+  assert.ok(JSON.stringify(contexts[1].messages).includes(detail));
+  assert.deepEqual(visibleTools(contexts[1]),["answer_question"]);
+});
+
+test("count evidence covers the full scope and can feed a subsequent answer",async t=>{
+  const counts={canonical_questions:2452,occurrences:2771,interviews:185,source_documents:172,known_companies:20};
+  const h=await host(t,(args,result)=>({...result,planning:{spec:{final:args.final}},
+    facts:{data:[],counts,meta:{route:"SQL",count_scope:"full_corpus"}}}));
+  const countPlan={...plan,action:"COUNT",top_n:null,final:false,review_statuses:["UNSEEN","WEAK","REVIEWED"]};
+  const finalPlan={...answerPlan,answer_text:"题库有 2452 道去重题目和 2771 次提问记录。",question_ids:[],answer_basis:"CORPUS"};
+  const fake=stream([
+    fauxAssistantMessage(fauxToolCall("get_question_count",countPlan)),
+    fauxAssistantMessage(fauxToolCall("answer_question",finalPlan)),
+  ]),contexts=[];
+  const result=await runQuery({run_id:"count-answer",schema:answerSchema,prompt:"Count then explain the units.",
+    context:{message:"有多少数据？解释一下数量口径",tool_policy:{allowed_actions:{get_question_count:["COUNT"],answer_question:["ANSWER"]}}}},
+    {hostUrl:h.url,token:"internal",streamFn:(m,c,o)=>{contexts.push(c);return fake.fn(m,c,o);}});
+  assert.equal(result.provider_calls,2);assert.equal(result.tool_calls,2);
+  assert.deepEqual(h.received.map(row=>row.plan.action),["COUNT","ANSWER"]);
+  assert.deepEqual(h.received[0].plan.review_statuses,["UNSEEN","WEAK","REVIEWED"]);
+  const declarations=contexts[0].messages.filter(message=>message.role==="system")
+    .flatMap(message=>message.toolsAdded || []);
+  assert.deepEqual(declarations.find(tool=>tool.name==="get_question_count").parameters.properties.top_n,{type:"null"});
+  assert.match(JSON.stringify(contexts[1].messages),/canonical_questions.*2452/);
+  assert.deepEqual(h.received[1].plan,finalPlan);
+});
+
+for(const hostProjection of [false,true])test(`large sources and signed cursors stay outside model evidence (${hostProjection ? 'host projection' : 'fallback'})`,async t=>{
+  const cursor="SIGNED_CURSOR_PRIVATE_"+"x".repeat(10000),large="unbounded source material ".repeat(1000);
+  const rows=Array.from({length:20},(_,i)=>({canonical_question_id:`q${i}`,canonical_text:"R".repeat(1000),
+    occurrence_count:50,sources:Array.from({length:10},()=>({revision_id:"r1",start_line:5,end_line:6,
+      quote:large,raw_markdown:large,file_path:"PRIVATE_PATH"})),raw_markdown:large}));
+  const h=await host(t,(args,result)=>({...result,planning:{spec:{final:args.final}},facts:{data:rows,meta:{route:"SQL",
+    result_set_id:cursor,arbitrary_metadata:large,
+    pagination:{total:2452,result_total:2452,returned:20,page_size:20,next_cursor:cursor,private_note:large},
+    harness:{session:{current_page_ids:["q0"],has_next_page:true},
+      ...(hostProjection ? {evidence:[{canonical_question_id:"q0",canonical_text:"HOST_PROJECTED_QUESTION"}]} : {}),
+      tool_policy:{allowed_actions:{answer_question:["ANSWER"]}}}}}}));
+  const fake=stream([
+    fauxAssistantMessage(fauxToolCall("get_question_details",{...plan,action:"DETAILS",question_ids:["q0"],final:false})),
+    fauxAssistantMessage(fauxToolCall("answer_question",{...answerPlan,question_ids:["q0"]})),
+  ]),contexts=[];
+  await runQuery({run_id:"bounded-evidence",schema:answerSchema,prompt:"Read then explain.",
+    context:{message:"解释第一题",tool_policy:{allowed_actions:{get_question_details:["DETAILS"]}}}},
+    {hostUrl:h.url,token:"internal",streamFn:(m,c,o)=>{contexts.push(c);return fake.fn(m,c,o);}});
+  const toolMessage=contexts[1].messages.find(message=>message.role==="toolResult"),
+    text=toolMessage.content.find(block=>block.type==="text").text,summary=JSON.parse(text);
+  assert.ok(text.length<5000);assert.ok(!text.includes(cursor));assert.ok(!text.includes(large));
+  assert.ok(!text.includes("PRIVATE_PATH"));assert.equal(summary.meta.harness,undefined);
+  assert.equal(summary.meta.result_set_id,undefined);assert.equal(summary.meta.arbitrary_metadata,undefined);
+  assert.equal(summary.meta.pagination.has_next_page,true);
+  assert.equal(summary.meta.pagination.total,2452);assert.equal(summary.meta.pagination.next_cursor,undefined);
+  if(hostProjection)assert.deepEqual(summary.items,[{canonical_question_id:"q0",canonical_text:"HOST_PROJECTED_QUESTION"}]);
+  else {
+    assert.equal(summary.items.length,5);assert.equal(summary.items[0].canonical_text.length,400);
+    assert.equal(summary.items[0].sources.length,2);assert.equal(summary.items[0].sources[0].quote.length,160);
+    assert.equal(summary.items[0].sources[0].raw_markdown,undefined);
+  }
+});
+
+test("topic statistics preserve L2 grouping through the host and subsequent model evidence",async t=>{
+  const statsSchema={...answerSchema,properties:{...answerSchema.properties,
+    group_by:{type:"string",enum:["question","topic","company","round"]},
+    topic_level:{type:"string",enum:["L1","L2"]}}};
+  const statsPlan={...plan,action:"STATS",filters:{topic_l1:"Redis"},top_n:null,page_size:20,
+    group_by:"topic",topic_level:"L2",final:false};
+  const h=await host(t,(args,result)=>({...result,planning:{spec:{final:args.final}},facts:{
+    data:[{key:"redis.persistence",occurrence_count:8}],meta:{route:"SQL",group_by:"topic",topic_level:"L2",
+      applied_filters:{topic_l1:"Redis"},corpus_revision:293,sample_counts:{occurrences:42},total_groups:5}}}));
+  const fake=stream([
+    fauxAssistantMessage(fauxToolCall("get_question_stats",statsPlan)),
+    fauxAssistantMessage(fauxToolCall("answer_question",{...answerPlan,question_ids:[],answer_kind:"STUDY_PLAN"})),
+  ]),contexts=[];
+  const result=await runQuery({run_id:"topic-breakdown",schema:statsSchema,prompt:"Read the Redis topic distribution, then make a study plan.",
+    context:{message:"按Redis知识点制定复习计划",tool_policy:{allowed_actions:{get_question_stats:["STATS"],answer_question:["ANSWER"]}}}},
+    {hostUrl:h.url,token:"internal",streamFn:(m,c,o)=>{contexts.push(c);return fake.fn(m,c,o);}});
+  assert.equal(result.provider_calls,2);assert.equal(result.tool_calls,2);
+  assert.deepEqual(h.received[0].plan,statsPlan);
+  const message=contexts[1].messages.find(row=>row.role==="toolResult"),
+    summary=JSON.parse(message.content.find(block=>block.type==="text").text);
+  assert.equal(summary.meta.topic_level,"L2");assert.equal(summary.meta.group_by,"topic");
+  assert.equal(summary.meta.total_groups,5);assert.equal(summary.meta.sample_counts.occurrences,42);
+  assert.deepEqual(summary.meta.applied_filters,{topic_l1:"Redis"});
+});
+
+test("answer must terminate and cite at most ten questions before any host execution",async t=>{
+  const h=await host(t),fake=stream([
+    fauxAssistantMessage(fauxToolCall("answer_question",{...answerPlan,final:false})),
+    fauxAssistantMessage(fauxToolCall("answer_question",{...answerPlan,question_ids:Array.from({length:11},(_,i)=>`q${i}`)})),
+    fauxAssistantMessage(fauxToolCall("answer_question",answerPlan)),
+  ]);
+  const result=await runQuery({run_id:"answer-guard",schema:answerSchema,prompt:"Return a bounded final answer.",
+    context:{message:"解释这些题",tool_policy:{allowed_actions:{answer_question:["ANSWER"]}}}},
+    {hostUrl:h.url,token:"internal",streamFn:fake.fn});
+  assert.equal(result.provider_calls,3);assert.equal(h.received.length,1);
+  assert.deepEqual(h.received[0].plan,answerPlan);
 });

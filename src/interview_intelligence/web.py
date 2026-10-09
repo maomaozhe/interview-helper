@@ -27,7 +27,8 @@ from interview_intelligence.ingestion.snapshot import decode_source
 
 
 WEB_ROOT = Path(__file__).with_name("web")
-WEB_ASSETS = ("app.css", "workspace.css", "core.js", "query-stream.js", "app.js")
+WEB_ASSETS = ("app.css", "workspace.css", "markdown.css", "core.js", "vendor/markdown-it.umd.min.js",
+              "markdown.js", "answer-stream.js", "query-stream.js", "app.js", "sidebar.js")
 
 
 def workspace_version():

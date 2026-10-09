@@ -67,6 +67,24 @@ def test_dense_requires_encoder():
         retriever.retrieve("Redis", ["a"], "DENSE", 10)
 
 
+def test_candidate_context_is_loaded_for_actual_rerank_pool_only():
+    calls = []
+    def load(ids):
+        calls.append(ids)
+        return {"a": {"source_context": [{"original_question": "代码题：实现缓存"}]}}
+    class Reranker:
+        version = "source-test"
+        def rerank(self, query, candidates):
+            a = next(row for row in candidates if row["canonical_question_id"] == "a")
+            assert a["source_context"][0]["original_question"].startswith("代码题")
+            return candidates
+    retriever = ElasticsearchRetriever("http://unused", Encoder(), client=FakeClient(), reranker=Reranker())
+    retriever.retrieve("缓存", ["a", "b", "outside"], "HYBRID_RERANK", 1, candidate_context_loader=load)
+    assert len(calls) == 1 and set(calls[0]) == {"a", "b"}
+    retriever.retrieve("缓存", ["a", "b"], "HYBRID", 1, candidate_context_loader=load)
+    assert len(calls) == 1
+
+
 def test_progress_emits_only_phases_that_are_actually_entered():
     stages=[]
     class CheckedEncoder(Encoder):
@@ -132,6 +150,76 @@ def test_rerank_audit_distinguishes_page_cutoff_from_relevance_rejection():
     result = retriever.retrieve("Agent记忆", ["a", "b"], "HYBRID_RERANK", 1)
     audit = result["meta"]["rerank_audit"]["candidates"]
     assert [item["decision"] for item in audit] == ["RETURNED", "PAGE_CUTOFF", "BELOW_THRESHOLD"]
+
+
+@pytest.mark.parametrize("accepted", [True, False])
+def test_partial_rerank_returns_only_verified_rows_and_preserves_invalid_audit(accepted):
+    from interview_intelligence.search.reranker import RerankedCandidates
+
+    class PartialReranker:
+        version = "partial-test"
+        calls = 0
+
+        def rerank(self, query, candidates):
+            self.calls += 1
+            # Include the invalid row to test the retriever's partial boundary.
+            return RerankedCandidates(candidates, {
+                "candidate_verification_status": "PARTIAL", "invalid_candidate_count": 1,
+                "candidates": [
+                    {"canonical_question_id": "a", "decision": "ACCEPTED" if accepted else "BELOW_THRESHOLD",
+                     "relevance_grade": 3 if accepted else 0, "quote_grounded": accepted},
+                    {"canonical_question_id": "b", "decision": "INVALID_SCHEMA", "relevance_grade": 0}]})
+
+    reranker = PartialReranker()
+    client = FakeClient()
+    result = ElasticsearchRetriever("http://unused", Encoder(), reranker=reranker, client=client).retrieve(
+        "Agent", ["a", "b"], "HYBRID_RERANK", 15, lexical_facets=["Agent memory"])
+    assert [row["canonical_question_id"] for row in result["data"]] == (["a"] if accepted else [])
+    assert result["meta"]["pipeline"] == "HYBRID_RERANK"
+    assert result["meta"]["rerank_status"] == "COMPLETED_PARTIAL"
+    assert result["meta"]["candidate_verification_status"] == "PARTIAL"
+    assert result["meta"]["invalid_candidate_count"] == 1
+    assert result["meta"]["result_selection_policy"] == "top5_missing_facet_once_v1"
+    assert [row["decision"] for row in result["meta"]["rerank_audit"]["candidates"]] == [
+        "RETURNED" if accepted else "BELOW_THRESHOLD", "INVALID_SCHEMA"]
+    assert reranker.calls == 1 and client.calls[-1][0] == "/_pit"
+
+
+@pytest.mark.parametrize("grade,grounded", [(0, True), (2, False)])
+def test_partial_acceptance_cannot_bypass_grade_or_quote_verification(grade, grounded):
+    from interview_intelligence.search.reranker import RerankedCandidates
+
+    class InvalidAcceptanceReranker:
+        version = "partial-boundary"
+
+        def rerank(self, query, candidates):
+            return RerankedCandidates(candidates, {
+                "candidate_verification_status": "PARTIAL", "invalid_candidate_count": 1,
+                "candidates": [{"canonical_question_id": "a", "decision": "ACCEPTED",
+                                "relevance_grade": grade, "quote_grounded": grounded},
+                               {"canonical_question_id": "b", "decision": "INVALID_SCHEMA"}]})
+
+    result = ElasticsearchRetriever("http://unused", Encoder(), reranker=InvalidAcceptanceReranker(), client=FakeClient()).retrieve(
+        "Agent", ["a", "b"], "HYBRID_RERANK", 15)
+    assert result["data"] == [] and result["meta"]["rerank_status"] == "COMPLETED_PARTIAL"
+
+
+def test_complete_rerank_empty_set_remains_complete():
+    from interview_intelligence.search.reranker import RerankedCandidates
+
+    class CompleteReranker:
+        version = "complete-test"
+
+        def rerank(self, query, candidates):
+            return RerankedCandidates([], {"candidate_verification_status": "COMPLETE", "invalid_candidate_count": 0,
+                "candidates": [{"canonical_question_id": row["canonical_question_id"], "decision": "BELOW_THRESHOLD"}
+                               for row in candidates]})
+
+    result = ElasticsearchRetriever("http://unused", Encoder(), reranker=CompleteReranker(), client=FakeClient()).retrieve(
+        "Agent", ["a", "b"], "HYBRID_RERANK", 15)
+    assert result["data"] == [] and result["meta"]["rerank_status"] == "COMPLETED"
+    assert result["meta"]["candidate_verification_status"] == "COMPLETE"
+    assert result["meta"]["invalid_candidate_count"] == 0
 
 
 def test_parallel_subtask_selection_covers_accepted_branch_before_redundant_general_rows():
@@ -399,10 +487,160 @@ def test_failed_lexical_branch_closes_pit_and_cannot_return_partial_candidate_po
     assert client.calls[-1] == ("/_pit", {"json": {"id": "pit-id"}})
 
 
+def test_required_task_verification_failure_cannot_fall_back_to_unverified_hybrid():
+    import httpx
+
+    class RequiredVerifier:
+        version = "task-verification-test"
+        fail_closed = True
+
+        def rerank(self, query, candidates):
+            raise httpx.ReadTimeout("task verification unavailable")
+
+    client = FakeClient()
+    retriever = ElasticsearchRetriever("http://unused", Encoder(), reranker=RequiredVerifier(), client=client)
+    with pytest.raises(ValueError, match="REQUIRED_RELEVANCE_VERIFICATION_FAILED"):
+        retriever.retrieve("独立系统设计题", ["a", "b"], "HYBRID_RERANK", 20)
+    assert client.calls[-1] == ("/_pit", {"json": {"id": "pit-id"}})
+
+
 @pytest.mark.parametrize("facets", [[" ", "memory"], ["x" * 151], ["a", "b", "c", "d"]])
 def test_invalid_lexical_facets_fail_before_any_model_or_es_request(facets):
     client = FakeClient()
     retriever = ElasticsearchRetriever("http://unused", Encoder(), client=client)
     with pytest.raises(ValueError, match="invalid lexical facets"):
         retriever.retrieve("Agent", ["a"], "HYBRID", 20, lexical_facets=facets)
+    assert not client.calls
+
+
+@pytest.mark.parametrize("facets", [[], ["branch 0", "branch 1", "branch 2"]])
+def test_soft_type_pool_preserves_broad_projects_and_same_query_preferred_candidates(facets):
+    from interview_intelligence.search.reranker import RerankedCandidates
+    main, preferred = [f"broad-{i:03}" for i in range(100)], [f"preferred-{i:03}" for i in range(60)]
+    branches = [[f"facet-{index}-{i:03}" for i in range(50)] for index in range(3)]
+
+    class Client(FakeClient):
+        def post(self, path, **kwargs):
+            if path != "/_search":
+                return super().post(path, **kwargs)
+            self.calls.append((path, kwargs))
+            body = kwargs["json"]
+            filters = body.get("knn", {}).get("filter") or body.get("query", {}).get("bool", {}).get("filter")
+            is_preferred = isinstance(filters, dict) and "bool" in filters or isinstance(filters, list) and len(filters) == 2
+            ids = preferred if is_preferred else branches[int(body["query"]["bool"]["must"][0]["multi_match"]["query"].split()[-1])] if body["size"] == 50 else main
+            return Response({"hits": {"hits": [{"_id": qid, "_score": 100 - rank,
+                "_source": {"canonical_text": "business PROJECT " + qid}} for rank, qid in enumerate(ids)]}})
+
+    class CountingEncoder(Encoder):
+        calls = 0
+        def embed(self, query):
+            self.calls += 1
+            return super().embed(query)
+
+    class Reranker:
+        version = "pool-test"
+        calls = []
+        def rerank(self, query, candidates):
+            self.calls.append((query, candidates))
+            return RerankedCandidates([{**row, "relevance_grade": 3, "rerank_rank": rank}
+                for rank, row in enumerate(candidates, 1)], {
+                "candidate_verification_status": "COMPLETE", "invalid_candidate_count": 0,
+                "candidates": [{"canonical_question_id": row["canonical_question_id"], "decision": "ACCEPTED"}
+                               for row in candidates]})
+
+    client, encoder, reranker = Client(), CountingEncoder(), Reranker()
+    eligible = main + preferred + [qid for branch in branches for qid in branch]
+    result = ElasticsearchRetriever("http://unused", encoder, reranker=reranker, client=client).retrieve(
+        "Agent application design", eligible, "HYBRID_RERANK", 50, relevance_query="original broad scene",
+        lexical_facets=facets, preferred_question_type="SYSTEM_DESIGN", preferred_eligible_ids=preferred)
+    query, pool = reranker.calls[0]
+    assert query == "original broad scene" and len(reranker.calls) == 1 and encoder.calls == 1
+    assert len(pool) == len({row["canonical_question_id"] for row in pool}) == 50
+    reserved, limit = (10 if facets else 20), 30
+    assert [row["canonical_question_id"] for row in pool[:reserved]] == main[:reserved]
+    assert [row["canonical_question_id"] for row in pool[reserved:reserved + limit]] == preferred[:limit]
+    if facets:
+        assert [row["canonical_question_id"] for row in pool[40:46]] == [branches[b][i] for i in range(2) for b in range(3)]
+    added = pool[reserved + 7]
+    assert added["stage_ranks"] == {"preferred_rrf": 8, "preferred_stage_1": 8, "preferred_stage_2": 8}
+    assert added["preferred_rrf_score"] == pytest.approx(3 / 68) and "rrf_score" not in added
+    audit = result["meta"]["rerank_audit"]["candidates"][reserved + 7]
+    assert audit["retrieval_provenance"]["stage_ranks"] == added["stage_ranks"]
+    assert result["meta"]["question_type_preference"]["preferred_new_limit"] == limit
+    searches = [options for path, options in client.calls if path == "/_search"]
+    assert len(searches) == 4 + len(facets)
+    assert all(options["json"]["pit"]["id"] == "pit-id" and options["params"]["allow_partial_search_results"] == "false"
+               for options in searches)
+    assert searches[-2]["json"]["query"]["bool"]["filter"] == [
+        {"terms": {"_id": eligible}}, {"terms": {"_id": sorted(preferred)}}]
+    assert searches[-1]["json"]["knn"]["filter"]["bool"]["filter"] == searches[-2]["json"]["query"]["bool"]["filter"]
+    assert searches[-1]["json"]["knn"]["query_vector"] == searches[-3]["json"]["knn"]["query_vector"]
+    assert searches[-2]["json"]["query"]["bool"]["must"] == searches[0]["json"]["query"]["bool"]["must"]
+    assert client.calls[-1][0] == "/_pit"
+
+
+def test_preferred_pool_deduplicates_overlaps_and_backfills_broad():
+    from interview_intelligence.search.elasticsearch import _preferred_candidate_pool
+    from interview_intelligence.search.service import rrf
+    broad = rrf([(f"m{i:02}", 100 - i) for i in range(70)])
+    preferred = rrf([("m00", 200), ("extra", 100)])
+    pool = _preferred_candidate_pool(broad, preferred, [[("m00", 99), ("facet", 90)]])
+    assert len(pool) == len({row["canonical_question_id"] for row in pool}) == 50
+    assert pool[10]["canonical_question_id"] == "extra" and pool[11]["canonical_question_id"] == "facet"
+    assert pool[12]["canonical_question_id"] == "m10" and pool[0]["stage_ranks"]["preferred_rrf"] == 1
+
+
+@pytest.mark.parametrize("pipeline", ["BM25", "DENSE"])
+def test_explicit_raw_pipeline_ignores_soft_type_branch(pipeline):
+    client = FakeClient()
+    result = ElasticsearchRetriever("http://unused", Encoder(), client=client).retrieve(
+        "Redis", ["a", "b"], pipeline, 2, preferred_question_type="SCENARIO", preferred_eligible_ids=["a"])
+    assert len([path for path, _ in client.calls if path == "/_search"]) == 1
+    assert result["meta"]["question_type_preference"]["ignored_reason"] == "pipeline"
+
+
+def test_empty_preferred_scope_preserves_original_calls_and_pool():
+    old, new = FakeClient(), FakeClient()
+    first = ElasticsearchRetriever("http://unused", Encoder(), client=old).retrieve("Redis", ["a", "b"], "HYBRID", 2)
+    second = ElasticsearchRetriever("http://unused", Encoder(), client=new).retrieve(
+        "Redis", ["a", "b"], "HYBRID", 2, preferred_question_type="SCENARIO", preferred_eligible_ids=[])
+    assert first["data"] == second["data"] and old.calls == new.calls
+    assert second["meta"]["question_type_preference"]["applied"] is False
+
+
+@pytest.mark.parametrize("stage", ["bm25", "dense", "pit_close"])
+def test_preferred_branch_failure_closes_pit_and_never_calls_reranker(stage):
+    import httpx
+    class FailedPreferred(FakeClient):
+        def post(self, path, **kwargs):
+            if path == "/_search" and len(kwargs["json"].get("query", {}).get("bool", {}).get("filter", [])) == 2:
+                if stage == "bm25":
+                    raise httpx.ReadTimeout("preferred branch failed")
+                self.calls.append((path, kwargs))
+                return Response({"hits": {"hits": [{"_id": "a", "_score": 1.0}]}})
+            if (path == "/_search" and isinstance(kwargs["json"].get("knn", {}).get("filter"), dict)
+                    and "bool" in kwargs["json"]["knn"]["filter"] and stage == "dense"):
+                raise httpx.ReadTimeout("preferred dense failed")
+            return super().post(path, **kwargs)
+        def delete(self, path, **kwargs):
+            response = super().delete(path, **kwargs)
+            if stage == "pit_close":
+                raise httpx.ReadTimeout("PIT close failed")
+            return response
+    class Reranker:
+        version = "must-not-run"
+        def rerank(self, *args): raise AssertionError("partial pool must not reach rerank")
+    client = FailedPreferred()
+    with pytest.raises(ValueError, match="LEXICAL_FACET_RETRIEVAL_FAILED"):
+        ElasticsearchRetriever("http://unused", Encoder(), reranker=Reranker(), client=client).retrieve(
+            "Redis", ["a", "b"], "HYBRID_RERANK", 2,
+            preferred_question_type="SCENARIO", preferred_eligible_ids=["a"])
+    assert client.calls[-1] == ("/_pit", {"json": {"id": "pit-id"}})
+
+
+def test_preferred_scope_cannot_escape_broad_scope_before_any_es_or_model_call():
+    client = FakeClient()
+    with pytest.raises(ValueError, match="invalid question type preference IDs"):
+        ElasticsearchRetriever("http://unused", Encoder(), client=client).retrieve(
+            "Redis", ["a"], "HYBRID", 2, preferred_question_type="SCENARIO", preferred_eligible_ids=["foreign"])
     assert not client.calls

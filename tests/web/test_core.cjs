@@ -191,4 +191,65 @@ test('user-facing progress names actual operations without leaking tool argument
     {key:'CLARIFY',label:'正在准备可选方向'});
   assert.equal(core.queryStage({type:'stage',stage:'tool',action:'SEARCH'}),null);
   assert.equal(core.queryStage({type:'model_request',messages:['secret']}),null);
+  assert.deepEqual(core.queryStage({type:'stage',stage:'tool',action:'COUNT'}),
+    {key:'COUNT',label:'正在核对全量数量'});
+  assert.deepEqual(core.queryStage({type:'stage',stage:'tool',action:'ANSWER'}),
+    {key:'ANSWER',label:'正在整理回答'});
+});
+
+test('answers distinguish general knowledge from interview evidence and count scopes', () => {
+  const general={intent:'ANSWER',facts:{meta:{answer_basis:'GENERAL_KNOWLEDGE',
+    evidence_notice:'根据通用知识生成的参考回答。'}}};
+  assert.equal(core.answerNotice(general),'通用知识参考 · 根据通用知识生成的参考回答。');
+  const mixed={planning:{spec:{action:'ANSWER'}},facts:{meta:{answer_basis:'MIXED',
+    evidence_notice:'题库来源仅证明题目与提问记录；解答为模型生成的参考内容。'}}};
+  assert.match(core.answerNotice(mixed),/^题库记录 \+ 通用知识参考/);
+  assert.match(core.answerNotice(mixed),/仅证明题目与提问记录/);
+  assert.equal(core.answerNotice({intent:'COUNT',facts:{meta:{count_scope:'filtered_corpus'}}}),
+    '按当前筛选范围统计全部记录');
+  assert.equal(core.answerNotice({meta:{planning:{spec:{action:'COUNT'}},count_scope:'full_corpus'}}),
+    '题库全部已发布记录的数量');
+  assert.equal(core.answerNotice({intent:'SEARCH',facts:{meta:{answer_basis:'CORPUS'}}}),null);
+});
+
+test('chat and library answer introduction render Markdown and escape generated HTML', () => {
+  const vm=require('node:vm');
+  const source=fs.readFileSync(path.resolve(__dirname,'../../src/interview_intelligence/web/assets/app.js'),'utf8');
+  const escape=source.slice(source.indexOf('const escapeHTML ='),source.indexOf('\nconst labels ='));
+  const renderer=source.slice(source.indexOf('function answerIntroHTML('),source.indexOf('\nfunction renderAssistant('));
+  const context=vm.createContext({window:{InterviewWorkspace:core,
+    InterviewMarkdown:require('../../src/interview_intelligence/web/assets/markdown.js')}});
+  vm.runInContext(escape+'\n'+renderer,context);
+  const answer='## 解释第一步\n\n**代码**：\n\n```javascript\n  if (x < 3) return "ok";\n```\n\n<img src=x onerror=alert(1)>';
+  const result={answer,intent:'ANSWER',facts:{meta:{answer_basis:'GENERAL_KNOWLEDGE',
+    evidence_notice:'<script>不能执行</script>'}}};
+  const html=context.answerIntroHTML(result);
+  assert.match(html,/class="answer-text markdown-body"/);
+  assert.match(html,/<h2>解释第一步<\/h2>/);
+  assert.match(html,/<strong>代码<\/strong>/);
+  assert.ok(html.includes('  if (x &lt; 3) return &quot;ok&quot;;'));
+  assert.ok(html.includes('&lt;img src=x onerror=alert(1)&gt;'));
+  assert.ok(html.includes('&lt;script&gt;不能执行&lt;/script&gt;'));
+  assert.doesNotMatch(html,/<img|<script/);
+  const css=fs.readFileSync(path.resolve(__dirname,'../../src/interview_intelligence/web/assets/markdown.css'),'utf8');
+  assert.match(css,/\.markdown-body\s*\{[^}]*white-space:\s*normal/);
+  assert.match(css,/\.markdown-body pre\s*\{[^}]*white-space:\s*pre/);
+});
+
+test('count replies render a quantity without treating count facts as question rows', () => {
+  const vm=require('node:vm');
+  const source=fs.readFileSync(path.resolve(__dirname,'../../src/interview_intelligence/web/assets/app.js'),'utf8');
+  const escape=source.slice(source.indexOf('const escapeHTML ='),source.indexOf('\nconst labels ='));
+  const renderer=source.slice(source.indexOf('function answerIntroHTML('),source.indexOf('\nfunction startQueryProgress('));
+  const context=vm.createContext({window:{InterviewWorkspace:core,
+    InterviewMarkdown:require('../../src/interview_intelligence/web/assets/markdown.js')},pickFilters:core.pickFilters,
+    pretty:JSON.stringify,canRequery:()=>false,
+    resultRow:()=>{throw Error('COUNT cannot render question rows');}});
+  vm.runInContext(escape+'\n'+renderer,context);
+  const reply={dataset:{},addEventListener(){}};
+  context.renderAssistant(reply,{intent:'COUNT',answer:'共 2452 道题。',facts:{data:[{canonical_questions:2452}],
+    meta:{count_scope:'full_corpus',counts:{canonical_questions:2452}}}},'一共有多少条数据？');
+  assert.match(reply.innerHTML,/共 2452 道题。/);
+  assert.match(reply.innerHTML,/题库全部已发布记录的数量/);
+  assert.doesNotMatch(reply.innerHTML,/没有找到|question-row/);
 });

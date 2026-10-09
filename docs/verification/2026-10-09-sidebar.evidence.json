@@ -1,0 +1,163 @@
+{
+  "recorded_at_utc": "2026-10-09T03:03:06.386526+00:00",
+  "scope": "sidebar-only release",
+  "release": {
+    "archive_sha256": "d854f77475fb3ba9aedbca2ed4da0d143217fe1917005ba296841f4b8d90919e",
+    "files": {
+      "interview_intelligence/web.py": "9f6b0fef632adc51ebd5b598aaf56c953105d18bae807d58fa1a714ae2861199",
+      "interview_intelligence/web/index.html": "41b68f6797c282554220e9b4fb9b6bf675a2997e7948e429758979b3a6e8b20d",
+      "interview_intelligence/web/assets/workspace.css": "fc35e442c38daafffdaa563b2f90e9b560d3589758743bfa78f7c4ed5a30e829",
+      "interview_intelligence/web/assets/sidebar.js": "c407390782c1a1a2b4eaa2840c0fdaf46e8f5c575c57f5a4bf55020ab08f5167"
+    }
+  },
+  "backup": "/home/dylan/services/interview-intelligence/backups/sidebar-20261009-105737",
+  "protected_file_hashes": {
+    "agent/harness.py": "31847349b932b1f00c387eb8e838964e2475c6841501981b36c1a464e6108268",
+    "agent/query_contract.py": "a17cb1cc46a51f9cb35547df42c3c5dad3ff7af2fa339e5750b63b3aeb378106",
+    "agent/query_service.py": "8e6eecc6c6790d454817544cabd4700fd4b2ca6cf1d7b38e73ddf5a58b681b62",
+    "config.py": "9e81b5647445bf0ebad565df8735ac248df76cbb2925feffd9cd4c3e61f61a8e",
+    "resources/prompts/query_agent_v13.md": "41c2a7ef8d72e388bdc814c34d1e4db838cc99f595baf0e49d2566cbc190a82f",
+    "search/reranker.py": "0024418d270fe4e1919e815aaf1023a175d9c534e0026a998e16df91b2ed422a",
+    "search/service.py": "8511203a346e5cb82487d5e9cfccb57712d31f1863d152186237616d3ad74cde",
+    "search/elasticsearch.py": "77d876b7d69ae32dc796c34bf94e0e18250c36ce216eeeb278dff54058b81ef3",
+    "search/candidate_prompt.py": "9acef06f47b3fbd4c1e69ddc6f141f9cc8113b752c17b1174791f81af25ad201",
+    "search/evidence.py": "2a14c9b8078fa34df5a97baec893f72541a3d64a889b43ae6d78e9a525ff7370",
+    "web/assets/app.js": "6f976908494ba4ab84b136d383f6e7dd23086fec088559ee2a571a993e4eff2b",
+    "web/assets/core.js": "65fbe5c7e8fa6990647c0aece4991d465c77a9d9f74e80b37eace89c9924c093"
+  },
+  "public_http": {
+    "checked_at_utc": "2026-10-09T02:58:19.360647+00:00",
+    "url": "https://interview.101-47-18-72.sslip.io/",
+    "shell_status": 200,
+    "assets": {
+      "sidebar.js": {
+        "sha256": "c407390782c1a1a2b4eaa2840c0fdaf46e8f5c575c57f5a4bf55020ab08f5167",
+        "fingerprint": "c407390782c1",
+        "cache_control": "no-cache, must-revalidate"
+      },
+      "workspace.css": {
+        "sha256": "fc35e442c38daafffdaa563b2f90e9b560d3589758743bfa78f7c4ed5a30e829",
+        "fingerprint": "fc35e442c38d",
+        "cache_control": "no-cache, must-revalidate"
+      }
+    },
+    "health": {
+      "database": "ready",
+      "current_revision": 293,
+      "indexed_revision": 293,
+      "index": "ready",
+      "model_max_in_flight": 1,
+      "model_min_interval_seconds": 2.0,
+      "query_router_enabled": true,
+      "task_filters_enabled": true,
+      "task_annotation_policy": "KNOWN",
+      "pi_agent_enabled": true,
+      "query_prompt_version": "query_agent_v13",
+      "query_prompt_sha256": "41c2a7ef8d72e388bdc814c34d1e4db838cc99f595baf0e49d2566cbc190a82f",
+      "reranker_version": "rerank_v14_design_unit_scope_partial",
+      "jev_decision_enabled": false,
+      "model": "configured"
+    },
+    "workspace_version": {
+      "version": "cfa4a0dd4853"
+    },
+    "all_passed": true
+  },
+  "tests": {
+    "python_before": {
+      "passed": 787,
+      "failed": 1,
+      "skipped": 1
+    },
+    "python_after_fixture_repair": {
+      "passed": 788,
+      "failed": 0,
+      "skipped": 1
+    },
+    "shared_workspace_python_final": {
+      "passed": 797,
+      "failed": 0,
+      "skipped": 1
+    },
+    "shared_workspace_node_final": {
+      "passed": 65,
+      "failed": 0
+    }
+  },
+  "browser": {
+    "preview": "actual pointer drag, collapse/reload, keyboard limits, 390/320 mobile drawer",
+    "formal": "SSH tunnel 18086 -> 18082; drag 244 -> 328, reload, collapse, restore, 390 mobile Escape",
+    "public_browser_clicked": false
+  },
+  "services": {
+    "expected": 7,
+    "active": 7
+  },
+  "artifacts": [
+    {
+      "path": "data/reports/sidebar-20261009/release.json",
+      "bytes": 578,
+      "sha256": "f3585c65a42153e43db83fb81544aae94e1608e777b29d8e6eb2835da2f81c9e"
+    },
+    {
+      "path": "data/reports/sidebar-20261009/deployment-receipt.json",
+      "bytes": 2407,
+      "sha256": "f7bc199fbb42e770843a15156d38c50faa04ee4c2f3daaa31790079abe79835d"
+    },
+    {
+      "path": "data/reports/sidebar-20261009/public-check.json",
+      "bytes": 1271,
+      "sha256": "540035d025e0ec36303173adecb2d144383d83591fa2292b7a6ed81737316583"
+    },
+    {
+      "path": "data/reports/sidebar-20261009/browser-preview.json",
+      "bytes": 8794,
+      "sha256": "3b8b99e37e6fd8a3205c5704ad56e647f20e5c0f3281386930413b56dc7f0e9c"
+    },
+    {
+      "path": "data/reports/sidebar-20261009/browser-formal.json",
+      "bytes": 2,
+      "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+    },
+    {
+      "path": "data/reports/sidebar-20261009/sidebar-formal-desktop.jpg",
+      "bytes": 38856,
+      "sha256": "86f1a22bbfe8f8eee738ae895b1ef81d584bb1bab7a529ddf09cfdf3ceaf7adb"
+    },
+    {
+      "path": "data/reports/sidebar-20261009/sidebar-formal-mobile.jpg",
+      "bytes": 3640,
+      "sha256": "a7797c1d464f5e3a67484a488921886c996acb354f80064338085162291988c4"
+    },
+    {
+      "path": "data/reports/sidebar-20261009/pytest.log",
+      "bytes": 8760,
+      "sha256": "84a9448ec864628fb84f7e78d049c69c8188f51613f84efca5e00eb0e81a2692"
+    },
+    {
+      "path": "data/reports/sidebar-20261009/pytest-fixed.log",
+      "bytes": 1395,
+      "sha256": "17b371e11ae1fb51560b6692e5ff0f7f7786c9caab32c2ba13581b6982b883d6"
+    },
+    {
+      "path": "data/reports/sidebar-20261009/node-tests.log",
+      "bytes": 11460,
+      "sha256": "ec18269e5f8de9a9844918b86dd7d88142d9e6f6e6f7f4d7b9fb699eeeb66f6f"
+    },
+    {
+      "path": "data/reports/sidebar-20261009/node-tests-fixed.log",
+      "bytes": 9940,
+      "sha256": "602ae5852f3019b0e8dce971b074eaa46679929c9f42197a49f5bd108ab82ae7"
+    },
+    {
+      "path": "data/reports/sidebar-20261009/pytest-final-shared.log",
+      "bytes": 1476,
+      "sha256": "da5ef15d9d7078c41eb67372ed06467fab9a3c066a17c740bd7d8036739ebd1e"
+    },
+    {
+      "path": "data/reports/sidebar-20261009/node-all-final.log",
+      "bytes": 14467,
+      "sha256": "197e468addc119110175ec96a02c0b26dd82a4d500ef46d73cd0c31b8175af8e"
+    }
+  ]
+}

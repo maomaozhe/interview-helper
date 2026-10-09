@@ -317,13 +317,17 @@ def create_app(database=None, settings: Settings | None = None, retriever=None, 
         run = internal_run(request, run_id)
         payload=await request.json()
         async def streaming():
-            from interview_intelligence.agent.presentation import ClarificationStream
+            from interview_intelligence.agent.presentation import AnswerStream, ClarificationStream
             presentation = ClarificationStream()
+            answers = AnswerStream()
             queue=asyncio.Queue(maxsize=32)
             async def emit(chunk):
                 question = presentation.update(chunk)
                 if question:
                     await asyncio.to_thread(query_service.journal.event,run.id,"clarification_delta",question)
+                for answer in answers.update(chunk):
+                    await asyncio.to_thread(query_service.journal.event,run.id,"answer_delta",{
+                        **answer,"run_id":run.id,"model_call":run.model_calls})
                 text_delta="".join(c.get("delta",{}).get("content") or "" for c in chunk.get("choices",[]))
                 if text_delta:
                     await asyncio.to_thread(query_service.journal.event,run.id,"text_delta",{"text":text_delta,"temporary":True})
@@ -347,7 +351,8 @@ def create_app(database=None, settings: Settings | None = None, retriever=None, 
                 if not task.done(): task.cancel()
                 try: await task
                 except asyncio.CancelledError: pass
-        return StreamingResponse(streaming(),media_type="text/event-stream")
+        return StreamingResponse(streaming(),media_type="text/event-stream",headers={
+            "Cache-Control":"no-cache, no-transform", "X-Accel-Buffering":"no"})
 
     @app.post("/internal/agent/runs/{run_id}/events")
     async def pi_event(request:Request,run_id:str):

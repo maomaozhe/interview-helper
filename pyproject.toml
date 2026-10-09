@@ -56,6 +56,9 @@ packages = ["src/interview_intelligence"]
 "prompts/query_agent_v8.md" = "interview_intelligence/resources/prompts/query_agent_v8.md"
 "prompts/query_agent_v9.md" = "interview_intelligence/resources/prompts/query_agent_v9.md"
 "prompts/query_agent_v10.md" = "interview_intelligence/resources/prompts/query_agent_v10.md"
+"prompts/query_agent_v11.md" = "interview_intelligence/resources/prompts/query_agent_v11.md"
+"prompts/query_agent_v12.md" = "interview_intelligence/resources/prompts/query_agent_v12.md"
+"prompts/query_agent_v13.md" = "interview_intelligence/resources/prompts/query_agent_v13.md"
 "prompts/task_annotation_v7.md" = "interview_intelligence/resources/prompts/task_annotation_v7.md"
 
 [tool.pytest.ini_options]

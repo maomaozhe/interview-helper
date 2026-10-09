@@ -58,11 +58,19 @@
       reranking:"正在核对题目相关性",assembling:"正在整理题目与来源",cancel_requested:"正在停止"};
     if(stage==="tool") {
       const actions={CLARIFY:"正在准备可选方向",LIST:"正在查询题目列表",NEXT:"正在读取下一页",
-        STATS:"正在统计题目",DETAILS:"正在读取题目与来源",REVIEW_STATE:"正在读取复习状态",RECORD_REVIEW:"正在保存复习记录"};
+        STATS:"正在统计题目",COUNT:"正在核对全量数量",ANSWER:"正在整理回答",DETAILS:"正在读取题目与来源",REVIEW_STATE:"正在读取复习状态",RECORD_REVIEW:"正在保存复习记录"};
       return event.action==="SEARCH" ? null : {key:event.action || event.tool,label:actions[event.action] || "正在执行查询"};
     }
     if(!labels[stage])return null;
     return {key:stage,label:labels[stage]+(stage==="reranking" && Number.isInteger(event.count) ? ` · ${event.count} 条候选` : "")};
+  }
+  function answerNotice(result) {
+    const meta=result?.facts?.meta || result?.meta || {};
+    const action=result?.intent || result?.planning?.spec?.action || meta.planning?.spec?.action;
+    if(action==="COUNT")return meta.count_scope==="filtered_corpus" ? "按当前筛选范围统计全部记录" : "题库全部已发布记录的数量";
+    if(action!=="ANSWER")return null;
+    const basis={GENERAL_KNOWLEDGE:"通用知识参考",CORPUS:"结合题库记录的参考回答",MIXED:"题库记录 + 通用知识参考"}[meta.answer_basis];
+    return [basis,typeof meta.evidence_notice==="string" ? meta.evidence_notice : null].filter(Boolean).join(" · ") || null;
   }
   function answerContinuation(result) {
     const meta=result?.facts?.meta || result?.meta || {};
@@ -91,7 +99,7 @@
       conversation?.id===continuation.conversation_id && conversation.version===continuation.version;
   }
   const api = {pickFilters, selectHealthSnapshot, shouldRefreshWorkspace, matchesDocumentStatus, feedbackOrigin,
-    requeryBody,clarificationFor,queryStage,answerContinuation,historyContinuation,canContinueAnswer};
+    requeryBody,clarificationFor,queryStage,answerNotice,answerContinuation,historyContinuation,canContinueAnswer};
   if (typeof module !== "undefined" && module.exports) module.exports = api;
   else root.InterviewWorkspace = api;
 })(typeof window !== "undefined" ? window : this);

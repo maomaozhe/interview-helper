@@ -225,7 +225,7 @@ async function search(cursor=null, structured=false, changedField=null,retryBody
   const agentRun=!restored && query && !cursor && !(structured && state.listRequest) && healthSnapshot?.query_router_enabled;
   const progressHost=$("library-progress");progressHost.replaceChildren();progressHost.hidden=!agentRun;
   let progress=null,progressReply=null,outcome="failed";
-  if(agentRun){progressReply=document.createElement("div");progressHost.append(progressReply);progress=startQueryProgress(progressReply,{follow:false});}
+  if(agentRun){progressReply=document.createElement("div");progressHost.append(progressReply);progress=startQueryProgress(progressReply,{follow:false,signal:searchController.signal});}
   libraryProgress=progress;
   $("search-button").disabled = true; $("results").innerHTML = agentRun ? "" : loading(query ? "正在检索题目…" : "正在读取高频题目…");
   $("query-cancel").hidden=false;
@@ -265,6 +265,8 @@ async function search(cursor=null, structured=false, changedField=null,retryBody
       state.listRequest=null;
     }
     if (sequence !== state.searchSequence) return;
+    await progress?.complete(response.meta.answer);
+    if (sequence !== state.searchSequence) return;
     if(response.meta.conversation_id) state.libraryConversation={id:response.meta.conversation_id,version:response.meta.conversation_version};
     if(state.libraryConversation)sessionStorage.setItem("libraryConversation",JSON.stringify(state.libraryConversation));
     state.nextCursor=response.meta.pagination?.next_cursor || null;
@@ -281,14 +283,18 @@ async function search(cursor=null, structured=false, changedField=null,retryBody
     state.rows = response.data;
     state.diagnostic = {query,filters:pickFilters(response.meta.applied_filters || params),mode:query ? "search" : "browse",meta:response.meta,warnings:response.warnings,elapsed_ms:response.elapsed_ms,results:response.data.map(row => ({canonical_question_id:row.canonical_question_id,canonical_text:row.canonical_text,occurrence_count:row.occurrence_count,retrieval:row.retrieval}))};
     const clarification=window.InterviewWorkspace.clarificationFor({facts:{meta:response.meta},planning:response.meta.planning});
-    $("results").innerHTML = response.meta.route==="CLARIFY" ? `<div class="library-clarification">${clarificationHTML(clarification)}</div>` : response.data.length ? response.data.map(resultRow).join("") : empty("没有找到符合条件的题目", query ? "可以补充你的具体场景，或调整范围后重新检索。" : "当前筛选范围没有真实提问。可以放宽条件，或导入面经。");
+    const answerAction=response.meta.planning?.spec?.action,
+      directAnswer=["COUNT","ANSWER"].includes(answerAction),
+      answerIntro=directAnswer ? `<div class="library-answer">${answerIntroHTML({answer:response.meta.answer,intent:answerAction,meta:response.meta})}</div>` : "";
+    $("results").innerHTML = directAnswer ? answerIntro+(answerAction==="ANSWER" ? response.data.map(resultRow).join("") : "") : response.meta.route==="CLARIFY" ? `<div class="library-clarification">${clarificationHTML(clarification)}</div>` : response.data.length ? response.data.map(resultRow).join("") : empty("没有找到符合条件的题目", query ? "可以补充你的具体场景，或调整范围后重新检索。" : "当前筛选范围没有真实提问。可以放宽条件，或导入面经。");
     $("results").querySelectorAll("[data-clarification]").forEach(button=>button.addEventListener("click",()=>{$("query").value=button.dataset.clarification;search();}));
     const total = response.meta.sample_counts?.occurrences, pagination=response.meta.pagination;
-    $("results-title").textContent=response.meta.route==="CLARIFY" ? "需要补充查询条件" : response.meta.group_by && response.meta.group_by!=="question" ? "统计结果" : response.meta.route==="SQL" ? "题目列表" : "检索结果";
+    $("results-title").textContent=answerAction==="COUNT" ? "题库数量" : answerAction==="ANSWER" ? "参考回答" : response.meta.route==="CLARIFY" ? "需要补充查询条件" : response.meta.group_by && response.meta.group_by!=="question" ? "统计结果" : response.meta.route==="SQL" ? "题目列表" : "检索结果";
     const unit=response.meta.group_by && response.meta.group_by!=="question" ? "组" : "道题";
     const timing=restored ? "已恢复上次结果" : `${response.elapsed_ms} ms`;
     $("results-caption").textContent = pagination ? `${response.data.length} ${unit} · 范围 ${pagination.total} ${unit}${pagination.result_total!==pagination.total ? ` · 本集合 ${pagination.result_total} ${unit}` : ""}${pagination.top_n ? ` · 前 ${pagination.top_n} ${unit}` : ""} · ${labels.SQL} · ${timing}` : `${response.data.length} 条结果 · ${labels[response.meta.executed_pipeline || pipeline]} · ${timing}`;
     if(response.meta.route==="CLARIFY") $("results-caption").textContent=restored ? "选择一个方向，继续上次查询" : "选择一个方向继续，也可以补充具体场景";
+    if(directAnswer)$("results-caption").textContent=timing;
     if (response.warnings?.length) notice("results-notice",`本次执行有提示：${response.warnings.join("；")}`);
     $("diagnostics-content").textContent = pretty(state.diagnostic); $("search-diagnostics").hidden = false;
     outcome="completed";
@@ -304,14 +310,15 @@ async function search(cursor=null, structured=false, changedField=null,retryBody
       try { const reviews = await api("api/review/state", {params:{canonical_question_ids:ids.join(",")},signal:searchController.signal});
         if (sequence !== state.searchSequence) return;
         state.rows = state.rows.map(row=>({...row,user_status:reviews.data.states[row.canonical_question_id]?.status}));
-        $("results").innerHTML = state.rows.map(resultRow).join("");
+        $("results").innerHTML = answerIntro+state.rows.map(resultRow).join("");
       } catch(error) { if(error.name !== "AbortError" && sequence === state.searchSequence) notice("results-notice",`题目已加载，复习状态暂时不可用：${error.message}`); }
     }
   } catch(error) {
     if(sequence===state.searchSequence){
       $("results-caption").textContent="";
       progressHost.hidden=true;
-      $("results").innerHTML=empty(error.name==="AbortError" ? "本次查询已停止" : "查询暂时没有完成",error.name==="AbortError" ? "可以修改需求后再次搜索。" : error.message)+
+      const draft=progress?.text;
+      $("results").innerHTML=(draft ? `<div class="library-answer">${answerIntroHTML({answer:draft})}</div>` : "")+empty(error.name==="AbortError" ? "本次查询已停止" : "查询暂时没有完成",error.name==="AbortError" ? "可以修改需求后再次搜索。" : error.message)+
         (error.partial ? `<p>以下为已完成步骤的结果，可恢复本次查询继续处理。</p>${(error.partial.facts?.data || []).map(resultRow).join("")}` : "");
       if(error.name!=="AbortError"){notice("results-notice",error.message,"error");state.diagnostic={query,filters:params,pipeline,error:error.payload || error.message};$("diagnostics-content").textContent=pretty(state.diagnostic);$("search-diagnostics").hidden=false;}
     }
@@ -390,14 +397,20 @@ function syncContinuationActions(){
   }
 }
 
+function answerIntroHTML(data) {
+  const notice=window.InterviewWorkspace.answerNotice(data);
+  return `<div class="assistant-summary"><span class="assistant-avatar">面</span><div class="answer-text markdown-body">${window.InterviewMarkdown.renderMarkdown(data.answer)}</div></div>${notice ? `<div class="answer-caption answer-basis">${escapeHTML(notice)}</div>` : ""}`;
+}
+
 function renderAssistant(reply,data,message,meta=data.facts?.meta || {}) {
-  const facts=data.facts || {},rows=facts.data || facts.groups || facts.questions || (facts.canonical_question_id ? [facts] : []);
+  const facts=data.facts || {},action=data.intent || data.planning?.spec?.action,
+    rows=action==="COUNT" ? [] : facts.data || facts.groups || facts.questions || (facts.canonical_question_id ? [facts] : []);
   const origin=window.InterviewWorkspace.feedbackOrigin(message,data);
   reply.dataset.runId=origin.context.run_id || "";reply.dataset.conversationId=origin.context.conversation_id || "";
   const scope=pickFilters(meta.applied_filters || {});
   const relevance={VERIFIED:"已筛选相关题",UNVERIFIED:"原始召回候选",UNAVAILABLE:"相关性核验未完成"}[meta.relevance_status];
   const clarification=window.InterviewWorkspace.clarificationFor(data);
-  reply.innerHTML=`<div class="assistant-summary"><span class="assistant-avatar">面</span><p>${escapeHTML(data.answer)}</p></div>${clarification ? clarificationHTML(clarification,data.answer!==clarification.question) : ""}${relevance ? `<div class="answer-caption">${escapeHTML(relevance)}${meta.returned_count!==undefined ? ` · ${meta.returned_count} 道` : ""}</div>` : ""}${(facts.components || []).map(c=>`<details><summary>${escapeHTML(c.answer)}</summary>${(c.facts.data || []).map(resultRow).join("")}</details>`).join("")}${data.warnings?.length ? `<p class="notice">${escapeHTML(data.warnings.join("；"))}</p>` : ""}<div class="answer-results">${Array.isArray(rows) ? rows.map(resultRow).join("") : ""}</div><div class="answer-actions">${meta.pagination?.next_cursor ? '<button class="text-button chat-next">下一页 →</button>' : ""}${canRequery(origin) ? '<button class="text-button chat-requery">↻ 重新检索</button>' : ""}<button class="text-button chat-report">⚑ 反馈</button></div><details class="answer-evidence"><summary>来源与执行过程</summary><pre>${escapeHTML(pretty({run_id:data.run_id,intent:data.intent,planning:data.planning,tool_trace:data.tool_trace,meta}))}</pre></details>`;
+  reply.innerHTML=`${answerIntroHTML(data)}${clarification ? clarificationHTML(clarification,data.answer!==clarification.question) : ""}${relevance ? `<div class="answer-caption">${escapeHTML(relevance)}${meta.returned_count!==undefined ? ` · ${meta.returned_count} 道` : ""}</div>` : ""}${(facts.components || []).map(c=>`<details><summary>${escapeHTML(c.answer)}</summary>${(c.facts.data || []).map(resultRow).join("")}</details>`).join("")}${data.warnings?.length ? `<p class="notice">${escapeHTML(data.warnings.join("；"))}</p>` : ""}<div class="answer-results">${Array.isArray(rows) ? rows.map(resultRow).join("") : ""}</div><div class="answer-actions">${meta.pagination?.next_cursor ? '<button class="text-button chat-next">下一页 →</button>' : ""}${canRequery(origin) ? '<button class="text-button chat-requery">↻ 重新检索</button>' : ""}<button class="text-button chat-report">⚑ 反馈</button></div><details class="answer-evidence"><summary>来源与执行过程</summary><pre>${escapeHTML(pretty({run_id:data.run_id,intent:data.intent,planning:data.planning,tool_trace:data.tool_trace,meta}))}</pre></details>`;
   reply.addEventListener("click",event=>{
     const button=event.target.closest("button");if(!button)return;event.stopPropagation();
     if(button.dataset.detail)showDetail(button.dataset.detail,scope,origin);
@@ -413,15 +426,21 @@ function renderAssistant(reply,data,message,meta=data.facts?.meta || {}) {
   });
 }
 
-function startQueryProgress(reply,{follow=true}={}) {
-  const started=performance.now(),steps=[];let finished=false;
+function startQueryProgress(reply,{follow=true,signal}={}) {
+  const started=performance.now(),steps=[];let finished=false,answerIdentity=null;
   reply.classList.add("is-running");reply.setAttribute("aria-busy","true");
-  reply.innerHTML='<div class="assistant-summary"><span class="assistant-avatar">面</span><div class="live-answer"><p class="query-status" role="status"><span class="activity-dot" aria-hidden="true"></span><span class="query-stage-label">已收到，正在开始…</span><span class="query-elapsed">0 秒</span></p><p class="streamed-question" hidden></p></div></div><details class="query-progress" open><summary>执行过程</summary><ol></ol></details><p class="query-connection" hidden></p>';
+  reply.innerHTML='<div class="assistant-summary"><span class="assistant-avatar">面</span><div class="live-answer"><p class="query-status" role="status"><span class="activity-dot" aria-hidden="true"></span><span class="query-stage-label">已收到，正在开始…</span><span class="query-elapsed">0 秒</span></p><div class="streamed-question markdown-body" hidden></div><div class="streamed-answer answer-text markdown-body" hidden></div></div></div><details class="query-progress" open><summary>执行过程</summary><ol></ol></details><p class="query-connection" hidden></p>';
   const progress=reply.querySelector(".query-progress"),list=progress.querySelector("ol");
   const followOutput=()=>{
     if(follow && document.documentElement.scrollHeight-window.innerHeight-window.scrollY<200)
       reply.scrollIntoView({block:"end",behavior:"auto"});
   };
+  const answerNode=reply.querySelector(".streamed-answer");
+  const answerStream=window.InterviewAnswerStream.createAnswerStream({render(text){
+    answerNode.hidden=!text;answerNode.innerHTML=window.InterviewMarkdown.renderMarkdown(text);followOutput();
+  }});
+  const abort=()=>answerStream.stop();
+  signal?.addEventListener("abort",abort,{once:true});
   const elapsed=()=>reply.querySelector(".query-elapsed").textContent=`${Math.floor((performance.now()-started)/1000)} 秒`;
   const timer=setInterval(elapsed,1000);
   function update(event){
@@ -431,8 +450,17 @@ function startQueryProgress(reply,{follow=true}={}) {
       connection.textContent="连接中断，正在恢复本次问答的进度…";return;
     }
     reply.querySelector(".query-connection").hidden=true;
+    if(event.type==="answer_delta"){
+      reply.querySelector(".streamed-question").hidden=true;
+      const identity=`${event.model_call ?? 0}:${event.call_index ?? 0}`;
+      if(answerIdentity!==null && identity!==answerIdentity)answerStream.reset();
+      answerIdentity=identity;
+      if(typeof event.text==="string")answerStream.setText(event.text);
+      else answerStream.append(event.delta);
+      reply.querySelector(".query-stage-label").textContent="正在生成回答";return;
+    }
     if(event.type==="clarification_delta"){
-      const draft=reply.querySelector(".streamed-question");draft.hidden=false;draft.textContent=event.text;
+      const draft=reply.querySelector(".streamed-question");draft.hidden=false;draft.innerHTML=window.InterviewMarkdown.renderMarkdown(event.text);
       reply.querySelector(".query-stage-label").textContent="正在生成澄清问题";followOutput();return;
     }
     const step=window.InterviewWorkspace.queryStage(event);if(!step)return;
@@ -445,8 +473,15 @@ function startQueryProgress(reply,{follow=true}={}) {
     }
     followOutput();
   }
-  return {update,finish(status){
+  return {update,get text(){return answerStream.text;},async complete(answer){
+    if(typeof answer==="string" && !finished){
+      reply.querySelector(".streamed-question").hidden=true;
+      await answerStream.finish(answer);
+    }
+    if(signal?.aborted)throw new DOMException("查询已取消","AbortError");
+  },finish(status){
     if(finished)return;finished=true;
+    answerStream.stop();signal?.removeEventListener("abort",abort);
     clearInterval(timer);reply.classList.remove("is-running");reply.removeAttribute("aria-busy");
     const duration=Math.round((performance.now()-started)/1000);
     if(status==="completed" && steps.length){
@@ -493,12 +528,13 @@ async function sendChat(event,retryBody=null) {
   chatController=new AbortController();$("chat-cancel").hidden=false;$("chat-button").hidden=true;
   const user=document.createElement("div"); user.className="chat-message user"; user.textContent=message; $("chat-messages").append(user);
   const reply=document.createElement("div"); reply.className="chat-message assistant";$("chat-messages").append(reply);
-  const progress=startQueryProgress(reply);let outcome="failed";
+  const progress=startQueryProgress(reply,{signal:chatController.signal});let outcome="failed";
   $("page-chat").querySelector(".chat-intro").hidden=true;reply.scrollIntoView({block:"end"});
   try {
     const body=retryBody || {message,request_id:crypto.randomUUID(),conversation_id:state.chatConversation?.id || null,expected_version:state.chatConversation?.version ?? null};
     const response=healthSnapshot?.query_router_enabled ? await agentQuery(body,chatController.signal,"chat",progress.update) :
       await api("api/agent/chat",{method:"POST",body,signal:chatController.signal}), data=response.data;
+    await progress.complete(data.answer);
     if(data.conversation_id) state.chatConversation={id:data.conversation_id,version:data.conversation_version};
     state.chatContinuation=window.InterviewWorkspace.answerContinuation(data);
     const followAnswer=document.documentElement.scrollHeight-window.innerHeight-window.scrollY<200;
@@ -513,7 +549,7 @@ async function sendChat(event,retryBody=null) {
     const cancelled=error.name==="AbortError";
     const reason={QUERY_DEADLINE_EXCEEDED:"本次处理超时，可以稍后重试。",QUERY_CANCELLED:"本次问答已停止。",
       MODEL_PROVIDER_UNAVAILABLE:"模型暂时不可用，可以稍后重试。",STREAM_INCOMPLETE:"响应中断，请恢复本次问答。"}[error.message] || error.message;
-    reply.innerHTML=empty(cancelled ? "本次问答已停止" : "本次问答未完成",cancelled ? "可以修改问题后再次发送。" : reason)+(error.partial ? `<p>以下为已完成步骤的结果，可恢复本次问答继续处理。</p>${(error.partial.facts?.data || []).map(resultRow).join("")}` : "");
+    reply.innerHTML=(progress.text ? answerIntroHTML({answer:progress.text}) : "")+empty(cancelled ? "本次问答已停止" : "本次问答未完成",cancelled ? "可以修改问题后再次发送。" : reason)+(error.partial ? `<p>以下为已完成步骤的结果，可恢复本次问答继续处理。</p>${(error.partial.facts?.data || []).map(resultRow).join("")}` : "");
   }
   finally { progress.finish(outcome);state.chatBusy=false;syncContinuationActions(); $("chat-button").disabled=false;$("chat-button").hidden=false;$("chat-cancel").hidden=true; }
 }

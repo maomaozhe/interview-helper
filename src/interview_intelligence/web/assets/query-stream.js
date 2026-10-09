@@ -13,7 +13,7 @@
       const consume=(type,data,sequence)=>{
         if(ended || (Number.isInteger(sequence) && sequence<=cursor))return;
         if(Number.isInteger(sequence))cursor=sequence;
-        if(["accepted","stage","clarification_delta","tool_result"].includes(type))onEvent({type,...data});
+        if(["accepted","stage","clarification_delta","answer_delta","tool_result"].includes(type))onEvent({type,...data});
         if(type==="completed"){cleanup();resolve(data.result);}
         if(["failed","interrupted"].includes(type))return false;
       };
@@ -47,7 +47,7 @@
         if(!EventSourceClass){recover();return;}
         const address=new URL(url);address.searchParams.set("after",cursor);
         source=new EventSourceClass(address);
-        for(const type of ["accepted","stage","clarification_delta","tool_result","completed","failed","interrupted",
+        for(const type of ["accepted","stage","clarification_delta","answer_delta","tool_result","completed","failed","interrupted",
           "model_request","model_result","text_delta","pi_event"]){
           source.addEventListener(type,event=>{
             if(ended)return;

@@ -64,7 +64,8 @@ def test_versioned_assets_revalidate_and_match_the_proxy_shell(workspace):
     response=client.get("/api/workspace/version")
     assert response.json() == {"version":version}
     assert response.headers["cache-control"] == "no-store"
-    for name in ("app.js","core.js","query-stream.js","workspace.css"):
+    for name in ("app.js","core.js","query-stream.js","workspace.css","sidebar.js",
+                 "markdown.js","markdown.css","answer-stream.js","vendor/markdown-it.umd.min.js"):
         asset=re.search(r'assets/'+re.escape(name)+r'\?v=([0-9a-f]+)',shell.text).group(1)
         body=client.get(f"/assets/{name}?v={asset}")
         assert hashlib.sha256(body.content).hexdigest().startswith(asset)

@@ -1,0 +1,1808 @@
+{
+  "schema_version": 1,
+  "recorded_date": "2026-10-08",
+  "created_at_utc": "2026-10-08T12:22:05.977549+00:00",
+  "record_kind": "sanitized_completed_verification_index",
+  "report": "docs/verification/2026-10-08-conversation-focus.md",
+  "raw_evidence_git_ignored": true,
+  "privacy": {
+    "credentials_included": false,
+    "raw_contexts_included": false,
+    "corpus_rows_or_quotes_included": false,
+    "signed_cursors_included": false,
+    "generated_answer_bodies_included": false
+  },
+  "scope": {
+    "validated": "Conversation focus, intent-preserving corrections, scoped counts, topic switching, pagination, and explanatory answer followups on the formal v12 r2 deployment.",
+    "full_v1_or_h01_quality_gate_closed": false,
+    "complete_v1_or_h01_replay_run": false,
+    "claim_limit": "Selected regression cases and engineering checks do not establish complete V1/H01 quality."
+  },
+  "public_before": {
+    "artifact": "data/reports/intent-retest-20261008/public-before-v11-20261008-195218-8e98281d.json",
+    "environment": "formal_before_v11",
+    "entrypoint": "public_conversation_messages_and_sse",
+    "conversation_id": "27c55050-0e03-4476-a8b3-e81b4673acce",
+    "case_count": 3,
+    "passed_case_count": 0,
+    "suite_passed": false,
+    "failures": [
+      {
+        "case": 1,
+        "checks": [
+          "no_implicit_top_n",
+          "can_continue"
+        ]
+      },
+      {
+        "case": 2,
+        "checks": [
+          "count",
+          "topic"
+        ]
+      },
+      {
+        "case": 3,
+        "checks": [
+          "intent",
+          "count"
+        ]
+      }
+    ],
+    "cases": [
+      {
+        "case": 1,
+        "message": "Redis 高频问题有哪些？",
+        "expected_intent": "LIST",
+        "intent": "LIST",
+        "provider": "pi",
+        "prompt_version": "query_agent_v11",
+        "run_id": "e8dd98b2-948b-4542-ba4b-33d5d068d6ac",
+        "status": "SUCCEEDED",
+        "checks": {
+          "succeeded": true,
+          "intent": true,
+          "provider_pi": true,
+          "sse": true,
+          "topic": true,
+          "no_implicit_top_n": false,
+          "can_continue": false
+        },
+        "all_recorded_checks_passed": false,
+        "topic_l1": "Redis",
+        "company": null,
+        "top_n": 20,
+        "returned_rows": 20,
+        "counts": null,
+        "answer_kind": null,
+        "answer_basis": null,
+        "answer_characters": 19,
+        "pagination": {
+          "offset": 0,
+          "returned": 20,
+          "page_size": 20,
+          "total": 152,
+          "result_total": 20,
+          "top_n": 20,
+          "has_next_page": false
+        },
+        "elapsed_seconds": 37.94,
+        "sse_content_type": "text/event-stream; charset=utf-8"
+      },
+      {
+        "case": 2,
+        "message": "一共有多少道题",
+        "expected_intent": "COUNT",
+        "intent": "COUNT",
+        "provider": "pi",
+        "prompt_version": "query_agent_v11",
+        "run_id": "a14a5c4f-aed1-4960-bd2e-8994986c547c",
+        "status": "SUCCEEDED",
+        "checks": {
+          "succeeded": true,
+          "intent": true,
+          "provider_pi": true,
+          "sse": true,
+          "count": false,
+          "topic": false
+        },
+        "all_recorded_checks_passed": false,
+        "topic_l1": null,
+        "company": null,
+        "top_n": null,
+        "returned_rows": 0,
+        "counts": {
+          "canonical_questions": 2452,
+          "occurrences": 2771,
+          "interviews": 185,
+          "source_documents": 172,
+          "known_companies": 58
+        },
+        "answer_kind": null,
+        "answer_basis": null,
+        "answer_characters": 50,
+        "elapsed_seconds": 27.64,
+        "sse_content_type": "text/event-stream; charset=utf-8"
+      },
+      {
+        "case": 3,
+        "message": "我说的是redis的高频率问题啊，这个会话不是才说过",
+        "expected_intent": "COUNT",
+        "intent": "LIST",
+        "provider": "pi",
+        "prompt_version": "query_agent_v11",
+        "run_id": "a3dc8f17-d8fb-4af7-b76d-68ca70a9b5e7",
+        "status": "SUCCEEDED",
+        "checks": {
+          "succeeded": true,
+          "intent": false,
+          "provider_pi": true,
+          "sse": true,
+          "count": false,
+          "topic": true
+        },
+        "all_recorded_checks_passed": false,
+        "topic_l1": "Redis",
+        "company": null,
+        "top_n": 20,
+        "returned_rows": 20,
+        "counts": null,
+        "answer_kind": null,
+        "answer_basis": null,
+        "answer_characters": 19,
+        "pagination": {
+          "offset": 0,
+          "returned": 20,
+          "page_size": 20,
+          "total": 152,
+          "result_total": 20,
+          "top_n": 20,
+          "has_next_page": false
+        },
+        "elapsed_seconds": 21.69,
+        "sse_content_type": "text/event-stream; charset=utf-8"
+      }
+    ]
+  },
+  "first_stage_candidate": {
+    "artifact": "data/reports/intent-retest-20261008/server-evidence-complete/public-stage-v12-20261008-195823-ca7111bf.json",
+    "environment": "isolated_stage_first_candidate",
+    "entrypoint": "isolated_staging_conversation_messages_and_sse",
+    "conversation_id": "9d15c0c4-3195-45cb-864d-d7b60c083088",
+    "case_count": 3,
+    "passed_case_count": 2,
+    "suite_passed": false,
+    "failures": [
+      {
+        "case": 3,
+        "checks": [
+          "intent",
+          "count"
+        ]
+      }
+    ],
+    "cases": [
+      {
+        "case": 1,
+        "message": "Redis 高频问题有哪些？",
+        "expected_intent": "LIST",
+        "intent": "LIST",
+        "provider": "pi",
+        "prompt_version": "query_agent_v12",
+        "run_id": "953e185e-f467-46eb-baad-e9d38ec6f494",
+        "status": "SUCCEEDED",
+        "checks": {
+          "succeeded": true,
+          "intent": true,
+          "provider_pi": true,
+          "sse": true,
+          "topic": true,
+          "no_implicit_top_n": true,
+          "can_continue": true
+        },
+        "all_recorded_checks_passed": true,
+        "topic_l1": "Redis",
+        "company": null,
+        "top_n": null,
+        "returned_rows": 20,
+        "counts": null,
+        "answer_kind": null,
+        "answer_basis": null,
+        "answer_characters": 19,
+        "pagination": {
+          "offset": 0,
+          "returned": 20,
+          "page_size": 20,
+          "total": 152,
+          "result_total": 152,
+          "top_n": null,
+          "has_next_page": true
+        },
+        "elapsed_seconds": 6.4,
+        "sse_content_type": "text/event-stream; charset=utf-8"
+      },
+      {
+        "case": 2,
+        "message": "一共有多少道题",
+        "expected_intent": "COUNT",
+        "intent": "COUNT",
+        "provider": "pi",
+        "prompt_version": "query_agent_v12",
+        "run_id": "6d5ff29b-20d2-4748-acd5-efab22b8d435",
+        "status": "SUCCEEDED",
+        "checks": {
+          "succeeded": true,
+          "intent": true,
+          "provider_pi": true,
+          "sse": true,
+          "count": true,
+          "topic": true
+        },
+        "all_recorded_checks_passed": true,
+        "topic_l1": "Redis",
+        "company": null,
+        "top_n": null,
+        "returned_rows": 0,
+        "counts": {
+          "canonical_questions": 152,
+          "occurrences": 179,
+          "interviews": 63,
+          "source_documents": 61,
+          "known_companies": 25
+        },
+        "answer_kind": null,
+        "answer_basis": null,
+        "answer_characters": 53,
+        "elapsed_seconds": 8.71,
+        "sse_content_type": "text/event-stream; charset=utf-8"
+      },
+      {
+        "case": 3,
+        "message": "我说的是redis的高频率问题啊，这个会话不是才说过",
+        "expected_intent": "COUNT",
+        "intent": "LIST",
+        "provider": "pi",
+        "prompt_version": "query_agent_v12",
+        "run_id": "d394c924-5bce-473e-8a34-1868e4171410",
+        "status": "SUCCEEDED",
+        "checks": {
+          "succeeded": true,
+          "intent": false,
+          "provider_pi": true,
+          "sse": true,
+          "count": false,
+          "topic": true
+        },
+        "all_recorded_checks_passed": false,
+        "topic_l1": "Redis",
+        "company": null,
+        "top_n": null,
+        "returned_rows": 20,
+        "counts": null,
+        "answer_kind": null,
+        "answer_basis": null,
+        "answer_characters": 19,
+        "pagination": {
+          "offset": 0,
+          "returned": 20,
+          "page_size": 20,
+          "total": 152,
+          "result_total": 152,
+          "top_n": null,
+          "has_next_page": true
+        },
+        "elapsed_seconds": 8.19,
+        "sse_content_type": "text/event-stream; charset=utf-8"
+      }
+    ]
+  },
+  "r2_stage": {
+    "artifact": "data/reports/intent-retest-20261008/server-evidence-complete/public-stage-v12-r2-20261008-200515-89d9f0ca.json",
+    "environment": "isolated_stage_r2",
+    "entrypoint": "isolated_staging_conversation_messages_and_sse",
+    "conversation_id": "26cb38cd-7788-4cef-94ab-1c69124391cc",
+    "case_count": 3,
+    "passed_case_count": 3,
+    "suite_passed": true,
+    "failures": [],
+    "cases": [
+      {
+        "case": 1,
+        "message": "Redis 高频问题有哪些？",
+        "expected_intent": "LIST",
+        "intent": "LIST",
+        "provider": "pi",
+        "prompt_version": "query_agent_v12",
+        "run_id": "ac777043-c1e1-47aa-8f01-1f45f625c1fc",
+        "status": "SUCCEEDED",
+        "checks": {
+          "succeeded": true,
+          "intent": true,
+          "provider_pi": true,
+          "sse": true,
+          "topic": true,
+          "no_implicit_top_n": true,
+          "can_continue": true
+        },
+        "all_recorded_checks_passed": true,
+        "topic_l1": "Redis",
+        "company": null,
+        "top_n": null,
+        "returned_rows": 20,
+        "counts": null,
+        "answer_kind": null,
+        "answer_basis": null,
+        "answer_characters": 19,
+        "pagination": {
+          "offset": 0,
+          "returned": 20,
+          "page_size": 20,
+          "total": 152,
+          "result_total": 152,
+          "top_n": null,
+          "has_next_page": true
+        },
+        "elapsed_seconds": 10.46,
+        "sse_content_type": "text/event-stream; charset=utf-8"
+      },
+      {
+        "case": 2,
+        "message": "一共有多少道题",
+        "expected_intent": "COUNT",
+        "intent": "COUNT",
+        "provider": "pi",
+        "prompt_version": "query_agent_v12",
+        "run_id": "2994d9eb-4701-46b1-9268-27d93e38f7cf",
+        "status": "SUCCEEDED",
+        "checks": {
+          "succeeded": true,
+          "intent": true,
+          "provider_pi": true,
+          "sse": true,
+          "count": true,
+          "topic": true
+        },
+        "all_recorded_checks_passed": true,
+        "topic_l1": "Redis",
+        "company": null,
+        "top_n": null,
+        "returned_rows": 0,
+        "counts": {
+          "canonical_questions": 152,
+          "occurrences": 179,
+          "interviews": 63,
+          "source_documents": 61,
+          "known_companies": 25
+        },
+        "answer_kind": null,
+        "answer_basis": null,
+        "answer_characters": 53,
+        "elapsed_seconds": 9.2,
+        "sse_content_type": "text/event-stream; charset=utf-8"
+      },
+      {
+        "case": 3,
+        "message": "我说的是redis的高频率问题啊，这个会话不是才说过",
+        "expected_intent": "COUNT",
+        "intent": "COUNT",
+        "provider": "pi",
+        "prompt_version": "query_agent_v12",
+        "run_id": "667460d2-0941-41f6-a5fc-4502244bc9d2",
+        "status": "SUCCEEDED",
+        "checks": {
+          "succeeded": true,
+          "intent": true,
+          "provider_pi": true,
+          "sse": true,
+          "count": true,
+          "topic": true
+        },
+        "all_recorded_checks_passed": true,
+        "topic_l1": "Redis",
+        "company": null,
+        "top_n": null,
+        "returned_rows": 0,
+        "counts": {
+          "canonical_questions": 152,
+          "occurrences": 179,
+          "interviews": 63,
+          "source_documents": 61,
+          "known_companies": 25
+        },
+        "answer_kind": null,
+        "answer_basis": null,
+        "answer_characters": 53,
+        "elapsed_seconds": 8.44,
+        "sse_content_type": "text/event-stream; charset=utf-8"
+      }
+    ]
+  },
+  "incomplete_first_formal_collection": {
+    "artifacts": [
+      "data/reports/intent-retest-20261008/public-after-v12-r2-20261008-201014-df8122e8.json",
+      "data/reports/intent-retest-20261008/public-after-v12-r2-20261008-201014-df8122e8.tmp"
+    ],
+    "status": "INCOMPLETE_COLLECTION",
+    "conversation_id": "644d9ad2-ffde-4fea-b24a-afc513c58d5b",
+    "completed_cases_recorded": 4,
+    "tmp_cases_recorded": 5,
+    "last_tmp_case": {
+      "message": "我刚才是问 Redis 的数量，不是整个题库",
+      "expected_intent": "COUNT",
+      "run_id": "95df6733-452c-4cc7-bab0-51f11d369447",
+      "accepted_status": "RUNNING",
+      "completion_recorded": false
+    },
+    "collector_error": {
+      "name": "PermissionError",
+      "platform": "Windows",
+      "source": "completed task tool output; exception is not embedded in the partial JSON"
+    },
+    "scope": "Four cases completed and the fifth was accepted. This is not evidence of a complete twelve-case success. A fresh conversation was used for the successful retry."
+  },
+  "formal_public_retry": {
+    "artifact": "data/reports/intent-retest-20261008/public-after-v12-r2-retry-20261008-201152-8d4bf6f2.json",
+    "environment": "formal_after_v12_r2_retry",
+    "entrypoint": "public_conversation_messages_and_sse",
+    "conversation_id": "916da162-c5f2-4a7c-8b8f-742bfa3c5bbd",
+    "case_count": 12,
+    "passed_case_count": 12,
+    "suite_passed": true,
+    "failures": [],
+    "cases": [
+      {
+        "case": 1,
+        "message": "Redis 高频问题有哪些？",
+        "expected_intent": "LIST",
+        "intent": "LIST",
+        "provider": "pi",
+        "prompt_version": "query_agent_v12",
+        "run_id": "feb985c6-554c-419f-a56a-764f7d8883bc",
+        "status": "SUCCEEDED",
+        "checks": {
+          "succeeded": true,
+          "intent": true,
+          "provider_pi": true,
+          "sse": true,
+          "topic": true,
+          "no_implicit_top_n": true,
+          "can_continue": true
+        },
+        "all_recorded_checks_passed": true,
+        "topic_l1": "Redis",
+        "company": null,
+        "top_n": null,
+        "returned_rows": 20,
+        "counts": null,
+        "answer_kind": null,
+        "answer_basis": null,
+        "answer_characters": 19,
+        "pagination": {
+          "offset": 0,
+          "returned": 20,
+          "page_size": 20,
+          "total": 152,
+          "result_total": 152,
+          "top_n": null,
+          "has_next_page": true
+        },
+        "elapsed_seconds": 22.69,
+        "sse_content_type": "text/event-stream; charset=utf-8"
+      },
+      {
+        "case": 2,
+        "message": "一共有多少道题",
+        "expected_intent": "COUNT",
+        "intent": "COUNT",
+        "provider": "pi",
+        "prompt_version": "query_agent_v12",
+        "run_id": "bd97cb7b-a858-453d-bd04-111f6fa2eec9",
+        "status": "SUCCEEDED",
+        "checks": {
+          "succeeded": true,
+          "intent": true,
+          "provider_pi": true,
+          "sse": true,
+          "count": true,
+          "topic": true
+        },
+        "all_recorded_checks_passed": true,
+        "topic_l1": "Redis",
+        "company": null,
+        "top_n": null,
+        "returned_rows": 0,
+        "counts": {
+          "canonical_questions": 152,
+          "occurrences": 179,
+          "interviews": 63,
+          "source_documents": 61,
+          "known_companies": 25
+        },
+        "answer_kind": null,
+        "answer_basis": null,
+        "answer_characters": 53,
+        "elapsed_seconds": 24.62,
+        "sse_content_type": "text/event-stream; charset=utf-8"
+      },
+      {
+        "case": 3,
+        "message": "我说的是redis的高频率问题啊，这个会话不是才说过",
+        "expected_intent": "COUNT",
+        "intent": "COUNT",
+        "provider": "pi",
+        "prompt_version": "query_agent_v12",
+        "run_id": "d6bd99b9-00cb-4efe-9e03-5381a9e50ad1",
+        "status": "SUCCEEDED",
+        "checks": {
+          "succeeded": true,
+          "intent": true,
+          "provider_pi": true,
+          "sse": true,
+          "count": true,
+          "topic": true
+        },
+        "all_recorded_checks_passed": true,
+        "topic_l1": "Redis",
+        "company": null,
+        "top_n": null,
+        "returned_rows": 0,
+        "counts": {
+          "canonical_questions": 152,
+          "occurrences": 179,
+          "interviews": 63,
+          "source_documents": 61,
+          "known_companies": 25
+        },
+        "answer_kind": null,
+        "answer_basis": null,
+        "answer_characters": 53,
+        "elapsed_seconds": 15.53,
+        "sse_content_type": "text/event-stream; charset=utf-8"
+      },
+      {
+        "case": 4,
+        "message": "那整个题库一共有多少道题？",
+        "expected_intent": "COUNT",
+        "intent": "COUNT",
+        "provider": "pi",
+        "prompt_version": "query_agent_v12",
+        "run_id": "1622b40e-3cfd-460c-8482-a38f212d5dc4",
+        "status": "SUCCEEDED",
+        "checks": {
+          "succeeded": true,
+          "intent": true,
+          "provider_pi": true,
+          "sse": true,
+          "count": true
+        },
+        "all_recorded_checks_passed": true,
+        "topic_l1": null,
+        "company": null,
+        "top_n": null,
+        "returned_rows": 0,
+        "counts": {
+          "canonical_questions": 2452,
+          "occurrences": 2771,
+          "interviews": 185,
+          "source_documents": 172,
+          "known_companies": 58
+        },
+        "answer_kind": null,
+        "answer_basis": null,
+        "answer_characters": 50,
+        "elapsed_seconds": 12.12,
+        "sse_content_type": "text/event-stream; charset=utf-8"
+      },
+      {
+        "case": 5,
+        "message": "我刚才是问 Redis 的数量，不是整个题库",
+        "expected_intent": "COUNT",
+        "intent": "COUNT",
+        "provider": "pi",
+        "prompt_version": "query_agent_v12",
+        "run_id": "482c05fe-0c08-445a-9764-d9a044bcd77b",
+        "status": "SUCCEEDED",
+        "checks": {
+          "succeeded": true,
+          "intent": true,
+          "provider_pi": true,
+          "sse": true,
+          "count": true,
+          "topic": true
+        },
+        "all_recorded_checks_passed": true,
+        "topic_l1": "Redis",
+        "company": null,
+        "top_n": null,
+        "returned_rows": 0,
+        "counts": {
+          "canonical_questions": 152,
+          "occurrences": 179,
+          "interviews": 63,
+          "source_documents": 61,
+          "known_companies": 25
+        },
+        "answer_kind": null,
+        "answer_basis": null,
+        "answer_characters": 53,
+        "elapsed_seconds": 12.95,
+        "sse_content_type": "text/event-stream; charset=utf-8"
+      },
+      {
+        "case": 6,
+        "message": "其中腾讯呢？",
+        "expected_intent": "COUNT",
+        "intent": "COUNT",
+        "provider": "pi",
+        "prompt_version": "query_agent_v12",
+        "run_id": "dd1f09ec-4f53-4d2f-8d2d-22daa34f4cea",
+        "status": "SUCCEEDED",
+        "checks": {
+          "succeeded": true,
+          "intent": true,
+          "provider_pi": true,
+          "sse": true,
+          "count": true,
+          "topic": true,
+          "company": true
+        },
+        "all_recorded_checks_passed": true,
+        "topic_l1": "Redis",
+        "company": "腾讯",
+        "top_n": null,
+        "returned_rows": 0,
+        "counts": {
+          "canonical_questions": 16,
+          "occurrences": 17,
+          "interviews": 7,
+          "source_documents": 7,
+          "known_companies": 1
+        },
+        "answer_kind": null,
+        "answer_basis": null,
+        "answer_characters": 54,
+        "elapsed_seconds": 31.06,
+        "sse_content_type": "text/event-stream; charset=utf-8"
+      },
+      {
+        "case": 7,
+        "message": "现在换个话题，列出 Java 高频问题",
+        "expected_intent": "LIST",
+        "intent": "LIST",
+        "provider": "pi",
+        "prompt_version": "query_agent_v12",
+        "run_id": "b80bf7df-51cd-4375-bc68-61565b466694",
+        "status": "SUCCEEDED",
+        "checks": {
+          "succeeded": true,
+          "intent": true,
+          "provider_pi": true,
+          "sse": true,
+          "topic": true,
+          "no_implicit_top_n": true,
+          "can_continue": true
+        },
+        "all_recorded_checks_passed": true,
+        "topic_l1": "Java",
+        "company": null,
+        "top_n": null,
+        "returned_rows": 20,
+        "counts": null,
+        "answer_kind": null,
+        "answer_basis": null,
+        "answer_characters": 19,
+        "pagination": {
+          "offset": 0,
+          "returned": 20,
+          "page_size": 20,
+          "total": 232,
+          "result_total": 232,
+          "top_n": null,
+          "has_next_page": true
+        },
+        "elapsed_seconds": 39.0,
+        "sse_content_type": "text/event-stream; charset=utf-8"
+      },
+      {
+        "case": 8,
+        "message": "这些一共有多少题？",
+        "expected_intent": "COUNT",
+        "intent": "COUNT",
+        "provider": "pi",
+        "prompt_version": "query_agent_v12",
+        "run_id": "f8e11190-41cd-4668-8a7d-b5685ee352ec",
+        "status": "SUCCEEDED",
+        "checks": {
+          "succeeded": true,
+          "intent": true,
+          "provider_pi": true,
+          "sse": true,
+          "topic": true
+        },
+        "all_recorded_checks_passed": true,
+        "topic_l1": "Java",
+        "company": null,
+        "top_n": null,
+        "returned_rows": 0,
+        "counts": {
+          "canonical_questions": 232,
+          "occurrences": 285,
+          "interviews": 68,
+          "source_documents": 66,
+          "known_companies": 32
+        },
+        "answer_kind": null,
+        "answer_basis": null,
+        "answer_characters": 52,
+        "elapsed_seconds": 25.48,
+        "sse_content_type": "text/event-stream; charset=utf-8"
+      },
+      {
+        "case": 9,
+        "message": "下一页",
+        "expected_intent": "NEXT",
+        "intent": "NEXT",
+        "provider": "pi",
+        "prompt_version": "query_agent_v12",
+        "run_id": "97e98a2d-bf73-49cd-b7ee-393f28209124",
+        "status": "SUCCEEDED",
+        "checks": {
+          "succeeded": true,
+          "intent": true,
+          "provider_pi": true,
+          "sse": true,
+          "topic": true
+        },
+        "all_recorded_checks_passed": true,
+        "topic_l1": "Java",
+        "company": null,
+        "top_n": null,
+        "returned_rows": 20,
+        "counts": null,
+        "answer_kind": null,
+        "answer_basis": null,
+        "answer_characters": 19,
+        "pagination": {
+          "offset": 20,
+          "returned": 20,
+          "page_size": 20,
+          "total": 232,
+          "result_total": 232,
+          "top_n": null,
+          "has_next_page": true
+        },
+        "elapsed_seconds": 38.59,
+        "sse_content_type": "text/event-stream; charset=utf-8"
+      },
+      {
+        "case": 10,
+        "message": "解释一下 Redis 为什么快，三个主要原因，200字以内",
+        "expected_intent": "ANSWER",
+        "intent": "ANSWER",
+        "provider": "pi",
+        "prompt_version": "query_agent_v12",
+        "run_id": "c1dc3e48-fcb6-40b5-9795-461ccdd68454",
+        "status": "SUCCEEDED",
+        "checks": {
+          "succeeded": true,
+          "intent": true,
+          "provider_pi": true,
+          "sse": true,
+          "answer_kind": true
+        },
+        "all_recorded_checks_passed": true,
+        "topic_l1": "Redis",
+        "company": null,
+        "top_n": null,
+        "returned_rows": 0,
+        "counts": null,
+        "answer_kind": "EXPLAIN",
+        "answer_basis": "GENERAL_KNOWLEDGE",
+        "answer_characters": 141,
+        "elapsed_seconds": 22.41,
+        "sse_content_type": "text/event-stream; charset=utf-8"
+      },
+      {
+        "case": 11,
+        "message": "RDB 和 AOF 有什么区别，怎么选？300字以内",
+        "expected_intent": "ANSWER",
+        "intent": "ANSWER",
+        "provider": "pi",
+        "prompt_version": "query_agent_v12",
+        "run_id": "47fd4a61-737e-44dc-8959-ae14adb5a6cd",
+        "status": "SUCCEEDED",
+        "checks": {
+          "succeeded": true,
+          "intent": true,
+          "provider_pi": true,
+          "sse": true,
+          "answer_kind": true
+        },
+        "all_recorded_checks_passed": true,
+        "topic_l1": "Redis",
+        "company": null,
+        "top_n": null,
+        "returned_rows": 0,
+        "counts": null,
+        "answer_kind": "COMPARE",
+        "answer_basis": "GENERAL_KNOWLEDGE",
+        "answer_characters": 178,
+        "elapsed_seconds": 15.12,
+        "sse_content_type": "text/event-stream; charset=utf-8"
+      },
+      {
+        "case": 12,
+        "message": "刚才的 AOF 重写为什么能缩小文件？200字以内",
+        "expected_intent": "ANSWER",
+        "intent": "ANSWER",
+        "provider": "pi",
+        "prompt_version": "query_agent_v12",
+        "run_id": "2b125ba2-31eb-4ada-80c4-727f6871c9dc",
+        "status": "SUCCEEDED",
+        "checks": {
+          "succeeded": true,
+          "intent": true,
+          "provider_pi": true,
+          "sse": true,
+          "answer_kind": true
+        },
+        "all_recorded_checks_passed": true,
+        "topic_l1": "Redis",
+        "company": null,
+        "top_n": null,
+        "returned_rows": 0,
+        "counts": null,
+        "answer_kind": "EXPLAIN",
+        "answer_basis": "GENERAL_KNOWLEDGE",
+        "answer_characters": 149,
+        "elapsed_seconds": 19.89,
+        "sse_content_type": "text/event-stream; charset=utf-8"
+      }
+    ]
+  },
+  "derived_formal_invariants": {
+    "artifact": "data/reports/intent-retest-20261008/public-after-v12-r2-retry-20261008-201152-8d4bf6f2.json",
+    "java_pages": {
+      "first_case": 7,
+      "next_case": 9,
+      "first_run_id": "b80bf7df-51cd-4375-bc68-61565b466694",
+      "next_run_id": "97e98a2d-bf73-49cd-b7ee-393f28209124",
+      "offsets": [
+        0,
+        20
+      ],
+      "returned_rows": [
+        20,
+        20
+      ],
+      "intersection_count": 0,
+      "unique_combined_count": 40,
+      "no_overlap": true,
+      "company_cleared_on_topic_switch": true,
+      "company_stays_cleared_on_next": true,
+      "prior_company_case6": "腾讯",
+      "next_focus_intent": "LIST",
+      "next_focus_source_action": "NEXT",
+      "next_focus_message": "现在换个话题，列出 Java 高频问题",
+      "original_java_list_message": "现在换个话题，列出 Java 高频问题",
+      "next_focus_message_matches_original_java_list": true,
+      "focus_run_id": "97e98a2d-bf73-49cd-b7ee-393f28209124",
+      "focus_provenance": "completed_host_tool"
+    },
+    "scope_correction_counts": {
+      "redis_after_list": 152,
+      "redis_after_correction": 152,
+      "explicit_whole_corpus": 2452,
+      "corrected_back_to_redis": 152,
+      "tencent_redis": 16,
+      "java_after_topic_switch": 232
+    }
+  },
+  "legacy_source_state_replays": [
+    {
+      "manifest": "data/reports/intent-retest-20261008/server-evidence-complete/legacy-focus-replay-20261008T120016Z-90a6df9fa666/manifest.json",
+      "invocation_id": "20261008T120016Z-90a6df9fa666",
+      "started_at_utc": "2026-10-08T12:00:16.515438+00:00",
+      "finished_at_utc": "2026-10-08T12:00:43.772249+00:00",
+      "environment": "isolated_stage",
+      "transport": "UI POST messages followed by GET run polling",
+      "passed_case_count": 3,
+      "case_count": 3,
+      "source_conversation_id": "5cbdbc88-c2ad-4b33-b8a7-3ebab463612b",
+      "cases": [
+        {
+          "case": "legacy-stats-count",
+          "message": "一共有多少道题",
+          "expected_intent": "COUNT",
+          "intent": "COUNT",
+          "provider": "pi",
+          "prompt_version": "query_agent_v12",
+          "run_id": "27ec0772-78c2-4118-8773-a93079513fe2",
+          "status": "SUCCEEDED",
+          "checks": {
+            "succeeded": true,
+            "isolated_conversation": true,
+            "count_intent": true,
+            "pi_provider": true,
+            "v12_prompt": true,
+            "redis_scope": true,
+            "redis_152": true,
+            "no_next_tool": true
+          },
+          "all_recorded_checks_passed": true,
+          "topic_l1": "Redis",
+          "company": null,
+          "top_n": null,
+          "returned_rows": 0,
+          "counts": {
+            "canonical_questions": 152,
+            "occurrences": 179,
+            "interviews": 63,
+            "source_documents": 61,
+            "known_companies": 25
+          },
+          "answer_kind": null,
+          "answer_basis": null,
+          "answer_characters": 53,
+          "elapsed_seconds": 7.657,
+          "artifact": "data/reports/intent-retest-20261008/server-evidence-complete/legacy-focus-replay-20261008T120016Z-90a6df9fa666/legacy-stats-count.result.json",
+          "fork_conversation_id": "50cd8276-5be1-402f-84e8-3513363be33e",
+          "source_run_id": "025fc12b-d15a-4603-b53d-6bfc8f3ad344",
+          "source_state_slot": "state_before",
+          "source_state_before_sha256": "aee903b8c4c2bfd4b2f09ff7fb3584982ff1268142c3314904ddf8816954a7ff",
+          "source_state_after_sha256": "aee903b8c4c2bfd4b2f09ff7fb3584982ff1268142c3314904ddf8816954a7ff",
+          "source_state_matches_recorded_sha256": true,
+          "source_state_unchanged": true,
+          "observed_tool_actions": null,
+          "transport": "POST conversation messages + GET run polling; SSE frames not consumed"
+        },
+        {
+          "case": "correct-global-count",
+          "message": "我说的是redis的高频率问题啊，这个会话不是才说过",
+          "expected_intent": "COUNT",
+          "intent": "COUNT",
+          "provider": "pi",
+          "prompt_version": "query_agent_v12",
+          "run_id": "27a8bf00-52ee-4939-97ee-e9bfdff81f57",
+          "status": "SUCCEEDED",
+          "checks": {
+            "succeeded": true,
+            "isolated_conversation": true,
+            "count_intent": true,
+            "pi_provider": true,
+            "v12_prompt": true,
+            "redis_scope": true,
+            "redis_152": true,
+            "no_next_tool": true
+          },
+          "all_recorded_checks_passed": true,
+          "topic_l1": "Redis",
+          "company": null,
+          "top_n": null,
+          "returned_rows": 0,
+          "counts": {
+            "canonical_questions": 152,
+            "occurrences": 179,
+            "interviews": 63,
+            "source_documents": 61,
+            "known_companies": 25
+          },
+          "answer_kind": null,
+          "answer_basis": null,
+          "answer_characters": 53,
+          "elapsed_seconds": 10.189,
+          "artifact": "data/reports/intent-retest-20261008/server-evidence-complete/legacy-focus-replay-20261008T120016Z-90a6df9fa666/correct-global-count.result.json",
+          "fork_conversation_id": "639fc217-ab6f-4038-97bb-67aa7eddacc7",
+          "source_run_id": "918400d3-0e59-4b02-b9d4-d9c2fe443a0e",
+          "source_state_slot": "state_before",
+          "source_state_before_sha256": "6b03eae31f3b9570cd56149af6aa5810bac137efa885def17c5f38339dbc9469",
+          "source_state_after_sha256": "6b03eae31f3b9570cd56149af6aa5810bac137efa885def17c5f38339dbc9469",
+          "source_state_matches_recorded_sha256": true,
+          "source_state_unchanged": true,
+          "observed_tool_actions": null,
+          "transport": "POST conversation messages + GET run polling; SSE frames not consumed"
+        },
+        {
+          "case": "correct-list-to-count",
+          "message": "我问的是一共有多少道题，不是让你再列一遍",
+          "expected_intent": "COUNT",
+          "intent": "COUNT",
+          "provider": "pi",
+          "prompt_version": "query_agent_v12",
+          "run_id": "18ab21fb-4e5c-4596-a56f-5b2efb33852f",
+          "status": "SUCCEEDED",
+          "checks": {
+            "succeeded": true,
+            "isolated_conversation": true,
+            "count_intent": true,
+            "pi_provider": true,
+            "v12_prompt": true,
+            "redis_scope": true,
+            "redis_152": true,
+            "no_next_tool": true
+          },
+          "all_recorded_checks_passed": true,
+          "topic_l1": "Redis",
+          "company": null,
+          "top_n": null,
+          "returned_rows": 0,
+          "counts": {
+            "canonical_questions": 152,
+            "occurrences": 179,
+            "interviews": 63,
+            "source_documents": 61,
+            "known_companies": 25
+          },
+          "answer_kind": null,
+          "answer_basis": null,
+          "answer_characters": 53,
+          "elapsed_seconds": 9.179,
+          "artifact": "data/reports/intent-retest-20261008/server-evidence-complete/legacy-focus-replay-20261008T120016Z-90a6df9fa666/correct-list-to-count.result.json",
+          "fork_conversation_id": "c2275ead-7a78-48fe-83c2-2cf679cccba4",
+          "source_run_id": "918400d3-0e59-4b02-b9d4-d9c2fe443a0e",
+          "source_state_slot": "state_after",
+          "source_state_before_sha256": "59417b4edf225541789958863c064ffe30333692c51f68980e3913b1cf4e12a6",
+          "source_state_after_sha256": "59417b4edf225541789958863c064ffe30333692c51f68980e3913b1cf4e12a6",
+          "source_state_matches_recorded_sha256": true,
+          "source_state_unchanged": true,
+          "observed_tool_actions": null,
+          "transport": "POST conversation messages + GET run polling; SSE frames not consumed"
+        }
+      ],
+      "original_source_preservation": {
+        "before_artifact": "data/reports/intent-retest-20261008/server-evidence-complete/legacy-focus-replay-20261008T120016Z-90a6df9fa666/source-before.json",
+        "after_artifact": "data/reports/intent-retest-20261008/server-evidence-complete/legacy-focus-replay-20261008T120016Z-90a6df9fa666/source-after.json",
+        "snapshot_file_sha256_before": "7cee905d8740b5e365e8c69f102899d5989c32e9ad517942208738f84577948c",
+        "snapshot_file_sha256_after": "7cee905d8740b5e365e8c69f102899d5989c32e9ad517942208738f84577948c",
+        "snapshot_canonical_sha256_before": "43ad597bfd4b434281f3ee58580857079b4880b756e2ce411e413aa42383e109",
+        "snapshot_canonical_sha256_after": "43ad597bfd4b434281f3ee58580857079b4880b756e2ce411e413aa42383e109",
+        "matches_manifest_canonical_hashes": true,
+        "all_five_original_turns_unchanged": true,
+        "original_turn_count": 5,
+        "original_turns": [
+          {
+            "run_id": "a42458be-c451-4048-9638-fce639956287",
+            "message": "Redis 高频问题有哪些？",
+            "record_sha256_before": "711a9e6479eec279235f3241ddbbee1ff8ac52091f3dc8bf19bb6c2227df5580",
+            "record_sha256_after": "711a9e6479eec279235f3241ddbbee1ff8ac52091f3dc8bf19bb6c2227df5580",
+            "unchanged": true
+          },
+          {
+            "run_id": "2a4dc75d-e6c4-4218-b313-7198bd2ce229",
+            "message": "下一页",
+            "record_sha256_before": "bac50950fad90318d130047877f9c7de7cd1eb65c74c64cccd2833962c8f6a8d",
+            "record_sha256_after": "bac50950fad90318d130047877f9c7de7cd1eb65c74c64cccd2833962c8f6a8d",
+            "unchanged": true
+          },
+          {
+            "run_id": "b92f0113-efe0-4a6f-9217-d191ce6c0a5b",
+            "message": "一共有多少条数据 ？",
+            "record_sha256_before": "2d729e6df5f0f976021e3fbe29d8d58f206fe0681489f84afda03ff7432ec8d3",
+            "record_sha256_after": "2d729e6df5f0f976021e3fbe29d8d58f206fe0681489f84afda03ff7432ec8d3",
+            "unchanged": true
+          },
+          {
+            "run_id": "025fc12b-d15a-4603-b53d-6bfc8f3ad344",
+            "message": "一共有多少道题",
+            "record_sha256_before": "48f273c4ab51a1d841f44f3c3c074391887b0ea29ae938e8e76a43389fa07a03",
+            "record_sha256_after": "48f273c4ab51a1d841f44f3c3c074391887b0ea29ae938e8e76a43389fa07a03",
+            "unchanged": true
+          },
+          {
+            "run_id": "918400d3-0e59-4b02-b9d4-d9c2fe443a0e",
+            "message": "我说的是redis的高频率问题啊，这个会话不是才说过",
+            "record_sha256_before": "56a29533b32a4cd6b55cb57f3153a3e3c00b5907417ccf7e0033b94bfe7ac919",
+            "record_sha256_after": "56a29533b32a4cd6b55cb57f3153a3e3c00b5907417ccf7e0033b94bfe7ac919",
+            "unchanged": true
+          }
+        ]
+      }
+    },
+    {
+      "manifest": "data/reports/intent-retest-20261008/server-evidence-complete/legacy-focus-replay-20261008T120605Z-b4fae064b8b1/manifest.json",
+      "invocation_id": "20261008T120605Z-b4fae064b8b1",
+      "started_at_utc": "2026-10-08T12:06:05.197502+00:00",
+      "finished_at_utc": "2026-10-08T12:06:31.958686+00:00",
+      "environment": "isolated_stage",
+      "transport": "UI POST messages followed by GET run polling",
+      "passed_case_count": 3,
+      "case_count": 3,
+      "source_conversation_id": "5cbdbc88-c2ad-4b33-b8a7-3ebab463612b",
+      "cases": [
+        {
+          "case": "legacy-stats-count",
+          "message": "一共有多少道题",
+          "expected_intent": "COUNT",
+          "intent": "COUNT",
+          "provider": "pi",
+          "prompt_version": "query_agent_v12",
+          "run_id": "8854c570-458a-49f6-8f86-48e8a9c9ac54",
+          "status": "SUCCEEDED",
+          "checks": {
+            "succeeded": true,
+            "isolated_conversation": true,
+            "count_intent": true,
+            "pi_provider": true,
+            "v12_prompt": true,
+            "redis_scope": true,
+            "redis_152": true,
+            "no_next_tool": true
+          },
+          "all_recorded_checks_passed": true,
+          "topic_l1": "Redis",
+          "company": null,
+          "top_n": null,
+          "returned_rows": 0,
+          "counts": {
+            "canonical_questions": 152,
+            "occurrences": 179,
+            "interviews": 63,
+            "source_documents": 61,
+            "known_companies": 25
+          },
+          "answer_kind": null,
+          "answer_basis": null,
+          "answer_characters": 53,
+          "elapsed_seconds": 6.658,
+          "artifact": "data/reports/intent-retest-20261008/server-evidence-complete/legacy-focus-replay-20261008T120605Z-b4fae064b8b1/legacy-stats-count.result.json",
+          "fork_conversation_id": "576ba034-e03c-486b-b9c2-19b198e1161c",
+          "source_run_id": "025fc12b-d15a-4603-b53d-6bfc8f3ad344",
+          "source_state_slot": "state_before",
+          "source_state_before_sha256": "aee903b8c4c2bfd4b2f09ff7fb3584982ff1268142c3314904ddf8816954a7ff",
+          "source_state_after_sha256": "aee903b8c4c2bfd4b2f09ff7fb3584982ff1268142c3314904ddf8816954a7ff",
+          "source_state_matches_recorded_sha256": true,
+          "source_state_unchanged": true,
+          "observed_tool_actions": [
+            "COUNT"
+          ],
+          "transport": "POST conversation messages + GET run polling; SSE frames not consumed"
+        },
+        {
+          "case": "correct-global-count",
+          "message": "我说的是redis的高频率问题啊，这个会话不是才说过",
+          "expected_intent": "COUNT",
+          "intent": "COUNT",
+          "provider": "pi",
+          "prompt_version": "query_agent_v12",
+          "run_id": "2c13fc80-018c-498f-a6aa-88df2163edc4",
+          "status": "SUCCEEDED",
+          "checks": {
+            "succeeded": true,
+            "isolated_conversation": true,
+            "count_intent": true,
+            "pi_provider": true,
+            "v12_prompt": true,
+            "redis_scope": true,
+            "redis_152": true,
+            "no_next_tool": true
+          },
+          "all_recorded_checks_passed": true,
+          "topic_l1": "Redis",
+          "company": null,
+          "top_n": null,
+          "returned_rows": 0,
+          "counts": {
+            "canonical_questions": 152,
+            "occurrences": 179,
+            "interviews": 63,
+            "source_documents": 61,
+            "known_companies": 25
+          },
+          "answer_kind": null,
+          "answer_basis": null,
+          "answer_characters": 53,
+          "elapsed_seconds": 9.682,
+          "artifact": "data/reports/intent-retest-20261008/server-evidence-complete/legacy-focus-replay-20261008T120605Z-b4fae064b8b1/correct-global-count.result.json",
+          "fork_conversation_id": "11e6ae33-5b9c-4c08-95ca-cbf784945e15",
+          "source_run_id": "918400d3-0e59-4b02-b9d4-d9c2fe443a0e",
+          "source_state_slot": "state_before",
+          "source_state_before_sha256": "6b03eae31f3b9570cd56149af6aa5810bac137efa885def17c5f38339dbc9469",
+          "source_state_after_sha256": "6b03eae31f3b9570cd56149af6aa5810bac137efa885def17c5f38339dbc9469",
+          "source_state_matches_recorded_sha256": true,
+          "source_state_unchanged": true,
+          "observed_tool_actions": [
+            "COUNT"
+          ],
+          "transport": "POST conversation messages + GET run polling; SSE frames not consumed"
+        },
+        {
+          "case": "correct-list-to-count",
+          "message": "我问的是一共有多少道题，不是让你再列一遍",
+          "expected_intent": "COUNT",
+          "intent": "COUNT",
+          "provider": "pi",
+          "prompt_version": "query_agent_v12",
+          "run_id": "4262c2ca-5b35-4482-87b7-15a473bcc5d6",
+          "status": "SUCCEEDED",
+          "checks": {
+            "succeeded": true,
+            "isolated_conversation": true,
+            "count_intent": true,
+            "pi_provider": true,
+            "v12_prompt": true,
+            "redis_scope": true,
+            "redis_152": true,
+            "no_next_tool": true
+          },
+          "all_recorded_checks_passed": true,
+          "topic_l1": "Redis",
+          "company": null,
+          "top_n": null,
+          "returned_rows": 0,
+          "counts": {
+            "canonical_questions": 152,
+            "occurrences": 179,
+            "interviews": 63,
+            "source_documents": 61,
+            "known_companies": 25
+          },
+          "answer_kind": null,
+          "answer_basis": null,
+          "answer_characters": 53,
+          "elapsed_seconds": 10.193,
+          "artifact": "data/reports/intent-retest-20261008/server-evidence-complete/legacy-focus-replay-20261008T120605Z-b4fae064b8b1/correct-list-to-count.result.json",
+          "fork_conversation_id": "fbb00acb-92c9-43a8-8c2f-d1f1eda2aa21",
+          "source_run_id": "918400d3-0e59-4b02-b9d4-d9c2fe443a0e",
+          "source_state_slot": "state_after",
+          "source_state_before_sha256": "59417b4edf225541789958863c064ffe30333692c51f68980e3913b1cf4e12a6",
+          "source_state_after_sha256": "59417b4edf225541789958863c064ffe30333692c51f68980e3913b1cf4e12a6",
+          "source_state_matches_recorded_sha256": true,
+          "source_state_unchanged": true,
+          "observed_tool_actions": [
+            "COUNT"
+          ],
+          "transport": "POST conversation messages + GET run polling; SSE frames not consumed"
+        }
+      ],
+      "original_source_preservation": {
+        "before_artifact": "data/reports/intent-retest-20261008/server-evidence-complete/legacy-focus-replay-20261008T120605Z-b4fae064b8b1/source-before.json",
+        "after_artifact": "data/reports/intent-retest-20261008/server-evidence-complete/legacy-focus-replay-20261008T120605Z-b4fae064b8b1/source-after.json",
+        "snapshot_file_sha256_before": "7cee905d8740b5e365e8c69f102899d5989c32e9ad517942208738f84577948c",
+        "snapshot_file_sha256_after": "7cee905d8740b5e365e8c69f102899d5989c32e9ad517942208738f84577948c",
+        "snapshot_canonical_sha256_before": "43ad597bfd4b434281f3ee58580857079b4880b756e2ce411e413aa42383e109",
+        "snapshot_canonical_sha256_after": "43ad597bfd4b434281f3ee58580857079b4880b756e2ce411e413aa42383e109",
+        "matches_manifest_canonical_hashes": true,
+        "all_five_original_turns_unchanged": true,
+        "original_turn_count": 5,
+        "original_turns": [
+          {
+            "run_id": "a42458be-c451-4048-9638-fce639956287",
+            "message": "Redis 高频问题有哪些？",
+            "record_sha256_before": "711a9e6479eec279235f3241ddbbee1ff8ac52091f3dc8bf19bb6c2227df5580",
+            "record_sha256_after": "711a9e6479eec279235f3241ddbbee1ff8ac52091f3dc8bf19bb6c2227df5580",
+            "unchanged": true
+          },
+          {
+            "run_id": "2a4dc75d-e6c4-4218-b313-7198bd2ce229",
+            "message": "下一页",
+            "record_sha256_before": "bac50950fad90318d130047877f9c7de7cd1eb65c74c64cccd2833962c8f6a8d",
+            "record_sha256_after": "bac50950fad90318d130047877f9c7de7cd1eb65c74c64cccd2833962c8f6a8d",
+            "unchanged": true
+          },
+          {
+            "run_id": "b92f0113-efe0-4a6f-9217-d191ce6c0a5b",
+            "message": "一共有多少条数据 ？",
+            "record_sha256_before": "2d729e6df5f0f976021e3fbe29d8d58f206fe0681489f84afda03ff7432ec8d3",
+            "record_sha256_after": "2d729e6df5f0f976021e3fbe29d8d58f206fe0681489f84afda03ff7432ec8d3",
+            "unchanged": true
+          },
+          {
+            "run_id": "025fc12b-d15a-4603-b53d-6bfc8f3ad344",
+            "message": "一共有多少道题",
+            "record_sha256_before": "48f273c4ab51a1d841f44f3c3c074391887b0ea29ae938e8e76a43389fa07a03",
+            "record_sha256_after": "48f273c4ab51a1d841f44f3c3c074391887b0ea29ae938e8e76a43389fa07a03",
+            "unchanged": true
+          },
+          {
+            "run_id": "918400d3-0e59-4b02-b9d4-d9c2fe443a0e",
+            "message": "我说的是redis的高频率问题啊，这个会话不是才说过",
+            "record_sha256_before": "56a29533b32a4cd6b55cb57f3153a3e3c00b5907417ccf7e0033b94bfe7ac919",
+            "record_sha256_after": "56a29533b32a4cd6b55cb57f3153a3e3c00b5907417ccf7e0033b94bfe7ac919",
+            "unchanged": true
+          }
+        ]
+      }
+    }
+  ],
+  "formal_ui": {
+    "environment": "formal API through SSH tunnel localhost:18085 -> server localhost:18082",
+    "conversation_id": "22dc1e3e-5851-46e1-ad0f-6648c902ad76",
+    "conversation_version": 3,
+    "readback_artifact": "data/reports/intent-retest-20261008/formal-ui-history-readback-20261008T121953Z-fc7a99b6.json",
+    "readback_at_utc": "2026-10-08T12:19:53.350546+00:00",
+    "readback_method": "read-only authenticated HTTP GET",
+    "checks": {
+      "three_turns": true,
+      "list_then_count_then_correction": true,
+      "list_top_n_null": true,
+      "both_counts_152": true,
+      "all_pi_v12": true
+    },
+    "turns": [
+      {
+        "case": 1,
+        "message": "Redis 高频问题有哪些？",
+        "expected_intent": null,
+        "intent": "LIST",
+        "provider": "pi",
+        "prompt_version": "query_agent_v12",
+        "run_id": "143d4d61-fe5e-4927-a013-f9845ceb1854",
+        "status": "SUCCEEDED",
+        "checks": {
+          "succeeded": true
+        },
+        "all_recorded_checks_passed": true,
+        "topic_l1": "Redis",
+        "company": null,
+        "top_n": null,
+        "returned_rows": 20,
+        "counts": null,
+        "answer_kind": null,
+        "answer_basis": null,
+        "answer_characters": 19,
+        "pagination": {
+          "offset": 0,
+          "returned": 20,
+          "page_size": 20,
+          "total": 152,
+          "result_total": 152,
+          "top_n": null,
+          "has_next_page": true
+        }
+      },
+      {
+        "case": 2,
+        "message": "一共有多少道题",
+        "expected_intent": null,
+        "intent": "COUNT",
+        "provider": "pi",
+        "prompt_version": "query_agent_v12",
+        "run_id": "5d1bf0cb-1ccd-4c3b-b30e-ea8fa57bcafd",
+        "status": "SUCCEEDED",
+        "checks": {
+          "succeeded": true
+        },
+        "all_recorded_checks_passed": true,
+        "topic_l1": "Redis",
+        "company": null,
+        "top_n": null,
+        "returned_rows": 0,
+        "counts": {
+          "canonical_questions": 152,
+          "occurrences": 179,
+          "interviews": 63,
+          "source_documents": 61,
+          "known_companies": 25
+        },
+        "answer_kind": null,
+        "answer_basis": null,
+        "answer_characters": 53
+      },
+      {
+        "case": 3,
+        "message": "我说的是redis的高频率问题啊，这个会话不是才说过",
+        "expected_intent": null,
+        "intent": "COUNT",
+        "provider": "pi",
+        "prompt_version": "query_agent_v12",
+        "run_id": "e366e3b3-84e2-48f2-af92-6f4851ea9fe1",
+        "status": "SUCCEEDED",
+        "checks": {
+          "succeeded": true
+        },
+        "all_recorded_checks_passed": true,
+        "topic_l1": "Redis",
+        "company": null,
+        "top_n": null,
+        "returned_rows": 0,
+        "counts": {
+          "canonical_questions": 152,
+          "occurrences": 179,
+          "interviews": 63,
+          "source_documents": 61,
+          "known_companies": 25
+        },
+        "answer_kind": null,
+        "answer_basis": null,
+        "answer_characters": 53
+      }
+    ],
+    "screenshot": "data/reports/intent-retest-20261008/formal-ui-v12-r2-correction.jpg",
+    "dom_snapshots": [
+      {
+        "artifact": "data/reports/intent-retest-20261008/formal-ui-v12-r2-correction.dom.txt",
+        "contains_original_count_message": true,
+        "contains_correction_message": true,
+        "occurrences_of_152": 2
+      },
+      {
+        "artifact": "data/reports/intent-retest-20261008/formal-ui-v12-r2-history.dom.txt",
+        "contains_original_count_message": true,
+        "contains_correction_message": true,
+        "occurrences_of_152": 2
+      }
+    ],
+    "reload_history_visible": true,
+    "browser_observation_source": "Completed parent-agent browser verification and saved DOM/screenshot artifacts.",
+    "limitations": [
+      "The in-app browser could not open the public URL: ERR_BLOCKED_BY_CLIENT.",
+      "Chrome was unavailable.",
+      "UI interaction was verified through the SSH tunnel; public transport was separately verified through authenticated HTTP messages and SSE."
+    ]
+  },
+  "deployment": {
+    "receipt": "data/reports/intent-retest-20261008/deployment-receipt-v12-r2.json",
+    "independent_verification": "data/reports/intent-retest-20261008/final-deployment-verification-20261008T121405Z-0af86f73.json",
+    "independent_verification_at_utc": "2026-10-08T12:14:05.077437+00:00",
+    "version": "query_agent_v12",
+    "health": {
+      "database": "ready",
+      "current_revision": 293,
+      "indexed_revision": 293,
+      "index": "ready",
+      "model_max_in_flight": 1,
+      "model_min_interval_seconds": 2.0,
+      "query_router_enabled": true,
+      "task_filters_enabled": true,
+      "task_annotation_policy": "KNOWN",
+      "pi_agent_enabled": true,
+      "query_prompt_version": "query_agent_v12",
+      "query_prompt_sha256": "ccdd630a7eb8967732a9b46ad96b29828fa99dd8be8929648344e0ea8bf4b17c",
+      "reranker_version": "rerank_v10_explicit_object",
+      "jev_decision_enabled": false,
+      "model": "configured"
+    },
+    "checks": {
+      "six_formal_files_match": true,
+      "three_r10_search_files_match": true,
+      "seven_formal_services_active": true,
+      "formal_health_ready": true,
+      "formal_version_v12": true,
+      "prompt_hash_matches": true,
+      "reranker_version_r10": true
+    },
+    "formal_file_checks": {
+      "app/interview_intelligence/agent/query_contract.py": {
+        "actual": "8fb4adc2329ef0ad5687e4060e74bd5032aa9bb626dbc44c722ddf0255623d0c",
+        "receipt": "8fb4adc2329ef0ad5687e4060e74bd5032aa9bb626dbc44c722ddf0255623d0c",
+        "manifest": "8fb4adc2329ef0ad5687e4060e74bd5032aa9bb626dbc44c722ddf0255623d0c",
+        "packaged_source": "8fb4adc2329ef0ad5687e4060e74bd5032aa9bb626dbc44c722ddf0255623d0c",
+        "matched": true
+      },
+      "app/interview_intelligence/agent/harness.py": {
+        "actual": "31847349b932b1f00c387eb8e838964e2475c6841501981b36c1a464e6108268",
+        "receipt": "31847349b932b1f00c387eb8e838964e2475c6841501981b36c1a464e6108268",
+        "manifest": "31847349b932b1f00c387eb8e838964e2475c6841501981b36c1a464e6108268",
+        "packaged_source": "31847349b932b1f00c387eb8e838964e2475c6841501981b36c1a464e6108268",
+        "matched": true
+      },
+      "app/interview_intelligence/agent/query_service.py": {
+        "actual": "758b309185f0c4cc99be8bde745e3d2ab277f8a98f4097da4d5bf418e0eb718e",
+        "receipt": "758b309185f0c4cc99be8bde745e3d2ab277f8a98f4097da4d5bf418e0eb718e",
+        "manifest": "758b309185f0c4cc99be8bde745e3d2ab277f8a98f4097da4d5bf418e0eb718e",
+        "packaged_source": "758b309185f0c4cc99be8bde745e3d2ab277f8a98f4097da4d5bf418e0eb718e",
+        "matched": true
+      },
+      "app/interview_intelligence/config.py": {
+        "actual": "b54b91f29ead75789a6f0ca6fb1ac9b8200bfcebc66add7946152f5a53505735",
+        "receipt": "b54b91f29ead75789a6f0ca6fb1ac9b8200bfcebc66add7946152f5a53505735",
+        "manifest": "b54b91f29ead75789a6f0ca6fb1ac9b8200bfcebc66add7946152f5a53505735",
+        "packaged_source": "b54b91f29ead75789a6f0ca6fb1ac9b8200bfcebc66add7946152f5a53505735",
+        "matched": true
+      },
+      "app/interview_intelligence/resources/prompts/query_agent_v12.md": {
+        "actual": "ccdd630a7eb8967732a9b46ad96b29828fa99dd8be8929648344e0ea8bf4b17c",
+        "receipt": "ccdd630a7eb8967732a9b46ad96b29828fa99dd8be8929648344e0ea8bf4b17c",
+        "manifest": "ccdd630a7eb8967732a9b46ad96b29828fa99dd8be8929648344e0ea8bf4b17c",
+        "packaged_source": "ccdd630a7eb8967732a9b46ad96b29828fa99dd8be8929648344e0ea8bf4b17c",
+        "matched": true
+      },
+      "pi/services/pi-agent/runtime.mjs": {
+        "actual": "29242cb26b04afc277deaf2e61718f8c09f285685d51a1a972526cdcad3afff9",
+        "receipt": "29242cb26b04afc277deaf2e61718f8c09f285685d51a1a972526cdcad3afff9",
+        "manifest": "29242cb26b04afc277deaf2e61718f8c09f285685d51a1a972526cdcad3afff9",
+        "packaged_source": "29242cb26b04afc277deaf2e61718f8c09f285685d51a1a972526cdcad3afff9",
+        "matched": true
+      }
+    },
+    "preserved_retrieval_checks": {
+      "search/reranker.py": {
+        "actual": "1c5b43275fab4dbd27ead9f0e5366c5281bf308deec0d7d11ea155019cacabbd",
+        "receipt": "1c5b43275fab4dbd27ead9f0e5366c5281bf308deec0d7d11ea155019cacabbd",
+        "manifest": "1c5b43275fab4dbd27ead9f0e5366c5281bf308deec0d7d11ea155019cacabbd",
+        "matched": true
+      },
+      "search/service.py": {
+        "actual": "a6b551077d4d4b8e6ff9252a4c23604ee7f1351b4ba860858f6d7361f7464a47",
+        "receipt": "a6b551077d4d4b8e6ff9252a4c23604ee7f1351b4ba860858f6d7361f7464a47",
+        "manifest": "a6b551077d4d4b8e6ff9252a4c23604ee7f1351b4ba860858f6d7361f7464a47",
+        "matched": true
+      },
+      "search/elasticsearch.py": {
+        "actual": "a0328e0a2550eb9d072670792059e6dda72688a068d015e198e84a38f526b3d4",
+        "receipt": "a0328e0a2550eb9d072670792059e6dda72688a068d015e198e84a38f526b3d4",
+        "manifest": "a0328e0a2550eb9d072670792059e6dda72688a068d015e198e84a38f526b3d4",
+        "matched": true
+      }
+    },
+    "formal_services": {
+      "interview-intelligence-postgres.service": {
+        "MainPID": "2065957",
+        "Id": "interview-intelligence-postgres.service",
+        "ActiveState": "active",
+        "SubState": "running",
+        "UnitFileState": "enabled"
+      },
+      "interview-intelligence-elasticsearch.service": {
+        "MainPID": "2065958",
+        "Id": "interview-intelligence-elasticsearch.service",
+        "ActiveState": "active",
+        "SubState": "running",
+        "UnitFileState": "enabled"
+      },
+      "interview-intelligence-api.service": {
+        "MainPID": "2175490",
+        "Id": "interview-intelligence-api.service",
+        "ActiveState": "active",
+        "SubState": "running",
+        "UnitFileState": "enabled"
+      },
+      "interview-intelligence-pi.service": {
+        "MainPID": "2175491",
+        "Id": "interview-intelligence-pi.service",
+        "ActiveState": "active",
+        "SubState": "running",
+        "UnitFileState": "enabled"
+      },
+      "interview-intelligence-worker.service": {
+        "MainPID": "2066791",
+        "Id": "interview-intelligence-worker.service",
+        "ActiveState": "active",
+        "SubState": "running",
+        "UnitFileState": "enabled"
+      },
+      "interview-intelligence-web.service": {
+        "MainPID": "2071150",
+        "Id": "interview-intelligence-web.service",
+        "ActiveState": "active",
+        "SubState": "running",
+        "UnitFileState": "enabled"
+      },
+      "interview-intelligence-proxy.service": {
+        "MainPID": "2067728",
+        "Id": "interview-intelligence-proxy.service",
+        "ActiveState": "active",
+        "SubState": "running",
+        "UnitFileState": "enabled"
+      }
+    },
+    "stage_cleanup_artifact": "data/reports/intent-retest-20261008/stage-cleanup-v12-r2.json",
+    "stage_cleanup": {
+      "checked_at_utc": "2026-10-08 12:20:27 UTC",
+      "scope": "cleanup of owned isolated staging; formal API/Pi remain active",
+      "services": {
+        "interview-intelligence-api": "active",
+        "interview-intelligence-pi": "active",
+        "interview-intelligence-focus-check-api": "inactive",
+        "interview-intelligence-focus-check-pi": "inactive"
+      },
+      "is_active_exit_code": 0
+    }
+  },
+  "engineering": {
+    "record": "data/reports/intent-retest-20261008/engineering-checks-20261008-200251-bf82da43.json",
+    "observed_scopes": {
+      "workspace_python": {
+        "passed": 767,
+        "skipped": 1,
+        "seconds": 64.9
+      },
+      "pi_web_node": {
+        "passed": 43,
+        "failed": 0
+      },
+      "frozen_v12_first_candidate_python": {
+        "passed": 126,
+        "seconds": 5.68
+      },
+      "r2_targeted_regression": {
+        "python_passed": 51,
+        "node_web_passed": 43,
+        "source": "Architecture subagent completed commands and completion report in this task.",
+        "independent_raw_stdout_artifact": null
+      }
+    },
+    "overlapping_scopes_must_not_be_added": true,
+    "r2_build_metadata": "data/reports/intent-retest-20261008/build-metadata-v12-r2.json",
+    "r2_build": {
+      "python_compiled": 65,
+      "release_file_count": 109,
+      "prompt_bytes": 13376,
+      "archive_bytes": 204748,
+      "archive_sha256": "bdfde4ac39143f5bc6c5caba22f89f2a6bd472931c7e5b38efec744db64a8cf7"
+    },
+    "build_metadata_contains_test_counts": false
+  },
+  "source_files": [
+    {
+      "path": "data/reports/intent-retest-20261008/build-metadata-v12-r2.json",
+      "bytes": 1573,
+      "sha256": "7209dc07149e7a4208948c8a8e3736df7d862cf72b2285ce789d8857af86b1c7"
+    },
+    {
+      "path": "data/reports/intent-retest-20261008/build-metadata-v12.json",
+      "bytes": 1567,
+      "sha256": "b84cd5d6c86f7d049070c9b8a8e2bc89948cd5f85796a4f3b145361a0b37ca5b"
+    },
+    {
+      "path": "data/reports/intent-retest-20261008/build_release_v12-r2.py",
+      "bytes": 8037,
+      "sha256": "22c222e3a1cadd775d0e36ba37c3ca3271b396ea2c597ace4cdc011d2966257d"
+    },
+    {
+      "path": "data/reports/intent-retest-20261008/conversation-intent-v12-r2.tar.gz",
+      "bytes": 204748,
+      "sha256": "bdfde4ac39143f5bc6c5caba22f89f2a6bd472931c7e5b38efec744db64a8cf7"
+    },
+    {
+      "path": "data/reports/intent-retest-20261008/deployment-receipt-v12-r2.json",
+      "bytes": 1797,
+      "sha256": "b42a84e2b182c162bce57f07119d82e39295b24bf7d26f7bbe0411e018837f98"
+    },
+    {
+      "path": "data/reports/intent-retest-20261008/engineering-checks-20261008-200251-bf82da43.json",
+      "bytes": 761,
+      "sha256": "8cb6cc500b16ac0d59998ea24ee11fd2b41879b395b28b8a0f03376b4cfed33c"
+    },
+    {
+      "path": "data/reports/intent-retest-20261008/final-deployment-verification-20261008T121405Z-0af86f73.json",
+      "bytes": 7250,
+      "sha256": "48c0b282e6b2ea24ba9045359bc23c1c73d440b8980ccdd87762dc23b5d14a47"
+    },
+    {
+      "path": "data/reports/intent-retest-20261008/formal-ui-history-readback-20261008T121953Z-fc7a99b6.json",
+      "bytes": 104864,
+      "sha256": "e41cfe3c39e641310a8f4503092033338b88ca52ef771d916656c116be630c85"
+    },
+    {
+      "path": "data/reports/intent-retest-20261008/formal-ui-v12-r2-correction.dom.txt",
+      "bytes": 10511,
+      "sha256": "87874288c5d3d9501b058e1e48fe5f36fb888a7c9e955a7998e422379c83f14d"
+    },
+    {
+      "path": "data/reports/intent-retest-20261008/formal-ui-v12-r2-correction.jpg",
+      "bytes": 47956,
+      "sha256": "eed32143ebcac68f6abd2aed83a327ffeeb8e6d7ba2686468f6f5011efa8e8b3"
+    },
+    {
+      "path": "data/reports/intent-retest-20261008/formal-ui-v12-r2-history.dom.txt",
+      "bytes": 10262,
+      "sha256": "4d90f2c20af83acac4ce8d626e63f5ac67f393697e969a8e9cf44dcb70565e59"
+    },
+    {
+      "path": "data/reports/intent-retest-20261008/public-after-v12-r2-20261008-201014-df8122e8.json",
+      "bytes": 1274793,
+      "sha256": "dfa07064a683f1e47026ec99bb82880a99f6b3dde6c0af1b072515139622e9b1"
+    },
+    {
+      "path": "data/reports/intent-retest-20261008/public-after-v12-r2-20261008-201014-df8122e8.tmp",
+      "bytes": 1275145,
+      "sha256": "13432afbb6038dc3335917ff1605b293d6c3316fe74f96f4b6a85ee027a19b3f"
+    },
+    {
+      "path": "data/reports/intent-retest-20261008/public-after-v12-r2-retry-20261008-201152-8d4bf6f2.json",
+      "bytes": 3974406,
+      "sha256": "70b9e948faefcfac65bfc8437fd6473519a4d7b7c6b400e3ad9bd220f2f5f44b"
+    },
+    {
+      "path": "data/reports/intent-retest-20261008/public-before-v11-20261008-195218-8e98281d.json",
+      "bytes": 1120320,
+      "sha256": "c69017f3c36f8e9e529e6e1d84149caf26592d1a302df3a437d1939248011b71"
+    },
+    {
+      "path": "data/reports/intent-retest-20261008/publish_release_v12.py",
+      "bytes": 4979,
+      "sha256": "cc899a8dc21e5c69e656c93c071aa7ed35739f239f5b7674e5c3f6912dd58f11"
+    },
+    {
+      "path": "data/reports/intent-retest-20261008/query-service-focus-overlay-r2.diff",
+      "bytes": 4947,
+      "sha256": "0daec48d67334ee7dc841f8777fe5b355bef00b039cee47bdbb772161c184dd1"
+    },
+    {
+      "path": "data/reports/intent-retest-20261008/release-manifest-v12-r2.json",
+      "bytes": 13011,
+      "sha256": "9450d414c862cf572ed914b2bc144c6d0520667d41de2faa6f75f6d482edf4a0"
+    },
+    {
+      "path": "data/reports/intent-retest-20261008/release-manifest-v12.json",
+      "bytes": 13011,
+      "sha256": "0306e5a2d33d8a377e77e57bbfbfaf4ab0c6aed3a51e387f88a525eba3fb9256"
+    },
+    {
+      "path": "data/reports/intent-retest-20261008/replay_legacy_focus.py",
+      "bytes": 16236,
+      "sha256": "f387569ad519b9522455fe598f2e016930ecdaa40438e31ad6015b135724315b"
+    },
+    {
+      "path": "data/reports/intent-retest-20261008/server-evidence-complete/legacy-focus-replay-20261008T120016Z-90a6df9fa666/correct-global-count.result.json",
+      "bytes": 89998,
+      "sha256": "07d82762fd5ff0f6dc99d3d9af9d3ba71fc311b721ffa00b6808890ee3ebdd75"
+    },
+    {
+      "path": "data/reports/intent-retest-20261008/server-evidence-complete/legacy-focus-replay-20261008T120016Z-90a6df9fa666/correct-list-to-count.result.json",
+      "bytes": 101988,
+      "sha256": "5159a356c89e415d4ab66f9bcaa55ffc0c6d212335dae80e0e90fa1ebcaaa10a"
+    },
+    {
+      "path": "data/reports/intent-retest-20261008/server-evidence-complete/legacy-focus-replay-20261008T120016Z-90a6df9fa666/legacy-stats-count.result.json",
+      "bytes": 87048,
+      "sha256": "158c643ab901525ab49dbc6e8f7f435c0a0e6af7e4a374c5a5c619abe93c3d35"
+    },
+    {
+      "path": "data/reports/intent-retest-20261008/server-evidence-complete/legacy-focus-replay-20261008T120016Z-90a6df9fa666/manifest.json",
+      "bytes": 3016,
+      "sha256": "d4e979851a64145dbe882b880e069436fce28aae8a987b169a690799acf6d623"
+    },
+    {
+      "path": "data/reports/intent-retest-20261008/server-evidence-complete/legacy-focus-replay-20261008T120016Z-90a6df9fa666/source-after.json",
+      "bytes": 1275224,
+      "sha256": "7cee905d8740b5e365e8c69f102899d5989c32e9ad517942208738f84577948c"
+    },
+    {
+      "path": "data/reports/intent-retest-20261008/server-evidence-complete/legacy-focus-replay-20261008T120016Z-90a6df9fa666/source-before.json",
+      "bytes": 1275224,
+      "sha256": "7cee905d8740b5e365e8c69f102899d5989c32e9ad517942208738f84577948c"
+    },
+    {
+      "path": "data/reports/intent-retest-20261008/server-evidence-complete/legacy-focus-replay-20261008T120605Z-b4fae064b8b1/correct-global-count.result.json",
+      "bytes": 90043,
+      "sha256": "0d9ef497d472fb42ad1221f0009940e67530beaadf558a285233718480d244e7"
+    },
+    {
+      "path": "data/reports/intent-retest-20261008/server-evidence-complete/legacy-focus-replay-20261008T120605Z-b4fae064b8b1/correct-list-to-count.result.json",
+      "bytes": 102035,
+      "sha256": "b19d824b6a21bd12632113164f6a7f358037653e2864d13a402fac6aaa30c58e"
+    },
+    {
+      "path": "data/reports/intent-retest-20261008/server-evidence-complete/legacy-focus-replay-20261008T120605Z-b4fae064b8b1/legacy-stats-count.result.json",
+      "bytes": 87104,
+      "sha256": "0f45e835d4cdfbb8f4f571c57363a3a81c0f890bbbafe96a8585d1ce4f26e653"
+    },
+    {
+      "path": "data/reports/intent-retest-20261008/server-evidence-complete/legacy-focus-replay-20261008T120605Z-b4fae064b8b1/manifest.json",
+      "bytes": 3748,
+      "sha256": "a52c6916923da0082c2c0770b4715f10e0f3b431260a0f471fd239821785bf98"
+    },
+    {
+      "path": "data/reports/intent-retest-20261008/server-evidence-complete/legacy-focus-replay-20261008T120605Z-b4fae064b8b1/source-after.json",
+      "bytes": 1275224,
+      "sha256": "7cee905d8740b5e365e8c69f102899d5989c32e9ad517942208738f84577948c"
+    },
+    {
+      "path": "data/reports/intent-retest-20261008/server-evidence-complete/legacy-focus-replay-20261008T120605Z-b4fae064b8b1/source-before.json",
+      "bytes": 1275224,
+      "sha256": "7cee905d8740b5e365e8c69f102899d5989c32e9ad517942208738f84577948c"
+    },
+    {
+      "path": "data/reports/intent-retest-20261008/server-evidence-complete/public-stage-v12-20261008-195823-ca7111bf.json",
+      "bytes": 1159958,
+      "sha256": "cbdec5752fbaea992fcdd9566ae42a508c6feab52651120995f2651087c0d3a5"
+    },
+    {
+      "path": "data/reports/intent-retest-20261008/server-evidence-complete/public-stage-v12-r2-20261008-200515-89d9f0ca.json",
+      "bytes": 975040,
+      "sha256": "c2fa27860e2723df8925159d7848b39ae1fa4a005242df24aff3a3c401c3f4e2"
+    },
+    {
+      "path": "data/reports/intent-retest-20261008/stage-cleanup-v12-r2.json",
+      "bytes": 377,
+      "sha256": "392710bdbe1e3f0a58e5ab4d522b525cb84963f2a0a6175d60a6ba32f50d73bf"
+    },
+    {
+      "path": "data/reports/intent-retest-20261008/stage_release_v12-r2.py",
+      "bytes": 2423,
+      "sha256": "b8da28b6d3e67572712116e9e4aedfae173d11107231d83406dd9b42d71f5064"
+    }
+  ]
+}

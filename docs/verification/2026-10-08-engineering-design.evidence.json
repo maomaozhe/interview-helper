@@ -1,0 +1,608 @@
+{
+  "status": "published_public_replay_verified",
+  "verified_date": "2026-10-09",
+  "corpus": {
+    "revision": 293,
+    "canonical_questions": 2452,
+    "occurrences": 2771
+  },
+  "reference": {
+    "reviewed": 69,
+    "main": 23,
+    "adjacent": 24,
+    "negative": 22,
+    "families": 21,
+    "human_verified": false,
+    "source_verified_by_independent_agent": true,
+    "exhaustive": false,
+    "exposed_development_regression": true
+  },
+  "baseline": {
+    "returned": 1,
+    "main": 1,
+    "reference_hits": 1,
+    "reference_total": 23
+  },
+  "frozen_staging_acceptance": {
+    "all_gates_pass": true,
+    "turns": [
+      {
+        "case_id": "example-coverage",
+        "turn_index": 0,
+        "role": "engineering",
+        "run_status": "SUCCEEDED",
+        "intent": "SEARCH",
+        "returned_count": 16,
+        "main": 15,
+        "adjacent": 1,
+        "negative": 0,
+        "precision": 0.9375,
+        "reference_hits": 15,
+        "family_hits": 14,
+        "sourcepass": true,
+        "route_gate": true,
+        "minimum_gate": true,
+        "leaderboard_gate": true,
+        "soft_required": true,
+        "soft_gate": true,
+        "guard_gate": null,
+        "all_applicable_gates_pass": true,
+        "elapsed_seconds": 91.0,
+        "actual_pipeline": "HYBRID_RERANK",
+        "relevance_status": "VERIFIED",
+        "rerank_status": "COMPLETED",
+        "soft_branch": {
+          "hint": "SYSTEM_DESIGN",
+          "applied": true,
+          "preferred_eligible_count": 195,
+          "broad_reserved": 10,
+          "fusion_policy": "lexical1_dense2_rrf_v1",
+          "weights": [
+            1.0,
+            2.0
+          ],
+          "ranking_stages": [
+            "lexical",
+            "dense"
+          ],
+          "preferred_new_limit": 30,
+          "pool_max": 50,
+          "selected_by_branch": {
+            "broad_reserved": 10,
+            "preferred": 30,
+            "facet": 10
+          },
+          "ignored_reason": null
+        },
+        "eligible_count": 2452
+      },
+      {
+        "case_id": "bare-engineering",
+        "turn_index": 0,
+        "role": "engineering",
+        "run_status": "SUCCEEDED",
+        "intent": "SEARCH",
+        "returned_count": 13,
+        "main": 13,
+        "adjacent": 0,
+        "negative": 0,
+        "precision": 1.0,
+        "reference_hits": 13,
+        "family_hits": 13,
+        "sourcepass": true,
+        "route_gate": true,
+        "minimum_gate": true,
+        "leaderboard_gate": true,
+        "soft_required": true,
+        "soft_gate": true,
+        "guard_gate": null,
+        "all_applicable_gates_pass": true,
+        "elapsed_seconds": 96.92,
+        "actual_pipeline": "HYBRID_RERANK",
+        "relevance_status": "VERIFIED",
+        "rerank_status": "COMPLETED",
+        "soft_branch": {
+          "hint": "SYSTEM_DESIGN",
+          "applied": true,
+          "preferred_eligible_count": 195,
+          "broad_reserved": 10,
+          "fusion_policy": "lexical1_dense2_rrf_v1",
+          "weights": [
+            1.0,
+            2.0
+          ],
+          "ranking_stages": [
+            "lexical",
+            "dense"
+          ],
+          "preferred_new_limit": 30,
+          "pool_max": 50,
+          "selected_by_branch": {
+            "broad_reserved": 10,
+            "preferred": 30,
+            "facet": 10
+          },
+          "ignored_reason": null
+        },
+        "eligible_count": 2452
+      },
+      {
+        "case_id": "example-is-category",
+        "turn_index": 0,
+        "role": "engineering",
+        "run_status": "SUCCEEDED",
+        "intent": "SEARCH",
+        "returned_count": 15,
+        "main": 15,
+        "adjacent": 0,
+        "negative": 0,
+        "precision": 1.0,
+        "reference_hits": 15,
+        "family_hits": 14,
+        "sourcepass": true,
+        "route_gate": true,
+        "minimum_gate": true,
+        "leaderboard_gate": true,
+        "soft_required": true,
+        "soft_gate": true,
+        "guard_gate": null,
+        "all_applicable_gates_pass": true,
+        "elapsed_seconds": 97.15,
+        "actual_pipeline": "HYBRID_RERANK",
+        "relevance_status": "VERIFIED",
+        "rerank_status": "COMPLETED",
+        "soft_branch": {
+          "hint": "SYSTEM_DESIGN",
+          "applied": true,
+          "preferred_eligible_count": 195,
+          "broad_reserved": 10,
+          "fusion_policy": "lexical1_dense2_rrf_v1",
+          "weights": [
+            1.0,
+            2.0
+          ],
+          "ranking_stages": [
+            "lexical",
+            "dense"
+          ],
+          "preferred_new_limit": 30,
+          "pool_max": 50,
+          "selected_by_branch": {
+            "broad_reserved": 10,
+            "preferred": 30,
+            "facet": 10
+          },
+          "ignored_reason": null
+        },
+        "eligible_count": 2452
+      },
+      {
+        "case_id": "topic-correction",
+        "turn_index": 0,
+        "role": "setup",
+        "run_status": "SUCCEEDED",
+        "intent": "SEARCH",
+        "returned_count": 12,
+        "main": null,
+        "adjacent": null,
+        "negative": null,
+        "precision": null,
+        "reference_hits": null,
+        "family_hits": null,
+        "sourcepass": null,
+        "route_gate": null,
+        "minimum_gate": null,
+        "leaderboard_gate": null,
+        "soft_required": false,
+        "soft_gate": null,
+        "guard_gate": null,
+        "all_applicable_gates_pass": true,
+        "elapsed_seconds": 105.07,
+        "actual_pipeline": "HYBRID_RERANK",
+        "relevance_status": "VERIFIED",
+        "rerank_status": "COMPLETED"
+      },
+      {
+        "case_id": "topic-correction",
+        "turn_index": 1,
+        "role": "engineering",
+        "run_status": "SUCCEEDED",
+        "intent": "SEARCH",
+        "returned_count": 14,
+        "main": 14,
+        "adjacent": 0,
+        "negative": 0,
+        "precision": 1.0,
+        "reference_hits": 14,
+        "family_hits": 13,
+        "sourcepass": true,
+        "route_gate": true,
+        "minimum_gate": true,
+        "leaderboard_gate": true,
+        "soft_required": false,
+        "soft_gate": null,
+        "guard_gate": null,
+        "all_applicable_gates_pass": true,
+        "elapsed_seconds": 113.22,
+        "actual_pipeline": "HYBRID_RERANK",
+        "relevance_status": "VERIFIED",
+        "rerank_status": "COMPLETED",
+        "soft_branch": {
+          "hint": "SYSTEM_DESIGN",
+          "applied": true,
+          "preferred_eligible_count": 195,
+          "broad_reserved": 10,
+          "fusion_policy": "lexical1_dense2_rrf_v1",
+          "weights": [
+            1.0,
+            2.0
+          ],
+          "ranking_stages": [
+            "lexical",
+            "dense"
+          ],
+          "preferred_new_limit": 30,
+          "pool_max": 50,
+          "selected_by_branch": {
+            "broad_reserved": 10,
+            "preferred": 30,
+            "facet": 10
+          },
+          "ignored_reason": null
+        },
+        "eligible_count": 2452
+      },
+      {
+        "case_id": "topic-correction",
+        "turn_index": 2,
+        "role": "engineering",
+        "run_status": "SUCCEEDED",
+        "intent": "SEARCH",
+        "returned_count": 12,
+        "main": 12,
+        "adjacent": 0,
+        "negative": 0,
+        "precision": 1.0,
+        "reference_hits": 12,
+        "family_hits": 11,
+        "sourcepass": true,
+        "route_gate": true,
+        "minimum_gate": true,
+        "leaderboard_gate": true,
+        "soft_required": false,
+        "soft_gate": null,
+        "guard_gate": null,
+        "all_applicable_gates_pass": true,
+        "elapsed_seconds": 120.31,
+        "actual_pipeline": "HYBRID_RERANK",
+        "relevance_status": "VERIFIED",
+        "rerank_status": "COMPLETED",
+        "soft_branch": {
+          "hint": "SYSTEM_DESIGN",
+          "applied": true,
+          "preferred_eligible_count": 195,
+          "broad_reserved": 10,
+          "fusion_policy": "lexical1_dense2_rrf_v1",
+          "weights": [
+            1.0,
+            2.0
+          ],
+          "ranking_stages": [
+            "lexical",
+            "dense"
+          ],
+          "preferred_new_limit": 30,
+          "pool_max": 50,
+          "selected_by_branch": {
+            "broad_reserved": 10,
+            "preferred": 30,
+            "facet": 10
+          },
+          "ignored_reason": null
+        },
+        "eligible_count": 2452
+      },
+      {
+        "case_id": "leaderboard-only",
+        "turn_index": 0,
+        "role": "guard",
+        "run_status": "SUCCEEDED",
+        "intent": "SEARCH",
+        "returned_count": 1,
+        "main": null,
+        "adjacent": null,
+        "negative": null,
+        "precision": null,
+        "reference_hits": null,
+        "family_hits": null,
+        "sourcepass": null,
+        "route_gate": true,
+        "minimum_gate": null,
+        "leaderboard_gate": null,
+        "soft_required": false,
+        "soft_gate": null,
+        "guard_gate": true,
+        "all_applicable_gates_pass": true,
+        "elapsed_seconds": 69.98,
+        "actual_pipeline": "HYBRID_RERANK",
+        "relevance_status": "VERIFIED",
+        "rerank_status": "COMPLETED"
+      },
+      {
+        "case_id": "design-answer",
+        "turn_index": 0,
+        "role": "guard",
+        "run_status": "SUCCEEDED",
+        "intent": "ANSWER",
+        "returned_count": 0,
+        "main": null,
+        "adjacent": null,
+        "negative": null,
+        "precision": null,
+        "reference_hits": null,
+        "family_hits": null,
+        "sourcepass": null,
+        "route_gate": true,
+        "minimum_gate": null,
+        "leaderboard_gate": null,
+        "soft_required": false,
+        "soft_gate": null,
+        "guard_gate": true,
+        "all_applicable_gates_pass": true,
+        "elapsed_seconds": 69.22,
+        "actual_pipeline": null,
+        "relevance_status": null,
+        "rerank_status": null
+      },
+      {
+        "case_id": "agent-guard",
+        "turn_index": 0,
+        "role": "guard",
+        "run_status": "SUCCEEDED",
+        "intent": "SEARCH",
+        "returned_count": 20,
+        "main": null,
+        "adjacent": null,
+        "negative": null,
+        "precision": null,
+        "reference_hits": null,
+        "family_hits": null,
+        "sourcepass": null,
+        "route_gate": true,
+        "minimum_gate": null,
+        "leaderboard_gate": null,
+        "soft_required": false,
+        "soft_gate": null,
+        "guard_gate": true,
+        "all_applicable_gates_pass": true,
+        "elapsed_seconds": 106.06,
+        "actual_pipeline": "HYBRID_RERANK",
+        "relevance_status": "VERIFIED",
+        "rerank_status": "COMPLETED"
+      },
+      {
+        "case_id": "code-guard",
+        "turn_index": 0,
+        "role": "guard",
+        "run_status": "SUCCEEDED",
+        "intent": "SEARCH",
+        "returned_count": 3,
+        "main": null,
+        "adjacent": null,
+        "negative": null,
+        "precision": null,
+        "reference_hits": null,
+        "family_hits": null,
+        "sourcepass": null,
+        "route_gate": true,
+        "minimum_gate": null,
+        "leaderboard_gate": null,
+        "soft_required": false,
+        "soft_gate": null,
+        "guard_gate": true,
+        "all_applicable_gates_pass": true,
+        "elapsed_seconds": 42.05,
+        "actual_pipeline": "HYBRID_RERANK",
+        "relevance_status": "VERIFIED",
+        "rerank_status": "COMPLETED"
+      },
+      {
+        "case_id": "legacy-state-correction",
+        "turn_index": 0,
+        "role": "engineering",
+        "run_status": "SUCCEEDED",
+        "intent": "SEARCH",
+        "returned_count": 17,
+        "main": 17,
+        "adjacent": 0,
+        "negative": 0,
+        "precision": 1.0,
+        "reference_hits": 17,
+        "family_hits": 16,
+        "sourcepass": true,
+        "route_gate": true,
+        "minimum_gate": true,
+        "leaderboard_gate": true,
+        "soft_required": true,
+        "soft_gate": true,
+        "guard_gate": null,
+        "all_applicable_gates_pass": true,
+        "elapsed_seconds": 98.57,
+        "actual_pipeline": "HYBRID_RERANK",
+        "relevance_status": "VERIFIED",
+        "rerank_status": "COMPLETED",
+        "soft_branch": {
+          "hint": "SYSTEM_DESIGN",
+          "applied": true,
+          "preferred_eligible_count": 195,
+          "broad_reserved": 10,
+          "fusion_policy": "lexical1_dense2_rrf_v1",
+          "weights": [
+            1.0,
+            2.0
+          ],
+          "ranking_stages": [
+            "lexical",
+            "dense"
+          ],
+          "preferred_new_limit": 30,
+          "pool_max": 50,
+          "selected_by_branch": {
+            "broad_reserved": 10,
+            "preferred": 30,
+            "facet": 10
+          },
+          "ignored_reason": null
+        },
+        "eligible_count": 2452
+      }
+    ],
+    "coverage_reference_hits": 15,
+    "reference_total": 23,
+    "coverage_precision": 0.9375,
+    "coverage_adjacent": 1,
+    "coverage_negative": 0
+  },
+  "release": {
+    "manifest_sha256": "e125555e4c1b11765f5c43ef382b3e410cd8427a9fbe2cdbb29d09ba6d4a1e84",
+    "files": {
+      "config.py": "9e81b5647445bf0ebad565df8735ac248df76cbb2925feffd9cd4c3e61f61a8e",
+      "agent/query_contract.py": "a17cb1cc46a51f9cb35547df42c3c5dad3ff7af2fa339e5750b63b3aeb378106",
+      "resources/prompts/query_agent_v13.md": "41c2a7ef8d72e388bdc814c34d1e4db838cc99f595baf0e49d2566cbc190a82f",
+      "search/service.py": "8511203a346e5cb82487d5e9cfccb57712d31f1863d152186237616d3ad74cde",
+      "search/elasticsearch.py": "77d876b7d69ae32dc796c34bf94e0e18250c36ce216eeeb278dff54058b81ef3",
+      "search/reranker.py": "0024418d270fe4e1919e815aaf1023a175d9c534e0026a998e16df91b2ed422a",
+      "search/evidence.py": "2a14c9b8078fa34df5a97baec893f72541a3d64a889b43ae6d78e9a525ff7370",
+      "search/candidate_prompt.py": "9acef06f47b3fbd4c1e69ddc6f141f9cc8113b752c17b1174791f81af25ad201",
+      "agent/query_service.py": "8e6eecc6c6790d454817544cabd4700fd4b2ca6cf1d7b38e73ddf5a58b681b62",
+      "pi/services/pi-agent/runtime.mjs": "384272bdea504ade8fb74c78c88a0e6d4ab24b658196ce49848aa98ffdd55233"
+    },
+    "units": {
+      "interview-intelligence-api": "active",
+      "interview-intelligence-worker": "active",
+      "interview-intelligence-pi": "active"
+    },
+    "backup_directory": "/home/dylan/services/interview-intelligence/backups/engineering-design-v13-20261008T162535Z",
+    "health": {
+      "database": "ready",
+      "index": "ready",
+      "query_prompt_version": "query_agent_v13",
+      "query_prompt_sha256": "41c2a7ef8d72e388bdc814c34d1e4db838cc99f595baf0e49d2566cbc190a82f",
+      "reranker_version": "rerank_v14_design_unit_scope_partial"
+    },
+    "planner_call_limit": 4,
+    "existing_total_call_limit": 6,
+    "deadline_seconds": 180,
+    "soft_branch_weights": [
+      1,
+      2
+    ],
+    "broad_branch_weights": [
+      1,
+      1
+    ]
+  },
+  "local_tests": {
+    "python": {
+      "command": ".venv/Scripts/python.exe -m pytest tests/integration/test_query_question_type_scope.py tests/integration/test_query_semantic_filter_scope.py tests/integration/test_query_spec_completion.py tests/integration/test_conversation_focus.py tests/integration/test_intent_answers.py tests/unit/test_query_intents.py tests/unit/test_engineering_design_prompt.py tests/unit/test_reranker.py tests/unit/test_elasticsearch_retriever.py tests/integration/test_search_candidate_context.py tests/integration/test_search.py tests/integration/test_query_partial_rerank.py tests/integration/test_query_soft_preference_http.py -q",
+      "passed": 340,
+      "failed": 0,
+      "duration_seconds": 24.06,
+      "warnings": 1,
+      "warning_note": "Existing Starlette httpx TestClient deprecation"
+    },
+    "node": {
+      "command": "node --test tests/node/pi-runtime.test.mjs",
+      "passed": 16,
+      "failed": 0,
+      "scope": "Candidate6 schema/HTTP verification; Pi runtime byte-identical through candidate8 and deployed manifest"
+    }
+  },
+  "exact_deployed_overlay_checks": {
+    "passed": 80,
+    "model_calls": 0,
+    "grounding": 26,
+    "scope_and_pool": 24,
+    "partial_and_fatal_schema": 13,
+    "actual_ES_to_QueryService": 9,
+    "weights": 8,
+    "same_vector_matrix_exact_helper_checks": 16
+  },
+  "isolated_service_cleanup": {
+    "time": "2026-10-08T16:32:30.397216+00:00",
+    "stopped_units": [
+      "interview-intelligence-engineering-check-api.service",
+      "interview-intelligence-engineering-check-pi.service"
+    ],
+    "production_unchanged": true,
+    "production_modified": false,
+    "data_deleted": false,
+    "real_model_calls": 0
+  },
+  "public_replay": {
+    "turns": [
+      {
+        "case_id": "leaderboard-only",
+        "turn_index": 0,
+        "status": "SUCCEEDED",
+        "intent": "SEARCH",
+        "returned_count": 1,
+        "actual_pipeline": "HYBRID_RERANK",
+        "relevance_status": "VERIFIED",
+        "elapsed_seconds": 86.95,
+        "sse_retained": true
+      },
+      {
+        "case_id": "legacy-state-correction",
+        "turn_index": 0,
+        "status": "SUCCEEDED",
+        "intent": "SEARCH",
+        "returned_count": 17,
+        "actual_pipeline": "HYBRID_RERANK",
+        "relevance_status": "VERIFIED",
+        "elapsed_seconds": 138.03,
+        "sse_retained": true
+      }
+    ],
+    "independent_source_review_all_gates_pass": true,
+    "original_main": 17,
+    "original_adjacent": 0,
+    "original_negative": 0,
+    "original_precision": 1.0,
+    "original_reference_hits": 17,
+    "original_family_hits": 16,
+    "reference_total": 23,
+    "history": {
+      "before_version": 3,
+      "after_version": 4,
+      "historical_turns_retained_unchanged": 3,
+      "all_historical_turns_equal": true
+    }
+  },
+  "limitations": [
+    "Fixed reference is source-reviewed development data, not exhaustive corpus gold or an unseen test.",
+    "Coverage contains one adjacent thread-pool question; seven known positives miss the pool and one is wrongly rejected.",
+    "Source context is capped at two occurrences and 500 UTF-8 bytes per question.",
+    "Code guard preserves ENGINEERING/CODE; only one of three LRU results explicitly states thread safety."
+  ],
+  "private_evidence_sha256": {
+    "reference/reference.json": "5e003aa6c29cf0072806074eed9e59c6d8a479d5be17c612cec4d21cc5a936c2",
+    "acceptance-protocol-v3.json": "272a524f85a532705ed7a9f087332dbf4e969b59685f06ffdb8e522ed9893dba",
+    "acceptance-soft-branch-addendum-v6.json": "1c1062f3b00f80d195089af0fedd744370f1d5d357c79940e0ec17b5ae5339a8",
+    "reference/candidate8-final-acceptance.json": "3853d88a288f59d1fe8f70c9e744bb1fedd5c7b5ec319358dc7c0e2e2d1cfaa6",
+    "after-stage-v8-coverage/receipts.json": "b1f9f3b52816517c17f03696eb634f6f9eb8e389ff664e8f912e6dc1a562b508",
+    "after-stage-v8-suite/receipts.json": "41bb6a9731406a4c20e3d31d373584d8e42e333c1e9bfde038582b3cd9a4b791",
+    "candidate8-coverage-crosscheck.json": "aa0042a5387b39828d7e9351c8d4c37da4d12c031100ace34dd29e5762616cf0",
+    "candidate8-suite-crosscheck.json": "d8dea6d7a7878f533cf2f29eb427856100904663516947edbfe035b411d35930",
+    "candidate8-release-manifest.json": "e125555e4c1b11765f5c43ef382b3e410cd8427a9fbe2cdbb29d09ba6d4a1e84",
+    "deployment-receipt.json": "51cf3fc9b16308e4d36be318c4faf6aa9d77dfe3fa3e0c1365d27aab8e6a9847",
+    "after-public-v8-guard/receipts.json": "f645319d1c22b571182396288c0cf51431936ac472d59bb7b2a4cc3f0c445b43",
+    "after-public-v8-original/receipts.json": "58def64ae4a1d3a106c0817401f5df6b34a35d5d4eb46ed040570efa67b0b463",
+    "public-original-history-receipt.json": "bfeb1382debc29a7c81eba76c76e30715cd2e9ec2ea4eb9dcc64f415f3e0b85c",
+    "local-final-tests.json": "a462dcdb5e1134c5f8474bf6151a28511864d9c4f7c4d2cd24a846b803bfb3a4",
+    "reference/candidate8-public-acceptance.json": "bbadbd8f9af0125f8ad17993ec0752f9c7f78d1d22529583def29193737da828",
+    "reference/candidate8-public-original-review.json": "86b2e6f1fb7feaf652d04e9fb43cd71936a700aeddb28308988cc8775cb472db",
+    "reference/candidate8-public-guard-review.json": "ac4ef7828eb8e44aa6efd310bdf460a7eebc7ee62db17cd5f12ac5d6248edaed",
+    "stage-cleanup-receipt.json": "a0e69373f89b48fee2cc0381075404240ccdf3221ec3d7f1ef660cad3e36b66f"
+  }
+}

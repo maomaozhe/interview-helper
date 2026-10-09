@@ -59,3 +59,52 @@ def test_token_budget_rejects_before_entering_provider(tmp_path):
     gateway=ModelGateway(settings,ModelCallGate(tmp_path/"lock",minimum_interval_seconds=0))
     with pytest.raises(ValueError,match="QUERY_TOKEN_BUDGET_EXCEEDED"):
         asyncio.run(gateway.complete(run,{"messages":[]}))
+
+
+@pytest.mark.parametrize("terminal", ["complete", "incomplete"])
+def test_json_fallback_emits_answer_before_upstream_finishes(monkeypatch, tmp_path, terminal):
+    from interview_intelligence.contracts import FilterSpec
+
+    async def scenario():
+        events, audit = [], []
+        fragments = ['{"action":"ANSWER","answer_text":"## Redis\\n\\n内存',
+            '访问**很快**","answer_kind":"EXPLAIN","answer_basis":"GENERAL_KNOWLEDGE",'
+            '"final":true,"sort":"frequency","top_n":null,"page_size":20,"filters":' +
+            json.dumps(FilterSpec().model_dump(mode="json")) + '}']
+
+        class CheckedStream(httpx.AsyncByteStream):
+            async def __aiter__(self):
+                for fragment in fragments:
+                    yield ("data: " + json.dumps({"choices":[{"index":0,
+                        "delta":{"content":fragment},"finish_reason":None}]}) + "\n\n").encode()
+                # Inspect public events before any finish/DONE frame exists.
+                answers = [e[2] for e in events if e[1] == "answer_delta"]
+                assert len(answers) == 2 and not audit
+                assert answers[0]["text"] == "## Redis\n\n内存"
+                assert answers[1]["delta"] == "访问**很快**"
+                assert all(e["run_id"] == "run" and e["model_call"] == 1 for e in answers)
+                if terminal == "complete":
+                    yield b'data: {"choices":[{"index":0,"delta":{},"finish_reason":"stop"}]}\n\n'
+                    yield b'data: [DONE]\n\n'
+
+        original = httpx.AsyncClient
+        def handle(request):
+            body = json.loads(request.content)
+            assert body["stream"] is True
+            return httpx.Response(200, stream=CheckedStream())
+        monkeypatch.setattr(httpx, "AsyncClient",
+            lambda **kwargs: original(transport=httpx.MockTransport(handle), **kwargs))
+        settings = SimpleNamespace(model_api_key="test", model_base_url="https://fixture.invalid/v1",
+            query_model="test", judge_model="test", query_max_model_calls=3)
+        run = SimpleNamespace(id="run", request=SimpleNamespace(request_id="request"),
+            limits=RequestLimits(time.monotonic()+5), model_calls=0, call_timings={})
+        gateway = ModelGateway(settings, ModelCallGate(tmp_path/"lock", minimum_interval_seconds=0),
+            audit.append, lambda *event: events.append(event))
+        if terminal == "complete":
+            plan = await gateway.plan(run, {"message":"解释 Redis"})
+            assert plan.answer_text == "## Redis\n\n内存访问**很快**"
+        else:
+            with pytest.raises(ValueError, match="STREAM_INCOMPLETE"):
+                await gateway.plan(run, {"message":"解释 Redis"})
+        assert audit[0]["status"] == ("SUCCEEDED" if terminal == "complete" else "FAILED")
+    asyncio.run(scenario())

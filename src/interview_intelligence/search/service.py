@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import math
+
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -11,12 +13,17 @@ from interview_intelligence.contracts import FilterSpec
 from interview_intelligence.domain.models import QuestionOccurrence
 
 
-def rrf(*rankings: list[tuple[str, float]], k: int = 60) -> list[dict]:
+def rrf(*rankings: list[tuple[str, float]], k: int = 60, weights: tuple[float, ...] | None = None) -> list[dict]:
+    weights = tuple(1.0 for _ in rankings) if weights is None else weights
+    if (len(weights) != len(rankings) or any(isinstance(weight, bool) or not isinstance(weight, (int, float))
+            or not math.isfinite(weight) or weight < 0 for weight in weights)
+            or rankings and not any(weight > 0 for weight in weights)):
+        raise ValueError("invalid RRF weights")
     scores: dict[str, float] = {}
     stage_scores: dict[str, dict] = {}
     for index, ranking in enumerate(rankings):
         for rank, (canonical_id, score) in enumerate(ranking, 1):
-            scores[canonical_id] = scores.get(canonical_id, 0.0) + 1 / (k + rank)
+            scores[canonical_id] = scores.get(canonical_id, 0.0) + weights[index] / (k + rank)
             stage_scores.setdefault(canonical_id, {})[f"stage_{index + 1}"] = score
     return [
         {"canonical_question_id": canonical_id, "rrf_score": score,
@@ -38,7 +45,7 @@ def eligible_canonical_ids(session: Session, filters: FilterSpec) -> list[str]:
 def search_questions(
     session: Session, retriever, query: str, filters: FilterSpec,
     *, pipeline: str = "HYBRID", top_k: int = 10, relevance_query: str | None = None,
-    lexical_facets: list[str] | None = None, on_progress=None,
+    lexical_facets: list[str] | None = None, preferred_question_type: str | None = None, on_progress=None,
 ) -> dict:
     if not 1 <= len(query) <= 500 or not 1 <= top_k <= 50:
         raise ValueError("invalid search query or top_k")
@@ -57,6 +64,16 @@ def search_questions(
         options["relevance_query"] = relevance_query
     if lexical_facets and getattr(retriever, "supports_lexical_facets", False):
         options["lexical_facets"] = lexical_facets
+    if pipeline == "HYBRID_RERANK" and getattr(retriever, "supports_candidate_context", False):
+        from interview_intelligence.search.evidence import candidate_source_context
+        options["candidate_context_loader"] = lambda ids: candidate_source_context(session, ids, filters)
+    if (preferred_question_type is not None and filters.question_type is None
+            and pipeline in {"HYBRID", "HYBRID_RERANK"}
+            and getattr(retriever, "supports_question_type_preference", False)):
+        kind = FilterSpec(question_type=preferred_question_type).question_type
+        preferred = eligible_canonical_ids(session, filters.model_copy(update={"question_type": kind}))
+        options.update(preferred_question_type=kind.value,
+                       preferred_eligible_ids=sorted(set(preferred).intersection(eligible)))
     retrieval = retriever.retrieve(query, eligible, pipeline, top_k, **options)
     if on_progress:
         on_progress({"stage":"assembling", "count":len(retrieval["data"])})

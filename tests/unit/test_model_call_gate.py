@@ -66,15 +66,17 @@ def test_embedding_and_rerank_hold_gate_during_network_request():
 
     def create_rerank(**kwargs):
         assert gate.active
+        if "verifications" in kwargs["response_format"]["json_schema"]["schema"]["properties"]:
+            return SimpleNamespace(choices=[SimpleNamespace(message=SimpleNamespace(
+                content=json.dumps({"verifications": [{"candidate_id": "c0", "keep": True,
+                                                      "reason": "明确询问Redis查询"}]})))])
         return SimpleNamespace(choices=[SimpleNamespace(message=SimpleNamespace(
-            content=json.dumps({
-                "query_object": "Redis", "query_focus": "Redis查询",
-                "rankings": [{
-                    "candidate_id": "c0",
-                    "object_evidence": "Redis", "focus_evidence": "Redis查询",
-                    "object_relation": "EXPLICIT", "focus_relation": "DIRECT",
-                }],
-            }),
+            content=json.dumps({"query_task": "OTHER", "query_task_evidence": "Redis",
+                "query_object": "Redis", "query_focus": "Redis查询", "rankings": [
+                {"candidate_id": "c0", "candidate_task": "KNOWLEDGE", "task_evidence": "Redis",
+                 "object_evidence": "Redis", "focus_evidence": "Redis查询",
+                 "object_scope": "SAME", "focus_scope": "SAME"}],
+                "query_object_evidence": "Redis", "query_focus_evidence": "Redis"}),
         ))])
 
     reranker = LLMReranker(
@@ -97,7 +99,7 @@ def test_embedding_and_rerank_hold_gate_during_network_request():
     ark = ArkMultimodalEncoder(model="local-test", dimension=2, api_key="local-test",
                                client=SimpleNamespace(post=post), call_gate=gate)
     assert ark.embed_query("Redis") == [0.6, 0.8]
-    assert gate.calls == 3
+    assert gate.calls == 4
     assert not gate.active
 
 

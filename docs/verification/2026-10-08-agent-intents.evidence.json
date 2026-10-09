@@ -1,0 +1,837 @@
+{
+  "schema_version": 1,
+  "recorded_date": "2026-10-08",
+  "record_kind": "retrospective_documentation",
+  "report": "docs/verification/2026-10-08-agent-intents.md",
+  "raw_evidence_git_ignored": true,
+  "source_files": [
+    {
+      "path": "data/reports/agent-intent-20261008/intent-smoke.json",
+      "bytes": 214296,
+      "sha256": "c1b691f487485ba7208404f469767e2cdd276f47d819b843cc4387daab2f2621"
+    },
+    {
+      "path": "data/reports/agent-intent-20261008/public-verification.json",
+      "bytes": 995,
+      "sha256": "8ebfcdf9f4acfcc16b87d39427cbf1920dccc613e6ccdc31f53ce097a7841e4e"
+    },
+    {
+      "path": "data/reports/agent-intent-20261008/intent-deployment-receipt.json",
+      "bytes": 2275,
+      "sha256": "41611fb974fc46cd7fb6ac25d9bdf6b5ffadd89455d8c3697aa89f5fa84ddfb8"
+    },
+    {
+      "path": "data/reports/agent-intent-20261008/release-manifest.json",
+      "bytes": 12875,
+      "sha256": "316e1f6a21c666dc88bcbc21f6b570dfb4159c770830834f4355ee4df4a9d07a"
+    },
+    {
+      "path": "data/reports/agent-intent-20261008/agent-intent-release.tar.gz",
+      "bytes": 199130,
+      "sha256": "b93369ed931258d2996ded1aca93192695f28ee08c7da2bfe06b8289c9d7f086"
+    },
+    {
+      "path": "data/reports/agent-intent-20261008/smoke_intents.py",
+      "bytes": 3777,
+      "sha256": "63a0bb599692cab680e7d78516aea7ddb5cf3c3aba7fec61e43df4bd5f27e907"
+    },
+    {
+      "path": "data/reports/agent-intent-20261008/build_release.py",
+      "bytes": 5451,
+      "sha256": "2f9404aa0a27725e3a9e5e310d9e67b2a0ba669e8680bf0b928426f4671f53d3"
+    }
+  ],
+  "deployment": {
+    "version": "query_agent_v11",
+    "backup": "/home/dylan/services/interview-intelligence/backups/intent-v11-20261008-184929",
+    "health": {
+      "database": "ready",
+      "current_revision": 293,
+      "indexed_revision": 293,
+      "index": "ready",
+      "model_max_in_flight": 1,
+      "model_min_interval_seconds": 2.0,
+      "query_router_enabled": true,
+      "task_filters_enabled": true,
+      "task_annotation_policy": "KNOWN",
+      "pi_agent_enabled": true,
+      "query_prompt_version": "query_agent_v11",
+      "query_prompt_sha256": "1175453f40cb2672b2ce04b28d400f2b573f32274e0726cd778f0b8d95eac85a",
+      "reranker_version": "rerank_v10_explicit_object",
+      "jev_decision_enabled": false,
+      "model": "configured"
+    },
+    "files": {
+      "app/interview_intelligence/agent/query_contract.py": "b83520f8a22259da45ba4a77c32c38200ed0e3733d15c8856826ff2d2a97cd32",
+      "app/interview_intelligence/agent/harness.py": "e47c60d1982ad4d5724b78967a15d7a8cca828c06ad53302e0e6c8a8edc8820a",
+      "app/interview_intelligence/agent/query_service.py": "382db93ba24c0fdc4d93566378d8e5eb97ee38c23c27913120fb350a790f129b",
+      "app/interview_intelligence/analytics/counts.py": "b9269f706f5a9674daa9273d343fb61bc59ffc2fd1b660e849ca409d1aeb595e",
+      "app/interview_intelligence/config.py": "f3fa0af61ef70d34ac7e471a313badd830247545bfb6efab5dd7c7c1ad17230a",
+      "app/interview_intelligence/resources/prompts/query_agent_v11.md": "1175453f40cb2672b2ce04b28d400f2b573f32274e0726cd778f0b8d95eac85a",
+      "app/interview_intelligence/web/assets/app.js": "6f976908494ba4ab84b136d383f6e7dd23086fec088559ee2a571a993e4eff2b",
+      "app/interview_intelligence/web/assets/core.js": "65fbe5c7e8fa6990647c0aece4991d465c77a9d9f74e80b37eace89c9924c093",
+      "app/interview_intelligence/web/assets/workspace.css": "8212052d3484d8a143073712626f126a40fdc490cc6c3f4f8eaa437852362958",
+      "pi/services/pi-agent/runtime.mjs": "962b13eb42c51221cb44b5d217417b2e89736791c741c79debe10a0ea15459dd"
+    },
+    "preserved_retrieval_hashes": {
+      "search/reranker.py": "1c5b43275fab4dbd27ead9f0e5366c5281bf308deec0d7d11ea155019cacabbd",
+      "search/service.py": "a6b551077d4d4b8e6ff9252a4c23604ee7f1351b4ba860858f6d7361f7464a47",
+      "search/elasticsearch.py": "a0328e0a2550eb9d072670792059e6dda72688a068d015e198e84a38f526b3d4"
+    }
+  },
+  "public_verification": {
+    "url": "https://interview.101-47-18-72.sslip.io/",
+    "passed": true,
+    "checks": {
+      "authentication": true,
+      "exact_published_assets": true,
+      "internal_route_hidden": true,
+      "question_listing": true
+    },
+    "health": {
+      "database": "ready",
+      "current_revision": 293,
+      "indexed_revision": 293,
+      "index": "ready",
+      "model_max_in_flight": 1,
+      "model_min_interval_seconds": 2.0,
+      "query_router_enabled": true,
+      "task_filters_enabled": true,
+      "task_annotation_policy": "KNOWN",
+      "pi_agent_enabled": true,
+      "query_prompt_version": "query_agent_v11",
+      "query_prompt_sha256": "1175453f40cb2672b2ce04b28d400f2b573f32274e0726cd778f0b8d95eac85a",
+      "reranker_version": "rerank_v10_explicit_object",
+      "jev_decision_enabled": false,
+      "model": "configured"
+    },
+    "counts": {
+      "canonical_questions": 2452,
+      "occurrences": 2771,
+      "interviews": 185,
+      "source_documents": 172,
+      "known_companies": 58
+    },
+    "counts_origin": "final_staging_smoke_not_separate_public_count",
+    "service_state_note": "Seven formal services active and staging stopped were checked in prior systemctl output; not archived in these JSON files."
+  },
+  "engineering_validation": {
+    "test_rerun_for_documentation": false,
+    "result_source": "prior_task_execution_output_not_independently_archived_here",
+    "workspace_python": {
+      "passed": 742,
+      "skipped": 1,
+      "includes_parallel_retrieval_work": true
+    },
+    "pi_and_web": {
+      "passed": 43
+    },
+    "frozen_ssh_release_targeted_python": {
+      "passed": 111
+    },
+    "counts_are_overlapping_scopes_not_additive": true
+  },
+  "real_model_validation": {
+    "endpoint_scope": "isolated_ssh_staging_api_18083",
+    "actor": "eval-agent-intent-20261008",
+    "passed": true,
+    "cases": [
+      {
+        "number": 1,
+        "message": "Redis 高频问题有哪些？",
+        "run_id": "d27c57dc-aad0-49c0-9111-dfd0de0710f5",
+        "provider": "pi",
+        "intent": "LIST",
+        "elapsed_seconds": 5.33,
+        "tools": [
+          {
+            "name": "list_questions",
+            "parameters": {
+              "action": "LIST",
+              "filters": {
+                "company": null,
+                "position": null,
+                "job_family": null,
+                "language": null,
+                "topic_l1": "Redis",
+                "topic_l2": null,
+                "question_type": null,
+                "response_form": null,
+                "annotation_status": null,
+                "coding_focus": null,
+                "round": null,
+                "start_date": null,
+                "end_date": null,
+                "date_basis": "BEST_AVAILABLE"
+              },
+              "sort": "frequency",
+              "top_n": 20,
+              "page_size": 20,
+              "group_by": "question",
+              "topic_level": "L1",
+              "question_ids": [],
+              "review_statuses": [],
+              "final": true
+            }
+          }
+        ],
+        "returned_rows": 20,
+        "applied_filters": {
+          "company": null,
+          "position": null,
+          "job_family": null,
+          "language": null,
+          "topic_l1": "Redis",
+          "topic_l2": null,
+          "question_type": null,
+          "response_form": null,
+          "annotation_status": null,
+          "coding_focus": null,
+          "round": null,
+          "start_date": null,
+          "end_date": null,
+          "date_basis": "BEST_AVAILABLE"
+        }
+      },
+      {
+        "number": 2,
+        "message": "一共有多少条数据？",
+        "run_id": "ace4dc08-4820-4d68-b265-4c9682ecb305",
+        "provider": "pi",
+        "intent": "COUNT",
+        "elapsed_seconds": 7.29,
+        "tools": [
+          {
+            "name": "get_question_count",
+            "parameters": {
+              "action": "COUNT",
+              "filters": {
+                "company": null,
+                "position": null,
+                "job_family": null,
+                "language": null,
+                "topic_l1": null,
+                "topic_l2": null,
+                "question_type": null,
+                "response_form": null,
+                "annotation_status": null,
+                "coding_focus": null,
+                "round": null,
+                "start_date": null,
+                "end_date": null,
+                "date_basis": "BEST_AVAILABLE"
+              },
+              "sort": "frequency",
+              "top_n": null,
+              "page_size": 20,
+              "group_by": "question",
+              "topic_level": "L1",
+              "question_ids": [],
+              "review_statuses": [],
+              "final": true
+            }
+          }
+        ],
+        "returned_rows": 0,
+        "count_scope": "full_corpus",
+        "counts": {
+          "canonical_questions": 2452,
+          "occurrences": 2771,
+          "interviews": 185,
+          "source_documents": 172,
+          "known_companies": 58
+        },
+        "applied_filters": {
+          "company": null,
+          "position": null,
+          "job_family": null,
+          "language": null,
+          "topic_l1": null,
+          "topic_l2": null,
+          "question_type": null,
+          "response_form": null,
+          "annotation_status": null,
+          "coding_focus": null,
+          "round": null,
+          "start_date": null,
+          "end_date": null,
+          "date_basis": "BEST_AVAILABLE"
+        }
+      },
+      {
+        "number": 3,
+        "message": "Redis有多少题？",
+        "run_id": "327899fd-4ca7-4880-ab13-10a53fc22008",
+        "provider": "pi",
+        "intent": "COUNT",
+        "elapsed_seconds": 7.13,
+        "tools": [
+          {
+            "name": "get_question_count",
+            "parameters": {
+              "action": "COUNT",
+              "filters": {
+                "company": null,
+                "position": null,
+                "job_family": null,
+                "language": null,
+                "topic_l1": "Redis",
+                "topic_l2": null,
+                "question_type": null,
+                "response_form": null,
+                "annotation_status": null,
+                "coding_focus": null,
+                "round": null,
+                "start_date": null,
+                "end_date": null,
+                "date_basis": "BEST_AVAILABLE"
+              },
+              "sort": "frequency",
+              "top_n": null,
+              "page_size": 20,
+              "group_by": "question",
+              "topic_level": "L1",
+              "question_ids": [],
+              "review_statuses": [],
+              "final": true
+            }
+          }
+        ],
+        "returned_rows": 0,
+        "count_scope": "filtered_corpus",
+        "counts": {
+          "canonical_questions": 152,
+          "occurrences": 179,
+          "interviews": 63,
+          "source_documents": 61,
+          "known_companies": 25
+        },
+        "applied_filters": {
+          "company": null,
+          "position": null,
+          "job_family": null,
+          "language": null,
+          "topic_l1": "Redis",
+          "topic_l2": null,
+          "question_type": null,
+          "response_form": null,
+          "annotation_status": null,
+          "coding_focus": null,
+          "round": null,
+          "start_date": null,
+          "end_date": null,
+          "date_basis": "BEST_AVAILABLE"
+        }
+      },
+      {
+        "number": 4,
+        "message": "其中腾讯呢？",
+        "run_id": "39104d1e-e69e-4281-b932-eb6a85a3bf84",
+        "provider": "pi",
+        "intent": "COUNT",
+        "elapsed_seconds": 7.38,
+        "tools": [
+          {
+            "name": "get_question_count",
+            "parameters": {
+              "action": "COUNT",
+              "filters": {
+                "company": "腾讯",
+                "position": null,
+                "job_family": null,
+                "language": null,
+                "topic_l1": "Redis",
+                "topic_l2": null,
+                "question_type": null,
+                "response_form": null,
+                "annotation_status": null,
+                "coding_focus": null,
+                "round": null,
+                "start_date": null,
+                "end_date": null,
+                "date_basis": "BEST_AVAILABLE"
+              },
+              "sort": "frequency",
+              "top_n": null,
+              "page_size": 20,
+              "group_by": "question",
+              "topic_level": "L1",
+              "question_ids": [],
+              "review_statuses": [],
+              "final": true
+            }
+          }
+        ],
+        "returned_rows": 0,
+        "count_scope": "filtered_corpus",
+        "counts": {
+          "canonical_questions": 16,
+          "occurrences": 17,
+          "interviews": 7,
+          "source_documents": 7,
+          "known_companies": 1
+        },
+        "applied_filters": {
+          "company": "腾讯",
+          "position": null,
+          "job_family": null,
+          "language": null,
+          "topic_l1": "Redis",
+          "topic_l2": null,
+          "question_type": null,
+          "response_form": null,
+          "annotation_status": null,
+          "coding_focus": null,
+          "round": null,
+          "start_date": null,
+          "end_date": null,
+          "date_basis": "BEST_AVAILABLE"
+        }
+      },
+      {
+        "number": 5,
+        "message": "解释一下 Redis 为什么快，给我三个主要原因，200字以内。",
+        "run_id": "36205c44-9730-40cb-bd10-adbee133e9f2",
+        "provider": "pi",
+        "intent": "ANSWER",
+        "elapsed_seconds": 9.29,
+        "tools": [
+          {
+            "name": "answer_question",
+            "parameters": {
+              "action": "ANSWER",
+              "filters": {
+                "company": null,
+                "position": null,
+                "job_family": null,
+                "language": null,
+                "topic_l1": "Redis",
+                "topic_l2": null,
+                "question_type": null,
+                "response_form": null,
+                "annotation_status": null,
+                "coding_focus": null,
+                "round": null,
+                "start_date": null,
+                "end_date": null,
+                "date_basis": "BEST_AVAILABLE"
+              },
+              "sort": "frequency",
+              "top_n": null,
+              "page_size": 20,
+              "group_by": "question",
+              "topic_level": "L1",
+              "question_ids": [],
+              "review_statuses": [],
+              "final": true
+            }
+          }
+        ],
+        "returned_rows": 0,
+        "applied_filters": {
+          "company": null,
+          "position": null,
+          "job_family": null,
+          "language": null,
+          "topic_l1": "Redis",
+          "topic_l2": null,
+          "question_type": null,
+          "response_form": null,
+          "annotation_status": null,
+          "coding_focus": null,
+          "round": null,
+          "start_date": null,
+          "end_date": null,
+          "date_basis": "BEST_AVAILABLE"
+        },
+        "answer_kind": "EXPLAIN",
+        "answer_basis": "GENERAL_KNOWLEDGE",
+        "evidence_question_ids": []
+      },
+      {
+        "number": 6,
+        "message": "RDB 和 AOF 有什么区别，怎么选择？300字以内。",
+        "run_id": "3127ec5a-7bb1-45cc-9720-171d27515310",
+        "provider": "pi",
+        "intent": "ANSWER",
+        "elapsed_seconds": 10.66,
+        "tools": [
+          {
+            "name": "answer_question",
+            "parameters": {
+              "action": "ANSWER",
+              "filters": {
+                "company": null,
+                "position": null,
+                "job_family": null,
+                "language": null,
+                "topic_l1": "Redis",
+                "topic_l2": null,
+                "question_type": null,
+                "response_form": null,
+                "annotation_status": null,
+                "coding_focus": null,
+                "round": null,
+                "start_date": null,
+                "end_date": null,
+                "date_basis": "BEST_AVAILABLE"
+              },
+              "sort": "frequency",
+              "top_n": null,
+              "page_size": 20,
+              "group_by": "question",
+              "topic_level": "L1",
+              "question_ids": [],
+              "review_statuses": [],
+              "final": true
+            }
+          }
+        ],
+        "returned_rows": 0,
+        "applied_filters": {
+          "company": null,
+          "position": null,
+          "job_family": null,
+          "language": null,
+          "topic_l1": "Redis",
+          "topic_l2": null,
+          "question_type": null,
+          "response_form": null,
+          "annotation_status": null,
+          "coding_focus": null,
+          "round": null,
+          "start_date": null,
+          "end_date": null,
+          "date_basis": "BEST_AVAILABLE"
+        },
+        "answer_kind": "COMPARE",
+        "answer_basis": "GENERAL_KNOWLEDGE",
+        "evidence_question_ids": []
+      },
+      {
+        "number": 7,
+        "message": "刚才说的 AOF 重写为什么能缩小文件？200字以内。",
+        "run_id": "1d286e0a-c202-435a-8839-b999264fc7d3",
+        "provider": "pi",
+        "intent": "ANSWER",
+        "elapsed_seconds": 11.06,
+        "tools": [
+          {
+            "name": "answer_question",
+            "parameters": {
+              "action": "ANSWER",
+              "filters": {
+                "company": null,
+                "position": null,
+                "job_family": null,
+                "language": null,
+                "topic_l1": "Redis",
+                "topic_l2": "持久化",
+                "question_type": "PRINCIPLE",
+                "response_form": "VERBAL",
+                "annotation_status": "KNOWN",
+                "coding_focus": "NONE",
+                "round": null,
+                "start_date": null,
+                "end_date": null,
+                "date_basis": "BEST_AVAILABLE"
+              },
+              "sort": "frequency",
+              "top_n": null,
+              "page_size": 20,
+              "group_by": "question",
+              "topic_level": "L1",
+              "question_ids": [],
+              "review_statuses": [],
+              "final": true
+            }
+          }
+        ],
+        "returned_rows": 0,
+        "applied_filters": {
+          "company": null,
+          "position": null,
+          "job_family": null,
+          "language": null,
+          "topic_l1": "Redis",
+          "topic_l2": "持久化",
+          "question_type": "PRINCIPLE",
+          "response_form": "VERBAL",
+          "annotation_status": "KNOWN",
+          "coding_focus": "NONE",
+          "round": null,
+          "start_date": null,
+          "end_date": null,
+          "date_basis": "BEST_AVAILABLE"
+        },
+        "answer_kind": "EXPLAIN",
+        "answer_basis": "GENERAL_KNOWLEDGE",
+        "evidence_question_ids": []
+      },
+      {
+        "number": 8,
+        "message": "列出Redis频率最高的前3道题",
+        "run_id": "3f40c8db-d23b-4901-bf12-0be96adaf980",
+        "provider": "pi",
+        "intent": "LIST",
+        "elapsed_seconds": 7.31,
+        "tools": [
+          {
+            "name": "list_questions",
+            "parameters": {
+              "action": "LIST",
+              "filters": {
+                "company": null,
+                "position": null,
+                "job_family": null,
+                "language": null,
+                "topic_l1": "Redis",
+                "topic_l2": null,
+                "question_type": null,
+                "response_form": null,
+                "annotation_status": null,
+                "coding_focus": null,
+                "round": null,
+                "start_date": null,
+                "end_date": null,
+                "date_basis": "BEST_AVAILABLE"
+              },
+              "sort": "frequency",
+              "top_n": 3,
+              "page_size": 3,
+              "group_by": "question",
+              "topic_level": "L1",
+              "question_ids": [],
+              "review_statuses": [],
+              "final": true
+            }
+          }
+        ],
+        "returned_rows": 3,
+        "applied_filters": {
+          "company": null,
+          "position": null,
+          "job_family": null,
+          "language": null,
+          "topic_l1": "Redis",
+          "topic_l2": null,
+          "question_type": null,
+          "response_form": null,
+          "annotation_status": null,
+          "coding_focus": null,
+          "round": null,
+          "start_date": null,
+          "end_date": null,
+          "date_basis": "BEST_AVAILABLE"
+        }
+      },
+      {
+        "number": 9,
+        "message": "第二题怎么回答？请给思路和示例，400字以内。",
+        "run_id": "00f510ed-61e4-4797-b69b-223bbe121186",
+        "provider": "pi",
+        "intent": "ANSWER",
+        "elapsed_seconds": 34.21,
+        "tools": [
+          {
+            "name": "get_question_details",
+            "parameters": {
+              "action": "DETAILS",
+              "filters": {
+                "company": null,
+                "position": null,
+                "job_family": null,
+                "language": null,
+                "topic_l1": "Redis",
+                "topic_l2": null,
+                "question_type": null,
+                "response_form": null,
+                "annotation_status": null,
+                "coding_focus": null,
+                "round": null,
+                "start_date": null,
+                "end_date": null,
+                "date_basis": "BEST_AVAILABLE"
+              },
+              "sort": "frequency",
+              "top_n": 3,
+              "page_size": 3,
+              "group_by": "question",
+              "topic_level": "L1",
+              "question_ids": [
+                "0998418f-36db-438a-838b-6a546feaf89d"
+              ],
+              "review_statuses": [],
+              "final": false
+            }
+          },
+          {
+            "name": "answer_question",
+            "parameters": {
+              "action": "ANSWER",
+              "filters": {
+                "company": null,
+                "position": null,
+                "job_family": null,
+                "language": null,
+                "topic_l1": "Redis",
+                "topic_l2": null,
+                "question_type": null,
+                "response_form": null,
+                "annotation_status": null,
+                "coding_focus": null,
+                "round": null,
+                "start_date": null,
+                "end_date": null,
+                "date_basis": "BEST_AVAILABLE"
+              },
+              "sort": "frequency",
+              "top_n": 3,
+              "page_size": 3,
+              "group_by": "question",
+              "topic_level": "L1",
+              "question_ids": [
+                "0998418f-36db-438a-838b-6a546feaf89d"
+              ],
+              "review_statuses": [],
+              "final": true
+            }
+          }
+        ],
+        "returned_rows": 1,
+        "applied_filters": {
+          "company": null,
+          "position": null,
+          "job_family": null,
+          "language": null,
+          "topic_l1": "Redis",
+          "topic_l2": null,
+          "question_type": null,
+          "response_form": null,
+          "annotation_status": null,
+          "coding_focus": null,
+          "round": null,
+          "start_date": null,
+          "end_date": null,
+          "date_basis": "BEST_AVAILABLE"
+        },
+        "answer_kind": "EXPLAIN",
+        "answer_basis": "MIXED",
+        "evidence_question_ids": [
+          "0998418f-36db-438a-838b-6a546feaf89d"
+        ]
+      },
+      {
+        "number": 10,
+        "message": "根据题库里的 Redis 题目分布，给我一份三天复习计划，400字以内。",
+        "run_id": "12b92077-3bfa-459d-85d9-36e6ebed822d",
+        "provider": "pi",
+        "intent": "ANSWER",
+        "elapsed_seconds": 23.77,
+        "tools": [
+          {
+            "name": "get_question_stats",
+            "parameters": {
+              "action": "STATS",
+              "filters": {
+                "company": null,
+                "position": null,
+                "job_family": null,
+                "language": null,
+                "topic_l1": "Redis",
+                "topic_l2": null,
+                "question_type": null,
+                "response_form": null,
+                "annotation_status": null,
+                "coding_focus": null,
+                "round": null,
+                "start_date": null,
+                "end_date": null,
+                "date_basis": "BEST_AVAILABLE"
+              },
+              "sort": "frequency",
+              "top_n": null,
+              "page_size": 20,
+              "group_by": "topic",
+              "topic_level": "L2",
+              "question_ids": [],
+              "review_statuses": [],
+              "final": false
+            }
+          },
+          {
+            "name": "answer_question",
+            "parameters": {
+              "action": "ANSWER",
+              "filters": {
+                "company": null,
+                "position": null,
+                "job_family": null,
+                "language": null,
+                "topic_l1": "Redis",
+                "topic_l2": null,
+                "question_type": null,
+                "response_form": null,
+                "annotation_status": null,
+                "coding_focus": null,
+                "round": null,
+                "start_date": null,
+                "end_date": null,
+                "date_basis": "BEST_AVAILABLE"
+              },
+              "sort": "frequency",
+              "top_n": null,
+              "page_size": 20,
+              "group_by": "question",
+              "topic_level": "L1",
+              "question_ids": [],
+              "review_statuses": [],
+              "final": true
+            }
+          }
+        ],
+        "returned_rows": 0,
+        "applied_filters": {
+          "company": null,
+          "position": null,
+          "job_family": null,
+          "language": null,
+          "topic_l1": "Redis",
+          "topic_l2": null,
+          "question_type": null,
+          "response_form": null,
+          "annotation_status": null,
+          "coding_focus": null,
+          "round": null,
+          "start_date": null,
+          "end_date": null,
+          "date_basis": "BEST_AVAILABLE"
+        },
+        "answer_kind": "STUDY_PLAN",
+        "answer_basis": "MIXED",
+        "evidence_question_ids": []
+      }
+    ],
+    "all_cases_provider_pi": true,
+    "final_real_composite_tool_steps": [
+      2,
+      2
+    ],
+    "generated_technical_correctness_independently_evaluated": false,
+    "full_v1_quality_gate_rerun": false,
+    "early_failed_attempts_in_success_denominator": false,
+    "early_failures_independently_archived_in_this_directory": false,
+    "latencies_are_single_observations": true
+  },
+  "open_findings": [
+    {
+      "id": "I12",
+      "status": "OPEN",
+      "case_number": 1,
+      "observed_top_n": 20,
+      "expected_unspecified_top_n": null,
+      "smoke_assertion_covers_implicit_top_n_semantics": false,
+      "next_step": "Add unspecified-N intent and NEXT continuation checks before choosing prompt or host correction."
+    }
+  ]
+}

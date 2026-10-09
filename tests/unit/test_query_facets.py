@@ -8,11 +8,11 @@ from interview_intelligence.agent.query_contract import QUERY_AGENT_VERSION, Que
 from interview_intelligence.config import Settings
 
 
-def test_v10_prompt_is_default_and_included_in_built_wheel():
+def test_v10_prompt_remains_included_in_built_wheel():
     root = Path(__file__).parents[2]
     manifest = tomllib.loads((root / "pyproject.toml").read_text(encoding="utf-8"))
     files = manifest["tool"]["hatch"]["build"]["targets"]["wheel"]["force-include"]
-    assert QUERY_AGENT_VERSION == Settings().query_prompt_version == "query_agent_v10"
+    assert QUERY_AGENT_VERSION == Settings().query_prompt_version == "query_agent_v13"
     assert files["prompts/query_agent_v10.md"].endswith("/query_agent_v10.md")
     prompt = (root / "prompts/query_agent_v10.md").read_text(encoding="utf-8")
     assert "requery_origin" in prompt and "lexical_facets" in prompt

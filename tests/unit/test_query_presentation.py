@@ -1,6 +1,6 @@
 import json
 
-from interview_intelligence.agent.presentation import ClarificationStream, partial_object
+from interview_intelligence.agent.presentation import AnswerStream, ClarificationStream, partial_object
 
 
 def chunk(text):
@@ -52,3 +52,55 @@ def test_split_emoji_escape_never_breaks_the_public_utf8_event_stream(monkeypatc
     event=stream.update(chunk(r'\ude00？"}'))
     assert event["text"] == "方向😀？"
     json.dumps(event,ensure_ascii=False).encode("utf-8")
+
+
+def test_answer_stream_decodes_markdown_from_each_real_fragment():
+    stream = AnswerStream()
+    first = stream.update(chunk(r'{"action":"ANSWER","answer_text":"## Redis\n\n**内存'))
+    assert first == [{"delta":"## Redis\n\n**内存", "text":"## Redis\n\n**内存",
+                      "temporary":True, "call_index":0}]
+    second = stream.update(chunk(r'访问**\n\n```python\nprint(\"快\")\n```"}'))
+    assert second[0]["delta"] == '访问**\n\n```python\nprint("快")\n```'
+    assert second[0]["text"] == first[0]["text"] + second[0]["delta"]
+    assert stream.update(chunk('')) == []
+
+
+def test_answer_stream_withholds_split_unicode_escapes():
+    stream = AnswerStream()
+    first = stream.update(chunk(r'{"action":"ANSWER","answer_text":"你好\u4e'))
+    assert first[0]["text"] == "你好"
+    assert stream.update(chunk(r'16\ud83d'))[0]["delta"] == "世"
+    event = stream.update(chunk(r'\ude00\n结束"}'))[0]
+    assert event["text"] == "你好世😀\n结束"
+    assert event["delta"] == "😀\n结束"
+    json.dumps(event, ensure_ascii=False).encode("utf-8")
+
+
+def test_only_answer_fields_become_public_text():
+    for arguments in [
+        '{"action":"SEARCH","answer_text":"hidden"}',
+        '{"action":"ANSWER","filters":{"answer_text":"nested"}}',
+        '{"action":"ANSWER","note":"\\\"answer_text\\\":\\\"quoted\\\""}',
+    ]:
+        assert AnswerStream().update(chunk(arguments)) == []
+    assert AnswerStream().update({"choices":[{"delta":{"content":"private reasoning"}}]}) == []
+    wrong_tool = chunk('{"action":"ANSWER","answer_text":"hidden"}')
+    wrong_tool["choices"][0]["delta"]["tool_calls"][0]["function"]["name"] = "search_questions"
+    assert AnswerStream().update(wrong_tool) == []
+
+
+def test_named_answer_tool_can_stream_before_action_field():
+    stream = AnswerStream()
+    first = chunk('{"answer_text":"先输出')
+    first["choices"][0]["delta"]["tool_calls"][0]["function"]["name"] = "answer_question"
+    assert stream.update(first)[0]["delta"] == "先输出"
+    assert stream.update(chunk('正文","action":"ANSWER"}'))[0]["delta"] == "正文"
+
+
+def test_json_fallback_projects_answer_text_and_keeps_calls_separate():
+    stream = AnswerStream(content_json=True)
+    event = stream.update({"choices":[{"index":0,"delta":{
+        "content":'{"action":"ANSWER","answer_text":"**正文'}}]})[0]
+    assert event["delta"] == "**正文" and event["call_index"] == 0
+    assert stream.update({"choices":[{"index":0,"delta":{"content":'**"}'}}]})[0]["delta"] == "**"
+    assert AnswerStream(content_json=True).update({"choices":[{"delta":{"content":"private reasoning"}}]}) == []
