@@ -39,3 +39,6 @@ notes_*.txt
 notes_*.json
 .idea/
 .claude/scheduled_tasks.lock
+services/jev-gateway/qwen-model-cache/
+services/jev-gateway/qwen-model.json
+services/jev-gateway/qwen-download-intent.json
