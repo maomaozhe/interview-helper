@@ -8,6 +8,8 @@
 
 2026-10-09 当前 SSH 使用 query v13 / context v4 / tool policy v2 / `rerank_v14_design_unit_scope_partial`，规划调用配置为4、请求总调用上限为6、截止180秒。工程系统设计修复见文末对应章节。随后发布4文件侧栏增量，支持拖动、隐藏和移动抽屉；公网资源哈希、正式页面交互及七个服务核验通过，后端版本与语料 r293/index293 保持。详见 [侧栏验收](verification/2026-10-09-sidebar.md)。
 
+随后已补发 Markdown/SSE 增量，正式 workspace 版本为 `9377bec16b82`。原历史回答的加粗/列表渲染及真实模型完成前的回答增量已在正式服务验收；保持上述查询、检索版本和语料。旧页面需重载后取得新脚本。详见 [Markdown/SSE 正式验收](verification/2026-10-09-markdown-sse.md)。
+
 ## 上一轮发布记录：v12-r2
 
 2026-10-08 已发布会话目标修复 v12-r2：query v12 / context v4 / tool policy v2 / rerank v10。在上一轮实际验证的 SSH r10 基线上仅叠加6个文件，保留本地 r16 检索实验与 SSH 发布的独立归属。当前支持裸总量继承讨论范围、纠正范围保留 COUNT、旧会话目标兼容及未指定 N 的完整分页；模型请求预算为96,000，仍限制每轮3次规划。
@@ -95,3 +97,15 @@ PGPASSFILE="$HOME/services/interview-intelligence/pgpass" \
 API、worker、Pi 三个服务已重启并验证 active，API 与 Pi 均通过健康检查，十个文件和受保护的 harness 均通过 SHA 校验。`app/.env` 使用 `QUERY_PROMPT_VERSION=query_agent_v13`、`QUERY_MAX_MODEL_CALLS=4`、`QUERY_DEADLINE_SECONDS=180`；其中 4 是规划调用配置，既有请求总调用上限仍为 6。数据库及索引仍为 r293。
 
 本次原文件、文件不存在状态、完整环境及 rollback manifest 的备份目录为 `/home/dylan/services/interview-intelligence/backups/engineering-design-v13-20261008T162535Z`。独立回滚先核验备份路径、文件 SHA 和服务白名单，再恢复；成功条件包括原文件和环境逐字一致、三个服务 active、API 与 Pi 健康。私有运维脚本、部署 receipt 和公开网址回放原始记录保存在本地忽略目录 `data/reports/engineering-design-20261008/`。完整评测和限制见[验收报告](verification/2026-10-08-engineering-design.md)。
+
+## 访问管理部署要求
+
+2026-10-09 已发布访问管理增量，共 12 个冻结文件，正式 Alembic head 为 `d82f9c1a7054`。106 个未发布源码文件的哈希、七个正式服务状态及 query v13 / rerank r14 / 语料和索引 293 均核验通过。仅重启 API 和内层独立 Caddy，worker 与 Pi 保持运行。配额开关和限流开关初次上线均关闭，Web 可配置每天 10 轮、设备或 IP 主体、累计配额和每分钟查询准入。
+
+备份位于 `/home/dylan/services/interview-intelligence/backups/access-panel-20261009T044643Z`，包含一致性数据库备份、原源码、环境、访问文件、Caddy 配置与 API systemd 单元。正式公网 HTTP 已验证独立登录、Secure 管理 Cookie、资源 SHA、真实公网来源和伪造转发头拒绝；只对验收新设备临时封禁并恢复，未修改全局策略或真实访客。原始回执与私有登录文件位于本地被忽略的 `data/reports/access-panel-20261009/`；完整验收记录见[访问管理验收](verification/2026-10-09-access-panel.md)。
+
+访问管理使用独立 `ADMIN_ACCESS_TOKEN`，保存在权限为 600 的 `app/.env` 与 `access.private.json`，不复用网站 Basic Auth、模型或内部 Agent 密钥。初次部署脚本保留已配置的管理密钥，未配置时生成随机密钥；管理员在 `/admin` 输入它登录。公网仍经过现有 Basic Auth，所以公网运维验证应先用网站账号访问、再以管理登录接口取得会话 Cookie。经 SSH 隧道直连 API 时也可使用管理 Bearer 密钥。
+
+API 必须以 `--no-proxy-headers` 启动，使应用从真实 socket 来源识别代理。应用的 `TRUSTED_PROXY_CIDRS` 仅设置为 `127.0.0.1/32,::1/128`。有公网域名的两级 Caddy 部署中，内层独立 Caddy 使用 `trusted_proxies static 127.0.0.1/32 ::1/128` 与 `trusted_proxies_strict`；外层共享 HTTPS 路由保留默认不信任外来转发头的行为。不配置公网域名时，内层 Caddy 不信任来访客户端提供的转发头。不要将 `private_ranges` 或所有地址作为管理封禁依据的可信代理范围。Caddy 的默认转发头处理与严格代理链配置见[官方代理文档](https://caddyserver.com/docs/caddyfile/directives/reverse_proxy#defaults)和[可信代理选项](https://caddyserver.com/docs/caddyfile/options#trusted-proxies-strict)。
+
+发布使用当前正式源码作为基线，冻结受影响文件及 SHA，备份数据库、源码、环境、独立 Caddy 配置与 API systemd 单元后，等待在途查询完成再更新。增量迁移只增加访问表。回退恢复旧源码与私有配置，但保留新增表、迁移及其模型定义，确保旧 API 的 `alembic upgrade head` 仍可解析数据库修订，不删除已产生的运行数据。完整实现与验收要求见[访问管理 Spec](plans/2026-10-09-access-panel-spec.md)，上线结论以独立验收报告为准。

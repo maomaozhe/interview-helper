@@ -1,0 +1,140 @@
+{
+  "date": "2026-10-09",
+  "status": "published_and_verified",
+  "spec": "docs/plans/2026-10-09-access-panel-spec.md",
+  "report": "docs/verification/2026-10-09-access-panel.md",
+  "production": {
+    "url": "https://interview.101-47-18-72.sslip.io/admin",
+    "published": true,
+    "checked_at_utc": "2026-10-09T04:48:00.219251+00:00",
+    "backup": "/home/dylan/services/interview-intelligence/backups/access-panel-20261009T044643Z",
+    "manifest_sha256": "6634a0c461d079c2805c5b373a82142e8456fc822a8e790c0117f539a67d211f",
+    "files_sha256": {
+      "interview_intelligence/access.py": "ae62fdacfeaf4df862fd05c130b4cc7c271e29776129b222b0516f8607ca2de2",
+      "interview_intelligence/access_models.py": "39921dabffcca1bcc123c4ea584fbd46c18c556bebf8dd7c6607cc42314bf95d",
+      "interview_intelligence/api.py": "feb6a62b342f0c314ba28a4ad73e144f7dd83f08a4236c52792698a338fc6539",
+      "interview_intelligence/config.py": "edc1a31b04f8cc40392741b049655b0c92b501326054dd2f060dd75371e559f7",
+      "interview_intelligence/domain/models.py": "1b6a69e86cba6f20d39bf537819c8afc3f99ce14644f835ec6c13fb676e0508b",
+      "interview_intelligence/web.py": "999782a05170558761ab52e2ee5d623add682cc82787b3b806843176ab6395bb",
+      "interview_intelligence/web/admin.html": "839bd8cf9554970c18ae12c0e8858ec2b9d09c9123c6ed719e77ddeea52b239a",
+      "interview_intelligence/web/assets/admin.css": "fa681b272d5d34e89277796228383954b9c43350d64d09dfe144f27017116420",
+      "interview_intelligence/web/assets/admin.js": "213c119c70eb8e5e5f1255535c25ff39b0a24ad50978cf420488464a8a26ddd8",
+      "interview_intelligence/web/index.html": "76489538019ab410d5797524cd2e6c518190ad0fe31b80fc54b5086f2b0b86b5",
+      "migrations/env.py": "b3307fc77869e2eb6f947d57dae7a678f0b1fd741d79aa1a4d2173dfed241c37",
+      "migrations/versions/d82f9c1a7054_access_operations.py": "83a6235cb982598c3af6830f006e91ce0ee7ed2e8e449e26a35cc3b8696a63e5"
+    },
+    "local_source_matches_release": true,
+    "protected_source_count": 106,
+    "services": {
+      "postgres": "active",
+      "elasticsearch": "active",
+      "api": "active",
+      "pi": "active",
+      "worker": "active",
+      "web": "active",
+      "proxy": "active"
+    },
+    "schema_revision": "d82f9c1a7054 (head)",
+    "policy": {
+      "version": 1,
+      "quota_enabled": false,
+      "quota_limit": 10,
+      "quota_period": "DAY",
+      "quota_scope": "DEVICE",
+      "rate_enabled": false,
+      "rate_per_minute": 60
+    },
+    "http_checks": {
+      "policy_modified": false,
+      "existing_visitors_modified": false,
+      "passed": true,
+      "independent_admin_auth": true,
+      "secure_session_cookie": true,
+      "admin_no_store": true,
+      "client_ip_global": true,
+      "forged_forwarding_headers_ignored": true,
+      "signed_device_stable_after_reload": true,
+      "pure_navigation_consumes_zero_chats": true,
+      "test_device_ban_403_then_recovered": true,
+      "banned_device_admin_recovery": true
+    },
+    "query_prompt_version": "query_agent_v13",
+    "reranker_version": "rerank_v14_design_unit_scope_partial",
+    "corpus_revision": 293,
+    "indexed_revision": 293,
+    "browser_click_acceptance_performed": false
+  },
+  "python": {
+    "passed": 815,
+    "skipped": 2,
+    "failed": 0,
+    "errors": 0,
+    "junit_seconds": 80.646,
+    "skip_context": "Optional Elasticsearch and local PostgreSQL live gates; PostgreSQL separately passed against isolated production-host schema."
+  },
+  "node": {
+    "passed": 71,
+    "failed": 0,
+    "skipped": 0,
+    "admin_final_subset_passed": 6
+  },
+  "postgres": {
+    "passed": true,
+    "checked_at_utc": "2026-10-09T04:43:34.356264+00:00",
+    "test_source_sha256": "cb53cdef8d9ed9105ced51d9e96fb765708d49581e5cbfc35be9dbaa894dccb2",
+    "engines": 2,
+    "requests": 32,
+    "allowed": 10,
+    "denied": 22,
+    "restart_denied": true,
+    "assertions_unchanged": true,
+    "production_source_modified": false,
+    "isolated_schema_cleaned": true,
+    "elapsed_seconds": 0.378
+  },
+  "browser": {
+    "environment": "isolated_local_service_real_access_db_and_http_offline_sql_planner",
+    "quota_limit_one_first_allowed_second_rejected": true,
+    "rate_one_first_allowed_second_rejected": true,
+    "device_and_ip_block_and_recovery": true,
+    "quota_reset_audited": true,
+    "search_and_pagination": true,
+    "admin_route_survives_reload": true,
+    "logout_returns_empty_login_form": true,
+    "desktop_css_viewport": 1280,
+    "desktop_client_and_scroll_width": 1265,
+    "mobile_css_viewport": 390,
+    "mobile_client_and_scroll_width": 375,
+    "viewport_reset": true,
+    "screenshots_are_production_traffic": false
+  },
+  "rollback": {
+    "offline_cases_passed": 3,
+    "real_production_rollback_rehearsed": false
+  },
+  "credentials": {
+    "live_values_scanned": 2,
+    "repository_files_scanned": 2318,
+    "matches": 0,
+    "values_embedded": false
+  },
+  "artifact_directory": "data/reports/access-panel-20261009 (git ignored)",
+  "artifacts_sha256": {
+    "manifest.json": "6634a0c461d079c2805c5b373a82142e8456fc822a8e790c0117f539a67d211f",
+    "deployment-receipt.json": "7a7f4e33f0407e65cae3f6cf8fa52f1cb207394a7fdd8068831b8f59d60ab977",
+    "public-check.json": "410e9b9cb48774ebf6025dd8aa653cee4b982b8fea74f8d9009296f8b2979bcf",
+    "postgres-acceptance.json": "c5320d0f56a5b2a767a087efdf135c5c4b5eb723e672a735b6512c9d1049ff18",
+    "python-tests-final.log": "a19eac353d27539a3298703aa864297934f8634362fc3b4634f149e95da325df",
+    "python-tests-final.xml": "66f7601f7d193d2abdbd076741ff3169cf60bd48c4f5a985375fbe8429fee1d4",
+    "node-tests.log": "66f957ca7f873cc74aec8cc4ccf897c6bf93d8d453ad750b4cd3a794d8d51b84",
+    "admin-tests-final.log": "cd17da89149b3ba5c9a243da9f4f791b718baae2f5900a737e47785c3627703c",
+    "forwarding-proof.json": "409a0ea8a8cc9ad237702f651c00970f236a9b04c3e2af068b22e5244e71705e",
+    "test_release_rollback.py": "f97074d58aca0c22182bf865dbad997fafacc5809de010417a2a5dd299926d1d",
+    "local-rate-rejection.jpg": "447fdac5d022e8e72c05f5b839686967b87db2378ed7ad55792ac057cb712a2d",
+    "local-overview-desktop-1280.jpg": "27259965784fba90ed15d6c51fef540a75b83d48dc3842d0a1aa2bd6329afc2f",
+    "local-policy-desktop-1280.jpg": "a48be3301033c02e7b877926a78fe7615a934b3b05a608280ab6e67044cdf0f3",
+    "local-overview-mobile-390.jpg": "581cc5095903f6032bc5fa867ece98be1cfdb490f5bbb75ff0d023c81aab1120",
+    "local-policy-mobile-390.jpg": "917de79d7a48fe0e743202adeeb26d43d0fd70afa68cb5f598e1b10fbbc9964d",
+    "local-visitors-mobile-390.jpg": "6a15e1808874b7f98d44329b3d90217bafe12bb1ae178c51beff29f476e45c34"
+  }
+}

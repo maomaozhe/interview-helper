@@ -5,6 +5,8 @@ from sqlalchemy import pool
 
 from alembic import context
 from interview_intelligence.domain.models import Base
+from interview_intelligence import access_models  # noqa: F401
+from interview_intelligence import tenant_models  # noqa: F401
 from interview_intelligence.config import load_settings
 
 # this is the Alembic Config object, which provides

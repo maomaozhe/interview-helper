@@ -20,7 +20,7 @@
 | `APP_SIGNING_KEY` / `INTERNAL_AGENT_TOKEN` | 分页签名及内部 Agent 回调鉴权，分别使用随机值。 |
 | `TASK_ANNOTATION_POLICY` | 默认 `VERIFIED`；`KNOWN` 允许明确的临时机器分类，用于开发诊断。 |
 
-`QUERY_DEADLINE_SECONDS` 默认 90 秒，`QUERY_MAX_MODEL_CALLS` 默认 3，整轮 token 上限由 `QUERY_MAX_TOKENS` 控制。真实证据重排会增加延迟；耗时以请求回执为准。
+`QUERY_PROMPT_VERSION` 默认 `query_agent_v13`，`QUERY_DEADLINE_SECONDS` 默认180秒，`QUERY_MAX_MODEL_CALLS` 默认4，`QUERY_MAX_TOKENS` 默认96,000。Compose与应用默认值保持一致，`.env` 可明确覆盖。真实证据重排会增加延迟；耗时以请求回执为准。
 
 长期偏好由用户明确保存。任务分类核验通过草稿和发布版本管理；不要把机器分类的 SQL 范围核对解释成语义分类正确。
 
@@ -51,7 +51,7 @@ docker compose exec api ii chat "Redis 高频问题有哪些"
 .\scripts\start-local.ps1 -Distribution Ubuntu-22.04 -Build
 ```
 
-脚本从 `/opt/interview-intelligence-workspace` 启动 Compose。首次使用时在 WSL 将该路径链接到实际仓库目录；它是本机部署约定，不是仓库必须位于某个盘符。不要把持久链接放在会被重启清理的 `/tmp`。
+脚本通过 `wslpath` 将当前仓库目录转换为WSL路径，无需预先创建固定的 `/opt` 链接。`-WaitTimeoutSeconds` 默认120秒，可在30–600秒间调整。中文等非ASCII路径暂时使用普通Compose构建器，绕过当前Bake共享会话头的字符限制；此兼容路径使用 `COMPOSE_BAKE=false`，升级Compose时应复验并移除兼容分支。
 
 脚本创建或复用隐藏的 WSL 保活会话，并等待服务就绪。若构建网络无法解析依赖站点，可以使用 `compose.build-wsl.yaml` 的构建配置；运行服务仍采用常规网络，不需修改全局 DNS。
 

@@ -1,0 +1,26 @@
+{
+  "llama": {
+    "repository": "https://github.com/ggml-org/llama.cpp.git",
+    "tag": "b11515",
+    "commit": "3d65c90d04d337e88f2b1f7f0061f40a5324e662"
+  },
+  "model": {
+    "repository": "Qwen/Qwen3-8B-GGUF",
+    "revision": "7c41481f57cb95916b40956ab2f0b139b296d974",
+    "filename": "Qwen3-8B-Q4_K_M.gguf",
+    "size": 5027783488,
+    "sha256": "d98cdcbd03e17ce47681435b5150e34c1417f50b5c0019dd560e4882c5745785"
+  },
+  "cuda_repository": "https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2004/x86_64/",
+  "cuda_packages": [
+    {"filename": "cuda-cccl-12-8_12.8.90-1_amd64.deb", "sha256": "873dbdfc3c1aa2806145c94ba75d058f658974ffa2366c4bba9190440bacece4"},
+    {"filename": "cuda-crt-12-8_12.8.93-1_amd64.deb", "sha256": "92a3c8eda8d3a3a8f3de71e0acf4edb8be568b20792e5bf7618898a72ffd6d10"},
+    {"filename": "cuda-cudart-12-8_12.8.90-1_amd64.deb", "sha256": "929554bc2f0831eefec4e212897d0cbb0db70cab75c5eeadd2a4a43e7d7ffb68"},
+    {"filename": "cuda-cudart-dev-12-8_12.8.90-1_amd64.deb", "sha256": "b9e927a530535631f789098080e5e59bcc3bc2ac368d7c7af51ea4fbfe8ad7eb"},
+    {"filename": "cuda-driver-dev-12-8_12.8.90-1_amd64.deb", "sha256": "5ffbd709ee3ed8dee4d82a07de6c789efd4b37c3b23e72f59e0c519c1701a692"},
+    {"filename": "cuda-nvcc-12-8_12.8.93-1_amd64.deb", "sha256": "eaa8aaa7fc4bfbf8f4bf10fd5a29f04e0cf60142e1a61de42f03aba76835070e"},
+    {"filename": "cuda-nvvm-12-8_12.8.93-1_amd64.deb", "sha256": "9d27f5895dd5ea1bb8db3180faa30d5a3d2a50237ed5a82c2ec6b65665b6cba1"},
+    {"filename": "libcublas-12-8_12.8.5.5-1_amd64.deb", "sha256": "cd4f20208bb5d373a86204ea0181a28e48adc47d21a32e61765132439901f89d"},
+    {"filename": "libcublas-dev-12-8_12.8.5.5-1_amd64.deb", "sha256": "8b8800409b98c5b4493bb05b8cba3b941a1d10df843605da76f2ba89b49f1920"}
+  ]
+}

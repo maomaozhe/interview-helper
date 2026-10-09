@@ -24,6 +24,7 @@ from interview_intelligence.domain.models import (
     SourceDocument, SourceRevision,
 )
 from interview_intelligence.ingestion.snapshot import decode_source
+from interview_intelligence.tenant import tenant_user_id
 
 
 WEB_ROOT = Path(__file__).with_name("web")
@@ -234,12 +235,12 @@ def register_web(app, database, settings, respond):
                     raise KeyError("QUESTION_NOT_FOUND")
         from interview_intelligence.domain.models import AgentTurn
         record = {"id": str(uuid4()), "created_at": datetime.now(timezone.utc).isoformat(),
-                  **payload.model_dump(mode="json"), "user_id": settings.local_user_id}
+                  **payload.model_dump(mode="json"), "user_id": tenant_user_id(settings)}
         run_id = payload.run_id or payload.context.get("run_id")
         request_id = payload.request_id or (payload.context.get("meta") or {}).get("request_id")
         if run_id or request_id:
             with database.session() as session:
-                turn = session.scalar(select(AgentTurn).where(AgentTurn.user_id == settings.local_user_id,
+                turn = session.scalar(select(AgentTurn).where(AgentTurn.user_id == tenant_user_id(settings),
                     AgentTurn.id == run_id if run_id else AgentTurn.request_id == request_id))
                 if not turn:
                     raise KeyError("QUERY_RECEIPT_NOT_FOUND")
@@ -262,7 +263,7 @@ def register_web(app, database, settings, respond):
                 try:
                     record = json.loads(path.read_text(encoding="utf-8"))
                     if (isinstance(record, dict) and "created_at" in record and "id" in record
-                            and record.get("user_id", "local") == settings.local_user_id):
+                            and record.get("user_id", "local") == tenant_user_id(settings)):
                         records.append(record)
                 except (OSError, ValueError):
                     continue

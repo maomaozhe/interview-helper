@@ -41,8 +41,12 @@ async function api(path, {method="GET", params={}, body, signal}={}) {
   if (!response.ok) {
     const messages = {MODEL_PROVIDER_TIMEOUT:"模型返回较慢，本次请求超时，请稍后重试。", MODEL_PROVIDER_UNAVAILABLE:"模型接口暂时不可用，请稍后重试。", STREAM_INCOMPLETE:"模型响应中断，未使用不完整的结果，请重试。", MODEL_OUTPUT_TRUNCATED:"模型响应未完整返回，请重试。", INDEX_NOT_READY:"题库与索引正在同步，请稍后重试。统计浏览仍可使用。", SOURCE_SNAPSHOT_MISSING:"这份来源快照暂时不可用。", SNAPSHOT_CHANGED:"语料正在更新，请重新查询。", MODEL_CONFIGURATION_INCOMPLETE:"模型尚未配置完整，暂时不能开始导入。", VALIDATION_ERROR:"提交内容不符合要求，请检查输入和筛选条件。"};
     const code = payload.error?.code;
-    const error = new Error(`${messages[code] || payload.error?.message || "操作失败"}${payload.request_id ? `（请求编号 ${payload.request_id}）` : ""}`);
+    const tenantMessage = window.InterviewTenant?.handleApiError(payload, response.status);
+    const error = new Error(`${tenantMessage || messages[code] || payload.error?.message || "操作失败"}${payload.request_id ? `（请求编号 ${payload.request_id}）` : ""}`);
     error.payload = payload; throw error;
+  }
+  if ((method === "POST" && (/^api\/conversations\/[^/]+\/messages$/.test(path) || path === "api/agent/chat" || path === "api/query")) || path === "api/search") {
+    window.InterviewTenant?.refreshModel(false).catch(()=>{});
   }
   payload.elapsed_ms = Math.round(performance.now() - started); return payload;
 }
@@ -86,6 +90,9 @@ async function agentQuery(body,signal,kind,onStage=()=>{}) {
   let accepted;
   try{accepted=await api(`api/conversations/${encodeURIComponent(body.conversation_id)}/messages`,{method:"POST",body,signal});}
   catch(error){
+    if(["SYSTEM_TRIAL_EXHAUSTED","TENANT_AUTH_REQUIRED","TENANT_MODEL_CONFIGURATION_INCOMPLETE","MODEL_CONFIGURATION_INCOMPLETE","SYSTEM_MODEL_NOT_CONFIGURED"].includes(error.payload?.error?.code)){
+      sessionStorage.removeItem(`${kind}Pending`);$(kind==="library" ? "query-retry" : "chat-retry").hidden=true;
+    }
     if(error.name==="AbortError"){
       // Acceptance may have committed before the browser received its response.
       try{const receipt=await api(`api/query/receipts/${encodeURIComponent(body.request_id)}`);
@@ -218,6 +225,7 @@ $("annotations-publish").addEventListener("click",async()=>{
   }catch(error){notice("annotations-notice",error.message,"error");$("annotations-publish").disabled=false;}
 });
 async function search(cursor=null, structured=false, changedField=null,retryBody=null,restored=null) {
+  if(window.InterviewTenant && !window.InterviewTenant.requireAccount())return;
   const sequence = ++state.searchSequence;
   libraryProgress?.finish("superseded");
   searchController?.abort(); searchController = new AbortController();
@@ -523,7 +531,9 @@ async function requery(message,feedbackIds=[],kind="chat",origin=null) {
 }
 
 async function sendChat(event,retryBody=null) {
-  event?.preventDefault(); const message=retryBody?.message || $("chat-input").value.trim(); if(!message || state.chatBusy) return;
+  event?.preventDefault();
+  if(window.InterviewTenant && !window.InterviewTenant.requireAccount())return;
+  const message=retryBody?.message || $("chat-input").value.trim(); if(!message || state.chatBusy) return;
   state.chatBusy=true;state.chatContinuation=null;syncContinuationActions(); $("chat-button").disabled=true; $("chat-input").value="";
   chatController=new AbortController();$("chat-cancel").hidden=false;$("chat-button").hidden=true;
   const user=document.createElement("div"); user.className="chat-message user"; user.textContent=message; $("chat-messages").append(user);
@@ -663,9 +673,11 @@ function navigate(page) {
   document.querySelectorAll(".nav-item").forEach(node=>{node.classList.toggle("active",node.dataset.page===page);node.setAttribute("aria-current",node.dataset.page===page ? "page" : "false");});
   $("breadcrumb-page").textContent={library:"题库与检索",chat:"面经问答",ingest:"导入与状态",feedback:"问题记录",preferences:"查询偏好",annotations:"分类核验"}[page];
   history.replaceState(null,"",`#${page}`);
-  if(page==="ingest") loadIngest(); if(page==="feedback") loadFeedback();
-  if(page==="preferences")loadPreferences();
-  if(page==="annotations")loadAnnotations();
+  if(!window.InterviewTenant || window.InterviewTenant.canUseWorkspace()){
+    if(page==="ingest") loadIngest(); if(page==="feedback") loadFeedback();
+    if(page==="preferences")loadPreferences();
+    if(page==="annotations")loadAnnotations();
+  }
   document.body.dataset.page=page;
 }
 
@@ -768,6 +780,10 @@ document.addEventListener("visibilitychange",()=>{if(!document.hidden)checkWorks
 setInterval(checkWorkspaceVersion,60000);
 
 async function init(){
+  if(window.InterviewTenant){
+    await window.InterviewTenant.ready;
+    if(!window.InterviewTenant.canUseWorkspace()){navigate(location.hash.slice(1));return;}
+  }
   let restored=null,restoredFilters=null,restoredChatTurns=[];
   for(const key of ["libraryConversation","chatConversation"]){
     try{
@@ -800,4 +816,13 @@ async function init(){
   }
   await search(null,false,null,null,restored);
 }
+window.addEventListener("interview:tenant-expired",()=>{
+  searchController?.abort();chatController?.abort();
+  ++state.searchSequence;++historySequence;++historyOpenSequence;
+  state.libraryConversation=null;state.chatConversation=null;state.chatContinuation=null;
+  state.feedback=[];state.feedbackContext=null;state.detail=null;state.rows=[];state.diagnostic=null;
+  for(const id of ["chat-messages","conversation-list","feedback-list","preferences-list","query-memory-list","detail-content","results"]){$(id).replaceChildren();}
+  for(const id of ["detail-dialog","source-dialog","feedback-dialog"]){if($(id).open)$(id).close();}
+  $("chat-input").value="";$("history-query").value="";$("chat-retry").hidden=true;$("query-retry").hidden=true;
+});
 init();

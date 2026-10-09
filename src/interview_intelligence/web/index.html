@@ -10,11 +10,13 @@
   <link rel="stylesheet" href="assets/app.css">
   <link rel="stylesheet" href="assets/workspace.css">
   <link rel="stylesheet" href="assets/markdown.css">
+  <link rel="stylesheet" href="assets/tenant.css">
   <script src="assets/core.js" defer></script>
   <script src="assets/vendor/markdown-it.umd.min.js" defer></script>
   <script src="assets/markdown.js" defer></script>
   <script src="assets/answer-stream.js" defer></script>
   <script src="assets/query-stream.js" defer></script>
+  <script src="assets/tenant.js" defer></script>
   <script src="assets/app.js" defer></script>
   <script src="assets/sidebar.js" defer></script>
 </head>
@@ -33,13 +35,14 @@
       <button class="nav-item" data-page="annotations"><span class="nav-icon">✓</span>分类核验<span class="nav-arrow">›</span></button>
     </nav>
     <div class="conversation-browser"><button class="text-button" id="sidebar-new-chat">＋ 新对话</button><label class="sr-only" for="history-query">搜索历史对话</label><input id="history-query" placeholder="搜索对话…" maxlength="200"><div class="history-heading">最近对话</div><div id="conversation-list"></div><button id="conversation-more" class="text-button" hidden>更多对话</button></div>
-    <div class="sidebar-bottom"><div class="connection"><i id="connection-dot"></i><span id="connection-text">正在连接本机服务</span></div><p>每一道题，都能回到原文。</p><a href="docs" target="_blank" rel="noopener">接口文档 ↗</a></div>
+    <div class="sidebar-bottom"><button type="button" class="tenant-account-button" id="tenant-open" aria-haspopup="dialog"><span class="tenant-avatar" aria-hidden="true">◇</span><span><strong id="tenant-account-label">账号与模型</strong><small id="tenant-account-caption">正在读取账号…</small></span><span aria-hidden="true">›</span></button><div class="connection"><i id="connection-dot"></i><span id="connection-text">正在连接本机服务</span></div><p>每一道题，都能回到原文。</p><a href="admin">访问管理 ↗</a> · <a href="docs" target="_blank" rel="noopener">接口文档 ↗</a></div>
     <div class="sidebar-resizer" id="sidebar-resizer" role="separator" tabindex="0" aria-label="调整侧边栏宽度" aria-orientation="vertical" aria-controls="workspace-sidebar" aria-valuemin="192" aria-valuemax="420" aria-valuenow="244" title="拖动调整宽度，或使用左右方向键"></div>
   </aside>
   <div class="sidebar-backdrop" id="sidebar-backdrop" hidden aria-hidden="true"></div>
   <main id="main" class="main">
     <header class="topbar"><div class="topbar-start"><button type="button" class="sidebar-toggle" id="sidebar-toggle" aria-label="收起侧边栏" aria-controls="workspace-sidebar" aria-expanded="true" title="收起侧边栏"><svg viewBox="0 0 20 20" width="18" height="18" aria-hidden="true"><rect x="2.5" y="3.5" width="15" height="13" rx="2"/><path d="M7.5 3.5v13"/></svg></button><div class="breadcrumb">个人知识库 <span>/</span> <b id="breadcrumb-page">题库与检索</b></div></div><div class="topbar-right"><span class="local-badge"><i></i>本机工作区</span><button class="text-button" id="refresh-workspace">↻ 刷新数据</button></div></header>
     <div id="global-message" class="notice" role="status" hidden></div>
+    <div id="tenant-banner" class="tenant-banner" role="status" hidden><span id="tenant-banner-text"></span><button type="button" class="text-button" id="tenant-banner-action">账号与模型 →</button></div>
     <section class="page" id="page-library">
       <div class="page-heading"><div><div class="eyebrow">从真实面试开始</div><h1>题库与检索<span class="heading-dot">.</span></h1><p>搜索题目，选择澄清方向，实时查看检索进度。</p></div><div class="library-heading-actions"><button class="button primary" data-page="chat">对话检索 ↗</button><button class="text-button" id="open-general-feedback">⚑ 记录问题</button></div></div>
       <div class="summary-grid" id="summary-cards" aria-live="polite"><article class="summary-card"><div>生效面经<span class="summary-icon">▤</span></div><strong id="count-documents">—</strong><small id="count-documents-caption">正在读取语料</small></article><article class="summary-card"><div>标准题目<span class="summary-icon">◇</span></div><strong id="count-questions">—</strong><small>不同问法归并后的题目</small></article><article class="summary-card"><div>真实提问<span class="summary-icon">↗</span></div><strong id="count-occurrences">—</strong><small id="count-occurrences-caption">保留每一次出现的证据</small></article></div>
@@ -91,6 +94,39 @@
     </section>
     <footer class="footer"><span>面经研习 · 从原文到准备</span><span id="footer-revision">正在读取数据版本</span></footer>
   </main>
+  <dialog id="tenant-dialog" class="tenant-dialog" aria-labelledby="tenant-dialog-title">
+    <div class="dialog-head"><span id="tenant-dialog-title">账号与模型</span><button type="button" class="icon-button" id="tenant-close" aria-label="关闭账号与模型">×</button></div>
+    <div class="tenant-dialog-body">
+      <div id="tenant-status" class="notice" role="status" hidden></div>
+      <section id="tenant-auth-section" hidden>
+        <h2>登录你的工作台</h2><p class="tenant-description">每个账号独立保存对话、复习记录和模型配置。</p>
+        <div class="tenant-auth-tabs" role="tablist" aria-label="账号操作"><button type="button" id="tenant-login-tab" role="tab" aria-selected="true" aria-controls="tenant-auth-form">登录</button><button type="button" id="tenant-register-tab" role="tab" aria-selected="false" aria-controls="tenant-auth-form">注册账号</button></div>
+        <form id="tenant-auth-form" class="tenant-form">
+          <label for="tenant-username">用户名<input id="tenant-username" name="username" autocomplete="username" minlength="3" maxlength="80" required placeholder="3–80 个字符"></label>
+          <label for="tenant-password">密码<input id="tenant-password" name="password" type="password" autocomplete="current-password" minlength="8" maxlength="256" required placeholder="至少 8 个字符"></label>
+          <p id="tenant-auth-description" class="tenant-hint">登录后继续上次的对话。</p>
+          <button type="submit" id="tenant-auth-submit" class="button primary">登录</button>
+        </form>
+      </section>
+      <section id="tenant-settings-section" hidden>
+        <div class="tenant-session"><div><span class="tenant-kicker">当前账号</span><h2 id="tenant-username-display"></h2></div><button type="button" id="tenant-logout" class="text-button">退出登录</button></div>
+        <div class="tenant-quota"><div><span class="tenant-kicker">系统默认模型</span><strong id="tenant-trial-remaining">—</strong><p id="tenant-trial-caption"></p></div><span class="tenant-provider-badge" id="tenant-provider-badge"></span></div>
+        <p class="tenant-hint">每次提交新的 AI 提问扣 1 次，同一请求重试不重复扣次。浏览题库不扣次数；额度用完后可配置自己的模型继续提问。</p>
+        <form id="tenant-model-form" class="tenant-form">
+          <div class="tenant-form-heading"><h3>使用自己的模型</h3><button type="button" class="text-button" id="tenant-model-refresh">重新读取</button></div>
+          <p class="tenant-description">填写兼容 OpenAI 的公网 HTTPS 模型接口。保存后，本账号的 AI 提问使用此配置。</p>
+          <label for="tenant-base-url">Base URL<input id="tenant-base-url" name="base_url" type="url" autocomplete="off" maxlength="500" placeholder="https://api.example.com/v1" required></label>
+          <label for="tenant-model">对话模型名称<input id="tenant-model" name="model" autocomplete="off" maxlength="160" placeholder="例如 qwen3.5-4b" required></label>
+          <label for="tenant-reranker-model">相关性筛选模型（可选）<input id="tenant-reranker-model" name="reranker_model" autocomplete="off" maxlength="160" placeholder="留空时使用对话模型"></label>
+          <label for="tenant-api-key">API Key<input id="tenant-api-key" name="api_key" type="password" autocomplete="off" data-lpignore="true" maxlength="4096" placeholder="输入你自己的 API Key"></label>
+          <p class="tenant-hint" id="tenant-key-caption">API Key 仅保存到服务端，不保存在浏览器中。</p>
+          <div class="tenant-model-actions"><button type="submit" id="tenant-model-save" class="button primary">保存并使用自己的模型</button><button type="button" id="tenant-model-reset" class="button secondary" hidden>恢复系统默认模型</button></div>
+          <p class="tenant-hint">恢复默认模型不会重置已使用的免费次数。</p>
+        </form>
+      </section>
+      <section id="tenant-local-section" hidden><h2>本机工作区</h2><p class="tenant-description">当前服务未启用多租户。启用后可登录账号并配置个人模型。</p></section>
+    </div>
+  </dialog>
   <dialog id="detail-dialog" class="detail-dialog"><div class="dialog-head"><span>题目详情</span><button class="icon-button" data-close="detail-dialog" aria-label="关闭题目详情">×</button></div><div id="detail-content"></div></dialog>
   <dialog id="source-dialog" class="source-dialog"><div class="dialog-head"><span id="source-title">原文来源</span><button class="icon-button" data-close="source-dialog" aria-label="关闭原文">×</button></div><p class="source-caption" id="source-caption"></p><div id="source-content" class="source-content"></div></dialog>
   <dialog id="feedback-dialog" class="feedback-dialog"><div class="dialog-head"><span>记录发现的问题</span><button class="icon-button" data-close="feedback-dialog" aria-label="关闭问题记录">×</button></div><form id="feedback-form"><p class="muted">原问题、回答、完整结果和筛选条件会随记录一起保存。</p><label>问题类型<select id="feedback-category"><option value="IRRELEVANT">检索偏题</option><option value="TAG">标签问题</option><option value="DEDUP">归并问题</option><option value="SOURCE">来源问题</option><option value="OTHER">其他问题</option></select></label><label>发现了什么？<textarea id="feedback-note" rows="5" maxlength="2000" placeholder="例如：问 OOM 排查，却返回了 Agent 设计模式。预期找到哪些问题？" required></textarea></label><div id="feedback-context-caption" class="context-caption"></div><div id="feedback-notice" class="notice" role="status" hidden></div><label class="remember-correction"><input id="feedback-remember" type="checkbox">记住这条纠正，用于下次同样的查询</label><div class="feedback-submit"><button type="submit" class="button secondary" id="save-feedback">保存反馈</button><button type="submit" class="button primary" id="feedback-requery">保存并重新检索 ↻</button></div></form></dialog>

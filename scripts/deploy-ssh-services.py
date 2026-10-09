@@ -68,10 +68,12 @@ def main(root, listen, hostname=None, admin_url=None):
     config = json.loads((release / "runtime.private.json").read_text())
     pg_password = secrets.token_urlsafe(32)
     internal_token = secrets.token_urlsafe(40)
+    admin_access_token = config.get("admin_access_token") or secrets.token_urlsafe(40)
     config.update(database_url=f"postgresql+psycopg://interview:{pg_password}@127.0.0.1:15432/interview_intelligence",
                   elasticsearch_url="http://127.0.0.1:19200", corpus_root=str(root / "md"),
                   snapshot_root=str(root / "data/snapshots"), model_lock_path=str(root / "state/run/model-call.lock"),
                   pi_agent_url="http://127.0.0.1:18787", internal_agent_token=internal_token,
+                  admin_access_token=admin_access_token, trusted_proxy_cidrs="127.0.0.1/32,::1/128",
                   app_signing_key=config.get("app_signing_key") or secrets.token_urlsafe(40), api_root_path="", jev_decision_enabled=False,
                   jev_api_key=None, jev_calibration_path=None, jev_base_url="http://127.0.0.1:18788/v1")
     environment_file(root / "app/.env", config)
@@ -109,11 +111,11 @@ def main(root, listen, hostname=None, admin_url=None):
     login_password = secrets.token_urlsafe(24)
     password_hash = subprocess.run(["/usr/local/bin/caddy", "hash-password"], input=login_password + "\n",
                                    text=True, check=True, capture_output=True).stdout.strip()
-    write_private(root / "Caddyfile", textwrap.dedent(f"""\
-        {{
-            admin off
-            auto_https off
-        }}
+    global_options = "{\n\tadmin off\n\tauto_https off\n"
+    if hostname:
+        global_options += "\tservers {\n\t\ttrusted_proxies static 127.0.0.1/32 ::1/128\n\t\ttrusted_proxies_strict\n\t}\n"
+    global_options += "}\n"
+    write_private(root / "Caddyfile", global_options + textwrap.dedent(f"""\
         http://:{bind_port} {{
             bind {bind_host}
             @internal path /internal /internal/*
@@ -130,7 +132,8 @@ def main(root, listen, hostname=None, admin_url=None):
         """))
     subprocess.run(["/usr/local/bin/caddy", "validate", "--config", str(root / "Caddyfile"), "--adapter", "caddyfile"], check=True)
     write_private(root / "access.private.json", json.dumps({"username": login_user, "password": login_password,
-                  "listen": listen, "url": f"https://{hostname}/" if hostname else f"http://{listen}/"}, indent=2) + "\n")
+                  "admin_access_token": admin_access_token, "listen": listen,
+                  "url": f"https://{hostname}/" if hostname else f"http://{listen}/"}, indent=2) + "\n")
 
     units = Path.home() / ".config/systemd/user"
     units.mkdir(parents=True, exist_ok=True)
@@ -168,7 +171,7 @@ def main(root, listen, hostname=None, admin_url=None):
     unit("postgres", "PostgreSQL 16.9", f"{pg_bin / 'postgres'} -D {root / 'state/postgres'}", extra="KillSignal=SIGINT")
     unit("elasticsearch", "Elasticsearch 8.19.0", f"{es / 'bin/elasticsearch'}", env=f"Environment=ES_PATH_CONF={es_config}", extra="MemoryMax=2G\nLimitNOFILE=65535")
     dependencies = "interview-intelligence-postgres.service interview-intelligence-elasticsearch.service"
-    unit("api", "API", f"{python} -m uvicorn interview_intelligence.api:app --host 127.0.0.1 --port 18082",
+    unit("api", "API", f"{python} -m uvicorn interview_intelligence.api:app --host 127.0.0.1 --port 18082 --no-proxy-headers",
          after=dependencies, env=f"EnvironmentFile={root / 'app/.env'}", pre=f"ExecStartPre={python} -m alembic upgrade head")
     unit("pi", "Pi Agent", f"{root / 'runtime/node-v22.23.0-linux-x64/bin/node'} services/pi-agent/server.mjs",
          after="interview-intelligence-api.service", env=f"EnvironmentFile={root / 'pi.env'}", work=root / "pi")

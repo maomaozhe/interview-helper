@@ -3,11 +3,12 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Literal
+import json
+from typing import Annotated, Literal
 from urllib.parse import urlparse
 
-from pydantic import Field
-from pydantic_settings import BaseSettings, SettingsConfigDict
+from pydantic import Field, field_validator
+from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
 
 
 class Settings(BaseSettings):
@@ -25,6 +26,15 @@ class Settings(BaseSettings):
     snapshot_root: Path = Path("data/snapshots")
     local_user_id: str = "local"
     app_signing_key: str | None = None
+    admin_access_token: str | None = None
+    multi_tenant_enabled: bool = False
+    tenant_trial_limit: int = Field(default=10, ge=0, le=1000000)
+    tenant_default_api_key: str | None = None
+    tenant_default_base_url: str | None = None
+    tenant_default_query_model: str | None = None
+    tenant_default_reranker_model: str | None = None
+    model_credential_key: str | None = None
+    trusted_proxy_cidrs: Annotated[list[str], NoDecode] = Field(default_factory=list)
     embedding_dimension: int | None = 1024
     max_model_calls: int | None = None
     max_model_tokens: int | None = None
@@ -61,6 +71,13 @@ class Settings(BaseSettings):
     jev_confidence_threshold: float = Field(default=0.85, ge=0, le=1)
     jev_calibration_path: Path | None = None
     jev_timeout_seconds: float = Field(default=5, gt=0, le=30)
+
+    @field_validator("trusted_proxy_cidrs", mode="before")
+    @classmethod
+    def parse_trusted_proxies(cls, value):
+        if isinstance(value, str):
+            return json.loads(value) if value.strip().startswith("[") else [part.strip() for part in value.split(",") if part.strip()]
+        return value
 
 
 def resolve_corpus_path(corpus_root: Path, relative_path: str) -> Path:

@@ -489,6 +489,9 @@ def create_database(url: str, *, create_tables: bool = True) -> Database:
             cursor.execute("PRAGMA foreign_keys=ON")
             cursor.close()
     if create_tables:
+        # Register ancillary tables before create_all, including callers outside the API.
+        from interview_intelligence import access_models  # noqa: F401
+        from interview_intelligence import tenant_models  # noqa: F401
         Base.metadata.create_all(engine)
         with sessionmaker(engine)() as session:
             if session.get(CorpusState, 1) is None:

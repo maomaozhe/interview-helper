@@ -130,6 +130,10 @@ docker compose up -d --build --wait
 
 配置、Windows / WSL 启动和模型调用约束见 [开发与运行说明](docs/development.md)。默认任务标签政策为 `VERIFIED`；新语料的机器分类需要核验发布，开发试验可显式使用 `KNOWN`，两种口径不能混为人工核验。
 
+2026-10-09 本机已更新并通过真实 Pi 六轮问答、源码哈希和数据保留验证；构建故障、COUNT 范围纠正修复及具体限制见 [本地部署记录](docs/verification/2026-10-09-local-deployment.md)。
+
+需要多人使用时，可启用账号登录、每账号默认 10 次试用及个人 API Key / Base URL 配置，见 [账号与模型配置](docs/tenants.md)。通过 SSH 部署独立私有 Qwen 的步骤见 [Qwen 部署说明](docs/deployment-qwen.md)。
+
 ## 评测与结果
 
 评测覆盖**抽取、任务分类、语义去重、检索、查询 Agent 和 Exact SQL**六层。协议、数据版本、预测和判断池分别留档，保留失败样本与回归差异。
@@ -186,4 +190,4 @@ vendor/pi/          # 固定版本的上游 Agent Loop
 
 [实现规范](docs/implementation-spec-v1.md) · [Agent 设计](docs/plans/2026-10-04-pi-agent-spec.md) · [设计复盘](docs/retrospectives/2026-10-04-query-agent.md) · [坏案例](docs/bad-cases.md) · [实施状态](docs/implementation-status.md)
 
-当前主要改进方向是复杂语义召回、任务分类的人工核验覆盖、相关性核验延迟，以及生产级多实例任务恢复。项目适合本地个人工作区使用，尚未提供面向公网的多租户认证与容量保证。
+当前主要改进方向是复杂语义召回、任务分类的人工核验覆盖、相关性核验延迟，以及生产级多实例任务恢复。多人模式提供账号认证、个人数据隔离和默认模型额度；生产容量及多实例恢复仍需按部署环境验证。

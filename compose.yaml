@@ -59,15 +59,25 @@ services:
       MODEL_LOCK_PATH: /app/runtime/model-call.lock
       LOCAL_USER_ID: local
       APP_SIGNING_KEY: ${APP_SIGNING_KEY:-local-development-only}
+      ADMIN_ACCESS_TOKEN: ${ADMIN_ACCESS_TOKEN:-}
+      TRUSTED_PROXY_CIDRS: ${TRUSTED_PROXY_CIDRS:-}
+      MULTI_TENANT_ENABLED: ${MULTI_TENANT_ENABLED:-false}
+      TENANT_TRIAL_LIMIT: ${TENANT_TRIAL_LIMIT:-10}
+      TENANT_DEFAULT_BASE_URL: ${TENANT_DEFAULT_BASE_URL:-}
+      TENANT_DEFAULT_API_KEY: ${TENANT_DEFAULT_API_KEY:-}
+      TENANT_DEFAULT_QUERY_MODEL: ${TENANT_DEFAULT_QUERY_MODEL:-}
+      TENANT_DEFAULT_RERANKER_MODEL: ${TENANT_DEFAULT_RERANKER_MODEL:-}
+      MODEL_CREDENTIAL_KEY: ${MODEL_CREDENTIAL_KEY:-}
       API_ROOT_PATH: ${API_ROOT_PATH:-}
       QUERY_ROUTER_ENABLED: ${QUERY_ROUTER_ENABLED:-true}
       PI_AGENT_ENABLED: ${PI_AGENT_ENABLED:-true}
       PI_AGENT_URL: http://pi-agent:8787
       INTERNAL_AGENT_TOKEN: ${INTERNAL_AGENT_TOKEN:-}
       QUERY_MODEL: ${QUERY_MODEL:-ark-code-latest}
-      QUERY_DEADLINE_SECONDS: ${QUERY_DEADLINE_SECONDS:-90}
-      QUERY_MAX_MODEL_CALLS: ${QUERY_MAX_MODEL_CALLS:-3}
-      QUERY_MAX_TOKENS: ${QUERY_MAX_TOKENS:-65536}
+      QUERY_PROMPT_VERSION: ${QUERY_PROMPT_VERSION:-query_agent_v13}
+      QUERY_DEADLINE_SECONDS: ${QUERY_DEADLINE_SECONDS:-180}
+      QUERY_MAX_MODEL_CALLS: ${QUERY_MAX_MODEL_CALLS:-4}
+      QUERY_MAX_TOKENS: ${QUERY_MAX_TOKENS:-96000}
       QUERY_COMPACT_CONTEXT: ${QUERY_COMPACT_CONTEXT:-true}
       QUERY_DYNAMIC_TOOLS: ${QUERY_DYNAMIC_TOOLS:-true}
       TASK_FILTERS_ENABLED: ${TASK_FILTERS_ENABLED:-true}
@@ -86,7 +96,7 @@ services:
       DEDUP_VERIFY_EQUIVALENCE: ${DEDUP_VERIFY_EQUIVALENCE:-false}
     extra_hosts:
       - "host.docker.internal:host-gateway"
-    command: ["sh", "-c", "alembic upgrade head && exec uvicorn interview_intelligence.api:app --host 0.0.0.0 --port 8000"]
+    command: ["sh", "-c", "alembic upgrade head && exec uvicorn interview_intelligence.api:app --host 0.0.0.0 --port 8000 --no-proxy-headers"]
     ports:
       - "127.0.0.1:${API_BIND_PORT:-8000}:8000"
     depends_on:

@@ -1,0 +1,298 @@
+{
+  "date": "2026-10-09",
+  "status": "local_deployed_and_verified",
+  "url": "http://localhost:8000/",
+  "runtime": {
+    "services": [
+      {
+        "service": "api",
+        "state": "running",
+        "health": "healthy"
+      },
+      {
+        "service": "elasticsearch",
+        "state": "running",
+        "health": "healthy"
+      },
+      {
+        "service": "pi-agent",
+        "state": "running",
+        "health": "healthy"
+      },
+      {
+        "service": "postgres",
+        "state": "running",
+        "health": "healthy"
+      },
+      {
+        "service": "worker",
+        "state": "running",
+        "health": ""
+      }
+    ],
+    "migration": "e937fb9c2160 (head)",
+    "corpus_revision": 293,
+    "index_revision": 293,
+    "query_prompt_version": "query_agent_v13",
+    "query_prompt_sha256": "88c1b1d4c907eafc6e88153c1614138ced1bb3bf2408d690d223057fe7f40a93",
+    "prompt_bytes": 13996,
+    "reranker_version": "rerank_v19_design_unit_source_context",
+    "installed_source": {
+      "api": {
+        "files": 88,
+        "all_sha256_match": true
+      },
+      "worker": {
+        "files": 88,
+        "all_sha256_match": true
+      }
+    },
+    "pi_sha256": {
+      "services/pi-agent/runtime.mjs": "384272bdea504ade8fb74c78c88a0e6d4ab24b658196ce49848aa98ffdd55233",
+      "services/pi-agent/server.mjs": "72ac1cb096adc45ab12f732f170f0a400c50f9872a40cf1e4f9f27e9e7ca7d40",
+      "package-lock.json": "d07ff0aaa03ee12b5835d80d32fd1de6b42c7935cca72c980bd326ed544d15f0"
+    },
+    "assets_sha256": {
+      "sidebar.js": "c407390782c1a1a2b4eaa2840c0fdaf46e8f5c575c57f5a4bf55020ab08f5167",
+      "markdown.js": "1a957d68eb16414028fc99d9d08fea86450add9189c65a6357b02680c6258a48",
+      "answer-stream.js": "dde0ac4b87dca6d8ad5fb4611c540aef1d30bd21f731e98b0931e951040046c5",
+      "tenant.js": "c6a8aae4fd0c863019bd883d12c9c8b8a8332050ce78593784ad23020b00a6bb",
+      "tenant.css": "a55a368a9a2ade6e2d1ad16f1b73f6afc58f4ad187cde29af11c1111de17cf6a",
+      "app.js": "4890b97c458a04c673c0d87f5140399dcac4c650a8890a06d17b0210936f788e",
+      "workspace.css": "fc35e442c38daafffdaa563b2f90e9b560d3589758743bfa78f7c4ed5a30e829"
+    },
+    "images": [
+      "/interview-intelligence-api-1 sha256:d3735dd0e3ad07e160e431d150801b2fb4f353dbb2cf4ff136db69bb9941aacc",
+      "/interview-intelligence-worker-1 sha256:a3d9f2b91989ca7f220d7de556053f7bcbab1b29b2250e3740acd9318411fce3",
+      "/interview-intelligence-pi-agent-1 sha256:dac263761bf15fb467db44c018c2deb8d5ad2cb2bacfadf985965123b27c8e66"
+    ]
+  },
+  "data": {
+    "backup_bytes": 78072061,
+    "backup_sha256": "200b8a87e80457049ddc794b4e8c74fc67f5ae905da437e7b4e49fad0fb4f954",
+    "preserved_database_rows": {
+      "corpus_state": {
+        "before": 1,
+        "after": 1,
+        "existing_rows_preserved": true
+      },
+      "source_document": {
+        "before": 190,
+        "after": 190,
+        "existing_rows_preserved": true
+      },
+      "canonical_question": {
+        "before": 2668,
+        "after": 2668,
+        "existing_rows_preserved": true
+      },
+      "question_occurrence": {
+        "before": 4338,
+        "after": 4338,
+        "existing_rows_preserved": true
+      },
+      "agent_conversation": {
+        "before": 577,
+        "after": 580,
+        "existing_rows_preserved": true
+      },
+      "agent_turn": {
+        "before": 765,
+        "after": 775,
+        "existing_rows_preserved": true
+      },
+      "user_preference": {
+        "before": 1,
+        "after": 1,
+        "existing_rows_preserved": true
+      },
+      "user_question_state": {
+        "before": 16,
+        "after": 16,
+        "existing_rows_preserved": true
+      }
+    }
+  },
+  "tests": {
+    "pytest": {
+      "passed": 836,
+      "skipped": 2,
+      "seconds": 112.2
+    },
+    "node": {
+      "passed": 75
+    },
+    "postgres_live": {
+      "passed": 1
+    },
+    "elasticsearch_live": {
+      "passed": 1
+    },
+    "final_prompt_focus": {
+      "passed": 69
+    },
+    "pip_check": "passed"
+  },
+  "live_smoke": {
+    "provider": "pi",
+    "passed": 6,
+    "cases": [
+      {
+        "intent": "LIST",
+        "checks": {
+          "succeeded": true,
+          "intent": true,
+          "pi": true
+        },
+        "seconds": 5.62,
+        "run_id": "a389c73d-159c-4554-a9e0-1d3017964bb6"
+      },
+      {
+        "intent": "COUNT",
+        "checks": {
+          "succeeded": true,
+          "intent": true,
+          "pi": true,
+          "redis_count": true
+        },
+        "seconds": 6.83,
+        "run_id": "c3d0d7d1-b5dd-487a-bab8-874da9e7ffb4"
+      },
+      {
+        "intent": "COUNT",
+        "checks": {
+          "succeeded": true,
+          "intent": true,
+          "pi": true,
+          "redis_count": true
+        },
+        "seconds": 7.01,
+        "run_id": "5b36cd54-1eda-4499-afe8-c502885db3eb"
+      },
+      {
+        "intent": "ANSWER",
+        "checks": {
+          "succeeded": true,
+          "intent": true,
+          "pi": true,
+          "answer_present": true,
+          "answer_delta": true
+        },
+        "seconds": 40.0,
+        "run_id": "8905a867-a664-4065-9904-20287cfd2cde"
+      },
+      {
+        "intent": "LIST",
+        "checks": {
+          "succeeded": true,
+          "intent": true,
+          "pi": true
+        },
+        "seconds": 9.62,
+        "run_id": "2ca70bcc-a3b4-4d55-ac0d-51ed35acdc8d"
+      },
+      {
+        "intent": "SEARCH",
+        "checks": {
+          "succeeded": true,
+          "intent": true,
+          "pi": true
+        },
+        "seconds": 90.99,
+        "run_id": "28af8341-0e03-49d3-b794-d155803e155d"
+      }
+    ],
+    "answer_delta_events": 1150,
+    "delta_before_terminal": true
+  },
+  "regression": {
+    "before_intents": [
+      "LIST",
+      "COUNT",
+      "LIST"
+    ],
+    "after_intents": [
+      "LIST",
+      "COUNT",
+      "COUNT",
+      "ANSWER",
+      "LIST",
+      "SEARCH"
+    ],
+    "expected_correction_count": 152,
+    "fix": "Restore COUNT scope-correction examples in v13; keep prompt below 14000 bytes"
+  },
+  "browser": {
+    "completed": [
+      {
+        "label": "drag",
+        "composerWidth": 896,
+        "composerX": 346,
+        "expanded": "true",
+        "mainX": 308,
+        "overflow": false,
+        "sidebarHidden": false,
+        "sidebarWidth": 308
+      },
+      {
+        "label": "width-after-reload",
+        "composerWidth": 0,
+        "composerX": 0,
+        "expanded": "true",
+        "mainX": 308,
+        "overflow": false,
+        "sidebarHidden": false,
+        "sidebarWidth": 308
+      },
+      {
+        "label": "hidden-after-reload",
+        "composerWidth": 0,
+        "composerX": 0,
+        "expanded": "false",
+        "mainX": 0,
+        "overflow": false,
+        "sidebarHidden": true,
+        "sidebarWidth": 0
+      },
+      {
+        "label": "history_reload",
+        "composerWidth": 880.7999877929688,
+        "composerX": 346,
+        "expanded": "true",
+        "mainX": 308,
+        "overflow": false,
+        "sidebarHidden": false,
+        "sidebarWidth": 308
+      },
+      {
+        "label": "existing_history",
+        "messagesBeforeReload": 4,
+        "messagesAfterReload": 4,
+        "passed": true
+      }
+    ],
+    "later_connection_timeout": true,
+    "markdown_reload_not_verified_this_run": true
+  },
+  "configuration": {
+    "multi_tenant_enabled": false,
+    "admin_session_status": 503,
+    "qwen_default_provider_acceptance": "in_progress"
+  },
+  "build": {
+    "method": "Cached official service image bases plus full current source and lock files",
+    "clean_from_scratch_build_verified": false,
+    "unicode_path_compatibility": "COMPOSE_BAKE=false",
+    "base_images": {
+      "api": "sha256:51f9186a59cd99a43472e4365c5d00987609d72a9d78144e771cb0ff9bc7b862",
+      "pi": "sha256:3a5343fd28f4e1b1c02f113af34646c5bc2ee3ab215e66764b792fceb6472dd4"
+    },
+    "dockerhub_metadata_timeout": true
+  },
+  "limits": [
+    "Local release only; SSH was not changed by this deployment",
+    "Engineering SEARCH smoke checks successful routing, not full retrieval quality",
+    "Full V1 quality gates and Qwen production acceptance were not rerun"
+  ],
+  "private_evidence_directory": "data/reports/local-deployment-20261009/"
+}

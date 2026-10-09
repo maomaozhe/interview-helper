@@ -19,13 +19,14 @@ class ModelGateway:
         self.prompt_version = getattr(settings, "query_prompt_version", QUERY_AGENT_VERSION)
 
     async def complete(self, run, payload, emit=None):
-        if not self.settings.model_api_key or not self.settings.model_base_url:
+        settings = getattr(run, "provider_settings", None) or self.settings
+        if not settings.model_api_key or not settings.model_base_url:
             raise ValueError("MODEL_CONFIGURATION_INCOMPLETE")
         run.limits.check()
         if run.model_calls >= self.settings.query_max_model_calls:
             raise ValueError("QUERY_MODEL_BUDGET_EXCEEDED")
         run.model_calls += 1
-        model = self.settings.query_model or self.settings.judge_model
+        model = settings.query_model or settings.judge_model
         # Hosts select endpoint/model/budget; clients cannot change them.
         body = {k: v for k, v in payload.items() if k in {
             "messages", "tools", "tool_choice", "response_format", "max_tokens", "max_completion_tokens"}}
@@ -40,7 +41,7 @@ class ModelGateway:
         body["max_tokens"] = min(4096, max(1, int(body["max_tokens"])))
         if "max_completion_tokens" in body:
             body["max_completion_tokens"] = min(4096, max(1, int(body["max_completion_tokens"])))
-        if "ark.cn-" in self.settings.model_base_url:
+        if "ark.cn-" in settings.model_base_url:
             body["thinking"] = {"type": "disabled"}
         if len(json.dumps(body, ensure_ascii=False)) > 100_000:
             raise ValueError("QUERY_CONTEXT_TOO_LARGE")
@@ -76,9 +77,13 @@ class ModelGateway:
             # Enter is performed only once so the file lock spans this actual HTTP call.
             provider_started = time.perf_counter()
             timeout = max(0.01, run.limits.deadline - time.monotonic())
-            async with httpx.AsyncClient(trust_env=False, timeout=timeout) as client:
-                url=self.settings.model_base_url.rstrip("/")+"/chat/completions"
-                headers={"Authorization":f"Bearer {self.settings.model_api_key}"}
+            client_options = {"trust_env": False, "timeout": timeout}
+            if getattr(run, "provider_source", None) == "personal":
+                from interview_intelligence.providers.tenant_transport import public_async_transport
+                client_options["transport"] = public_async_transport()
+            async with httpx.AsyncClient(**client_options) as client:
+                url=settings.model_base_url.rstrip("/")+"/chat/completions"
+                headers={"Authorization":f"Bearer {settings.model_api_key}"}
                 if emit:
                     message={"role":"assistant","content":""}
                     calls={}
@@ -125,6 +130,13 @@ class ModelGateway:
             return response
         except BaseException as failure:
             error = failure
+            if getattr(run, "provider_source", None) == "personal" and isinstance(failure, (httpx.HTTPError, ValueError)):
+                # Client transport failures can include URLs or header values.
+                # Persist/return a fixed code, while model calls record only type.
+                safe_codes = {"QUERY_MODEL_BUDGET_EXCEEDED", "QUERY_TOKEN_BUDGET_EXCEEDED", "QUERY_CANCELLED",
+                              "QUERY_DEADLINE_EXCEEDED", "STREAM_INCOMPLETE", "MODEL_OUTPUT_TRUNCATED"}
+                if str(failure) not in safe_codes:
+                    raise ValueError("MODEL_PROVIDER_UNAVAILABLE") from None
             raise
         finally:
             if entered:

@@ -54,6 +54,9 @@ from interview_intelligence.search.service import search_questions
 from interview_intelligence.taxonomy import load_taxonomy
 from interview_intelligence.web import register_web
 from interview_intelligence.resources import resource_path
+from interview_intelligence.access import register_access
+from interview_intelligence.tenant import register_tenants, ScopedService, current_tenant, current_provider, tenant_user_id
+from interview_intelligence.tenant_retriever import TenantRetriever
 
 
 model_request_id = ContextVar("model_request_id", default="local-search")
@@ -168,23 +171,32 @@ def create_app(database=None, settings: Settings | None = None, retriever=None, 
                                         budget=budget, call_gate=gate, on_call=record_api_call)
         retriever = ElasticsearchRetriever(settings.elasticsearch_url, encoder, reranker=reranker)
     review_service = ReviewService(database)
-    agent_service = AgentService(database, retriever, user_id=settings.local_user_id, planner=planner)
-    signing_key = settings.app_signing_key or secrets.token_hex(32)
-    query_service = QueryService(database, retriever, user_id=settings.local_user_id,
+    query_gate = ModelCallGate(settings.model_lock_path, minimum_interval_seconds=settings.model_min_interval_seconds)
+    app = FastAPI(title="Interview Intelligence", version="1.0.0", root_path=settings.api_root_path)
+    access_service = register_access(app, database, settings)
+    tenant_service = register_tenants(app, database, settings, access_service)
+    # Signed state/cursors survive restarts and remain bound to their account.
+    signing_key = settings.app_signing_key or access_service.cookie_key
+    tenant_retrievers = ScopedService(settings, lambda identifier: TenantRetriever(
+        retriever, tenant_service, identifier, query_gate, record_api_call)
+        if settings.multi_tenant_enabled and retriever is not None else retriever)
+    query_service = ScopedService(settings, lambda identifier: QueryService(database,
+                                 tenant_retrievers.for_user(identifier), user_id=identifier,
                                  signing_key=signing_key, deadline_seconds=settings.query_deadline_seconds,
                                  max_tokens=settings.query_max_tokens,task_filters_enabled=settings.task_filters_enabled,
                                  task_annotation_policy=settings.task_annotation_policy,
                                  compact_context=settings.query_compact_context,
                                  dynamic_tools=settings.query_dynamic_tools,
                                  prompt_version=settings.query_prompt_version,
-                                 feedback_root=settings.snapshot_root.parent / "feedback")
-    history = ConversationHistory(database, settings.local_user_id, signing_key)
-    query_gate = ModelCallGate(settings.model_lock_path, minimum_interval_seconds=settings.model_min_interval_seconds)
-    gateway = ModelGateway(settings, query_gate, record_api_call, query_service.journal.event)
+                                 feedback_root=settings.snapshot_root.parent / "feedback"))
+    agent_service = ScopedService(settings, lambda identifier: AgentService(database,
+        tenant_retrievers.for_user(identifier), user_id=identifier, planner=planner))
+    history = ScopedService(settings, lambda identifier: ConversationHistory(database, identifier, signing_key))
+    gateway = ModelGateway(settings, query_gate, record_api_call,
+        lambda run_id, kind, payload: query_service.journal.event(run_id, kind, payload))
     jev = JevPlanner(settings, database, query_gate, record_api_call) if settings.jev_decision_enabled and settings.jev_api_key else None
-    app = FastAPI(title="Interview Intelligence", version="1.0.0", root_path=settings.api_root_path)
     app.state.query_service = query_service
-    annotation_reviewer=AnnotationReviewer(database,settings.local_user_id,signing_key)
+    annotation_reviewer=ScopedService(settings, lambda identifier: AnnotationReviewer(database,identifier,signing_key))
 
     @app.get("/api/task-annotations")
     def task_annotations(request:Request,cursor:str|None=None,limit:int=Query(default=20,ge=1,le=50)):
@@ -201,7 +213,16 @@ def create_app(database=None, settings: Settings | None = None, retriever=None, 
         provided = request.headers.get("authorization", "")
         if not expected or not secrets.compare_digest(provided, f"Bearer {expected}"):
             raise HTTPException(status_code=401, detail="internal agent authentication required")
-        run = query_service.runs.get(run_id)
+        # Pi's authenticated callbacks recover the owner from the host's run,
+        # never from a browser-supplied tenant header or callback body.
+        run = None
+        for identifier, service in list(query_service.services.items()):
+            candidate = service.runs.get(run_id)
+            if candidate:
+                current_tenant.set(identifier)
+                current_provider.set(getattr(candidate, "provider_selection", None))
+                run = candidate
+                break
         if not run:
             raise HTTPException(status_code=404, detail="run expired")
         run.limits.check()
@@ -209,9 +230,31 @@ def create_app(database=None, settings: Settings | None = None, retriever=None, 
 
     async def execute_query(payload: QueryRequest, request: Request | None, prepared_run=None):
         started = time.perf_counter()
-        run = prepared_run or await asyncio.to_thread(query_service.begin, payload)
+        selection = getattr(prepared_run, "provider_selection", None)
+        # Structured list/filter/pagination calls are pure SQL and can be sent
+        # automatically on page load. Conversation limits apply to submitted
+        # natural-language requests, even when their chosen plan is also LIST.
+        run = prepared_run
+        if settings.multi_tenant_enabled and request is not None:
+            # Establish a durable, owned turn before reserving quota. A stale
+            # version or competing conversation turn must not spend a trial.
+            run = await asyncio.to_thread(query_service.begin, payload)
+            if not isinstance(run, QueryRun):
+                return run
+        if request is not None and not isinstance(payload, StructuredQueryRequest):
+            try:
+                selection = await asyncio.to_thread(tenant_service.admit, request, payload.request_id, payload.model_dump(mode="json"))
+            except BaseException as failure:
+                if run is not None:
+                    await asyncio.to_thread(query_service.fail, run, failure)
+                raise
+        run = run or await asyncio.to_thread(query_service.begin, payload)
         if not isinstance(run, QueryRun):
             return run
+        if selection:
+            run.provider_selection = selection
+            run.provider_settings, run.provider_source = selection["settings"], selection["source"]
+        provider_token = current_provider.set(selection)
         limits_token = current_limits.set(run.limits)
         trace_token = model_request_id.set(payload.request_id)
         run_token = query_run_context.set(run)
@@ -236,8 +279,9 @@ def create_app(database=None, settings: Settings | None = None, retriever=None, 
                              "model_attempts": 0, **run.call_timings})
             context = await asyncio.to_thread(query_service.model_context, run)
             plan_started = time.perf_counter()
-            plan = await asyncio.to_thread(jev.plan, run, context) if jev else None
-            if jev and settings.jev_decision_mode == "shadow":
+            selected_jev = jev if not settings.multi_tenant_enabled else None
+            plan = await asyncio.to_thread(selected_jev.plan, run, context) if selected_jev else None
+            if selected_jev and settings.jev_decision_mode == "shadow":
                 run.decision["candidate_spec"] = plan.model_dump(mode="json") if plan else None
                 plan = None
             provider = settings.jev_provider if plan else ""
@@ -311,6 +355,7 @@ def create_app(database=None, settings: Settings | None = None, retriever=None, 
             current_limits.reset(limits_token)
             model_request_id.reset(trace_token)
             query_run_context.reset(run_token)
+            current_provider.reset(provider_token)
 
     @app.post("/internal/agent/runs/{run_id}/v1/chat/completions")
     async def pi_model(request: Request, run_id: str):
@@ -426,7 +471,7 @@ def create_app(database=None, settings: Settings | None = None, retriever=None, 
     def create_conversation(request:Request):
         from interview_intelligence.domain.models import AgentConversation
         with database.session() as s,s.begin():
-            c=AgentConversation(user_id=settings.local_user_id,state={})
+            c=AgentConversation(user_id=tenant_user_id(settings),state={})
             s.add(c);s.flush()
             result={"conversation_id":c.id,"version":c.version,"state":c.state}
         return _response(request,database,result,status_code=201)
@@ -449,6 +494,9 @@ def create_app(database=None, settings: Settings | None = None, retriever=None, 
         if payload.conversation_id and payload.conversation_id!=conversation_id:
             raise ValueError("CONVERSATION_VERSION_CONFLICT")
         payload=payload.model_copy(update={"conversation_id":conversation_id})
+        selection = None
+        if not settings.multi_tenant_enabled:
+            selection = await asyncio.to_thread(tenant_service.admit, request, payload.request_id, payload.model_dump(mode="json"))
         try: run=await asyncio.to_thread(query_service.begin,payload)
         except ValueError as error:
             if str(error)!="QUERY_IN_PROGRESS": raise
@@ -458,10 +506,19 @@ def create_app(database=None, settings: Settings | None = None, retriever=None, 
         if not isinstance(run,QueryRun):
             from interview_intelligence.domain.models import AgentTurn
             with database.session() as s:
-                t=s.scalar(select(AgentTurn).where(AgentTurn.user_id==settings.local_user_id,
+                t=s.scalar(select(AgentTurn).where(AgentTurn.user_id==tenant_user_id(settings),
                     AgentTurn.request_id==payload.request_id))
                 run_id=t.id
             return _response(request,database,{"run_id":run_id,"status":"SUCCEEDED"},status_code=200)
+        if settings.multi_tenant_enabled:
+            try:
+                selection = await asyncio.to_thread(tenant_service.admit, request, payload.request_id, payload.model_dump(mode="json"))
+            except BaseException as failure:
+                await asyncio.to_thread(query_service.fail, run, failure)
+                raise
+        if selection:
+            run.provider_selection = selection
+            run.provider_settings, run.provider_source = selection["settings"], selection["source"]
         async def background():
             try: await execute_query(payload,None,prepared_run=run)
             except (Exception,asyncio.CancelledError): pass  # execute_query persists terminal failure first.
@@ -516,7 +573,7 @@ def create_app(database=None, settings: Settings | None = None, retriever=None, 
         with database.session() as session:
             if session.bind.dialect.name == "postgresql":
                 session.connection(execution_options={"isolation_level": "REPEATABLE READ"})
-            result = list_questions(session, params, signing_key=signing_key, user_id=settings.local_user_id)
+            result = list_questions(session, params, signing_key=signing_key, user_id=tenant_user_id(settings))
         return _response(request, database, result["data"], extra=result["meta"], warnings=result["warnings"])
 
     @app.middleware("http")
@@ -529,6 +586,10 @@ def create_app(database=None, settings: Settings | None = None, retriever=None, 
 
     @app.exception_handler(RequestValidationError)
     async def validation_error(request: Request, error: RequestValidationError):
+        if "/api/admin/" in request.url.path or "/api/account" in request.url.path:
+            # Pydantic's error input can contain the administrator login token.
+            return JSONResponse(status_code=422, content={"error": {
+                "code": "VALIDATION_ERROR", "message": "invalid credentials or configuration request", "retryable": False}})
         return JSONResponse(status_code=422, content={"error": {
             "code": "VALIDATION_ERROR", "message": "invalid request", "details": {"errors": jsonable_encoder(error.errors(), custom_encoder={ValueError: str})},
             "retryable": False}, "request_id": _request_id(request)})
@@ -551,6 +612,8 @@ def create_app(database=None, settings: Settings | None = None, retriever=None, 
                     "STREAM_INCOMPLETE", "MODEL_OUTPUT_TRUNCATED", "QUERY_DEADLINE_EXCEEDED", "LEXICAL_FACET_RETRIEVAL_FAILED",
                     "QUERY_PLAN_MISSING", "QUERY_MODEL_BUDGET_EXCEEDED"}:
             status = 503
+        if code == "MODEL_PROVIDER_UNAVAILABLE":
+            status, message = 503, "模型请求未完成，请检查自己的模型配置。"
         return JSONResponse(status_code=status, content={"error": {
             "code": code, "message": message, "retryable": status == 503},
             "request_id": _request_id(request)})
@@ -616,7 +679,7 @@ def create_app(database=None, settings: Settings | None = None, retriever=None, 
     @app.get("/api/questions/stats")
     def question_stats(request: Request, params: Annotated[StatsRequest, Query()]):
         with database.session() as session:
-            result = query_question_stats(session, params, user_id=settings.local_user_id)
+            result = query_question_stats(session, params, user_id=tenant_user_id(settings))
         for item in result["data"]:
             scope = sign_scope({"group_by": params.group_by, "key": item["key"],
                                 "topic_level": params.topic_level,
@@ -641,6 +704,11 @@ def create_app(database=None, settings: Settings | None = None, retriever=None, 
 
     @app.get("/api/questions/search")
     def question_search(request: Request, params: Annotated[SearchRequest, Query()]):
+        # This legacy endpoint does not persist/replay results: each invocation
+        # executes retrieval and receives its own admission, even with a reused header.
+        if not settings.multi_tenant_enabled or params.pipeline != "BM25":
+            # Shared deterministic BM25 recall does not call a model.
+            tenant_service.admit(request, str(uuid4()), params.model_dump(mode="json"))
         query, pipeline, top_k = params.query, params.pipeline, params.top_k
         filters = FilterSpec.model_validate(params.model_dump(exclude={"query", "pipeline", "top_k"}))
         for attempt in range(2):
@@ -648,7 +716,8 @@ def create_app(database=None, settings: Settings | None = None, retriever=None, 
                 if session.bind.dialect.name == "postgresql":
                     session.connection(execution_options={"isolation_level": "REPEATABLE READ"})
                 state = session.get(CorpusState, 1)
-                if not retriever or state.current_revision == 0 or state.current_revision != state.indexed_revision:
+                selected_retriever = tenant_retrievers.for_user(tenant_user_id(settings))
+                if not selected_retriever or state.current_revision == 0 or state.current_revision != state.indexed_revision:
                     raise ValueError("INDEX_NOT_READY")
                 revision = (state.current_revision, state.indexed_revision)
                 stages = (["HYBRID_RERANK", "HYBRID", "BM25"] if pipeline == "HYBRID_RERANK"
@@ -657,7 +726,7 @@ def create_app(database=None, settings: Settings | None = None, retriever=None, 
                 warnings = []
                 for position, executed in enumerate(stages):
                     try:
-                        result = search_questions(session, retriever, query, filters,
+                        result = search_questions(session, selected_retriever, query, filters,
                                                   pipeline=executed, top_k=top_k)
                         break
                     except Exception as error:
@@ -729,7 +798,7 @@ def create_app(database=None, settings: Settings | None = None, retriever=None, 
                        CanonicalQuestion.lifecycle == "ACTIVE").limit(limit))))
         if len(ids) > 200:
             raise ValueError("too many canonical_question_ids")
-        data = review_service.get_states(settings.local_user_id, ids)
+        data = review_service.get_states(tenant_user_id(settings), ids)
         if statuses:
             allowed = set(statuses.split(","))
             data["states"] = {key: value for key, value in data["states"].items()
@@ -739,17 +808,19 @@ def create_app(database=None, settings: Settings | None = None, retriever=None, 
 
     @app.post("/api/review", status_code=201)
     def review(request: Request, payload: ReviewRequest):
-        data = review_service.record(settings.local_user_id, payload)
+        data = review_service.record(tenant_user_id(settings), payload)
         return _response(request, database, data, status_code=201,
                          extra={"user_state_revision": data["user_state_revision"]})
 
     @app.post("/api/agent/chat")
     async def agent_chat(request: Request, payload: ChatRequest):
-        if settings.query_router_enabled or query_planner is not None:
+        if settings.multi_tenant_enabled or settings.query_router_enabled or query_planner is not None:
             result = await execute_query(QueryRequest(message=payload.message,
                 conversation_id=payload.conversation_id, expected_version=payload.expected_version,
                 request_id=payload.request_id or _request_id(request)), request)
             return _response(request, database, result, extra=result["facts"]["meta"], warnings=result.get("warnings"))
+        # Legacy AgentService does not persist complete chat results for replay.
+        access_service.admit(request, str(uuid4()), payload.model_dump(mode="json"))
         data = agent_service.chat(payload.message, request_id=payload.request_id or _request_id(request))
         return _response(request, database, data)
 
@@ -776,7 +847,7 @@ def create_app(database=None, settings: Settings | None = None, retriever=None, 
         with database.session() as session:
             with session.begin():
                 receipt = session.scalar(select(IdempotencyReceipt).where(
-                    IdempotencyReceipt.namespace == "ingest", IdempotencyReceipt.actor_id == settings.local_user_id,
+                    IdempotencyReceipt.namespace == "ingest", IdempotencyReceipt.actor_id == tenant_user_id(settings),
                     IdempotencyReceipt.idempotency_key == payload.idempotency_key,
                 ))
                 if receipt:
@@ -791,7 +862,7 @@ def create_app(database=None, settings: Settings | None = None, retriever=None, 
                     session.add(run)
                     session.flush()
                     data = {"run_id": run.id, "status": run.status, "total_documents": len(paths)}
-                    session.add(IdempotencyReceipt(namespace="ingest", actor_id=settings.local_user_id,
+                    session.add(IdempotencyReceipt(namespace="ingest", actor_id=tenant_user_id(settings),
                                                    idempotency_key=payload.idempotency_key,
                                                    payload_hash=digest, response_json=data))
         return _response(request, database, data, status_code=202)

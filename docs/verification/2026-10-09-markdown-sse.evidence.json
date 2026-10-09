@@ -1,0 +1,112 @@
+{
+  "checked_at_utc": "2026-10-09T04:28:35.474295+00:00",
+  "cause": "The sidebar-only production snapshot did not contain the later Markdown/SSE implementation.",
+  "workspace_version_before": "cfa4a0dd4853",
+  "workspace_version_after": "9377bec16b82",
+  "files_installed": 15,
+  "protected_file_hashes_unchanged": 17,
+  "archive_sha256": "081c9ff2d3754885e97e9eb1757a528345511e96e0d8f28bf7c4cadef6e88500",
+  "backup": "/home/dylan/services/interview-intelligence/backups/markdown-sse-20261009T042106Z",
+  "public_assets": {
+    "app.js": {
+      "status": 200,
+      "referenced": true,
+      "fingerprint_matches": true,
+      "sha256": "765790149f8e64a3d99a3891671c3c6460ada733e4fbf07eaf722565d2a35b08"
+    },
+    "query-stream.js": {
+      "status": 200,
+      "referenced": true,
+      "fingerprint_matches": true,
+      "sha256": "ed0e01fa81af0a9f8f7e4043b65799ec5171fd7057538caa67125d472f0ef216"
+    },
+    "markdown.js": {
+      "status": 200,
+      "referenced": true,
+      "fingerprint_matches": true,
+      "sha256": "1a957d68eb16414028fc99d9d08fea86450add9189c65a6357b02680c6258a48"
+    },
+    "answer-stream.js": {
+      "status": 200,
+      "referenced": true,
+      "fingerprint_matches": true,
+      "sha256": "dde0ac4b87dca6d8ad5fb4611c540aef1d30bd21f731e98b0931e951040046c5"
+    },
+    "markdown.css": {
+      "status": 200,
+      "referenced": true,
+      "fingerprint_matches": true,
+      "sha256": "1db006424ac0026f14d3f99bda24c127b2e9ae72ce727080d7a753551393067c"
+    },
+    "vendor/markdown-it.umd.min.js": {
+      "status": 200,
+      "referenced": true,
+      "fingerprint_matches": true,
+      "sha256": "635972b985228e8af9f0143647c68616b7a3bb09f6946e7e4a52e43dcf5e7be5"
+    },
+    "core.js": {
+      "status": 200,
+      "referenced": true,
+      "fingerprint_matches": true,
+      "sha256": "65fbe5c7e8fa6990647c0aece4991d465c77a9d9f74e80b37eace89c9924c093"
+    },
+    "workspace.css": {
+      "status": 200,
+      "referenced": true,
+      "fingerprint_matches": true,
+      "sha256": "fc35e442c38daafffdaa563b2f90e9b560d3589758743bfa78f7c4ed5a30e829"
+    },
+    "sidebar.js": {
+      "status": 200,
+      "referenced": true,
+      "fingerprint_matches": true,
+      "sha256": "c407390782c1a1a2b4eaa2840c0fdaf46e8f5c575c57f5a4bf55020ab08f5167"
+    }
+  },
+  "real_public_model_sse": {
+    "answer_delta_count": 231,
+    "first_delta_s": 5.75,
+    "completed_s": 18.375,
+    "incremental_before_completion": true,
+    "first_delta_run_status": "RUNNING",
+    "completed": true
+  },
+  "browser": {
+    "transport": "SSH tunnel to production API, using its real model provider",
+    "original_history_markdown": true,
+    "live_samples": [
+      {
+        "busy": true,
+        "elapsed": "23 秒",
+        "visible_characters": 465
+      },
+      {
+        "busy": false,
+        "elapsed": null,
+        "visible_characters": 612
+      }
+    ],
+    "console_errors": []
+  },
+  "services": {
+    "interview-intelligence-api": "active",
+    "interview-intelligence-pi": "active",
+    "interview-intelligence-worker": "active",
+    "interview-intelligence-postgres": "active",
+    "interview-intelligence-elasticsearch": "active",
+    "interview-intelligence-web": "active",
+    "interview-intelligence-proxy": "active"
+  },
+  "versions": {
+    "query_prompt_version": "query_agent_v13",
+    "query_prompt_sha256": "41c2a7ef8d72e388bdc814c34d1e4db838cc99f595baf0e49d2566cbc190a82f",
+    "reranker_version": "rerank_v14_design_unit_scope_partial",
+    "current_revision": 293,
+    "indexed_revision": 293
+  },
+  "screenshots": {
+    "before-formal.jpg": "6a2fd0400182e2014e3d9c01fda00d6a529a2277b22f418648fd9d7f02b28e15",
+    "after-formal-history.jpg": "aabca9a6124d7e20a3846f4bd66020a6640c3a4ac17ccda905c87787a50a6a08",
+    "formal-live-stream.jpg": "0f789c5e55e0c26e621a4630f289438d21fa286a4d7e7240c3d1e3a428e23280"
+  }
+}
