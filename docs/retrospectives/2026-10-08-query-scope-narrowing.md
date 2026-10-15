@@ -13,9 +13,14 @@ sources:
   - path: docs/verification/2026-10-08-conversation-retrieval.md
   - path: docs/verification/2026-10-08-retrieval-evidence.md
   - path: docs/verification/2026-10-08-retrieval-fixes.md
+  - path: docs/verification/2026-10-15-project-consolidation.md
   - path: docs/bad-cases.md
   - path: src/interview_intelligence/agent/query_service.py
     symbols: [QueryService._search_question_type, QueryService._search_semantic_dimensions, QueryService._execute]
+  - path: src/interview_intelligence/agent/service.py
+    symbols: [AgentService._filters]
+  - path: src/interview_intelligence/analytics/stats.py
+    symbols: [_conditions]
   - path: src/interview_intelligence/agent/harness.py
     symbols: [ContextCompiler.compile]
   - path: src/interview_intelligence/agent/query_contract.py
@@ -34,6 +39,8 @@ tests:
   - tests/integration/test_query_partial_rerank.py
   - tests/integration/test_conversation_quality.py
   - tests/integration/test_query_intent.py
+  - tests/integration/test_agent.py
+  - tests/integration/test_query_metadata_scope.py
 ---
 
 # PIT-002：宽类别被示例和旧范围逐层收窄
@@ -98,6 +105,8 @@ SSH 转发失败、旧会话 fixture 已消费导致的版本冲突另行记录�
 原公开请求耗时约 138 秒；语义门槛通过不等于响应速度达标，也不能把多轮结果并集当作单次覆盖。
 本页核对的是历史报告及 2026-10-15 工作区；未复验线上，不把当时 v13/r14 验收写成当前生产版本证明。
 
+2026-10-15 收口补充：SQL 收紧为精确岗位后，旧 Agent 仍把宽泛“Java 后端”合成为 `position=Java后端`，导致准备清单为空；改为 `job_family=BACKEND` 与 `language=JAVA`，不放宽精确岗位筛选。另将主机证明的 SQL `eligible_count=0` 空结果记为 `verification_basis=empty_sql_scope` 并允许完成，真实 rerank 核验失败仍拒绝保存为成功。相关 legacy 与 SEARCH 定向回归分别 61、30 项通过，见[收口验收](../verification/2026-10-15-project-consolidation.md)；仅证明本轮离线工程契约，不证明语义质量或部署。
+
 ## 相邻子事件：H01 的无关结果与阶段性漏召回
 
 [H01. Harness 查询缺少概念扩展，并返回无关题目](../../md/issue.md)与上述工程设计收窄同属查询范围家族，但不是同一个已证实根因。
@@ -117,7 +126,7 @@ SSH 转发失败、旧会话 fixture 已消费导致的版本冲突另行记录�
 当前做法是保持原意与召回扩展分离、自动推断可降为软偏好、明确 UI/可信范围仍保留，并记录实际应用来源。
 澄清应在检索前终止，核验不可用不得返回未经核验的成功列表；完整性能力另见 [PIT-008](2026-10-14-complete-query-scope.md)。
 这些验收保留开发参考集上的已知漏题，固定池、单次新请求与多轮并集有不同分母；H01 仍不能据此宣布全量召回解决。
-已有守护见[原意/扩展与澄清](../../tests/integration/test_conversation_quality.py)、[查询意图](../../tests/integration/test_query_intent.py)及原报告中的固定池对照；本次未运行。
+已有守护见[原意/扩展与澄清](../../tests/integration/test_conversation_quality.py)、[查询意图](../../tests/integration/test_query_intent.py)及原报告中的固定池对照；初次整理时未运行，本轮执行范围见收口验收。
 
 ## 再遇到时的排查顺序
 
@@ -127,7 +136,7 @@ SSH 转发失败、旧会话 fixture 已消费导致的版本冲突另行记录�
 4. 将已知漏题分成未入池、任务/相关性拒绝、引文无效、结构异常、页面截断；对各阶段分别核原文。
 5. 用新会话及旧状态的独立副本回归，再测窄对象、直接解答、Agent 与代码请求；不要复用已消费的旧 fixture。
 
-守护入口：[prompt/context](../../tests/unit/test_engineering_design_prompt.py)、[筛选来源](../../tests/integration/test_query_question_type_scope.py)、[语义维度](../../tests/integration/test_query_semantic_filter_scope.py)、[Pi schema→HTTP](../../tests/node/pi-runtime.test.mjs)、[候选分池](../../tests/unit/test_elasticsearch_retriever.py)、[部分核验](../../tests/integration/test_query_partial_rerank.py)。本次未执行这些测试。
+守护入口：[prompt/context](../../tests/unit/test_engineering_design_prompt.py)、[筛选来源](../../tests/integration/test_query_question_type_scope.py)、[语义维度](../../tests/integration/test_query_semantic_filter_scope.py)、[Pi schema→HTTP](../../tests/node/pi-runtime.test.mjs)、[候选分池](../../tests/unit/test_elasticsearch_retriever.py)、[部分核验](../../tests/integration/test_query_partial_rerank.py)。初次整理时未执行这些测试；本轮实际执行范围见收口验收。
 
 ## 自测两问
 

@@ -115,4 +115,4 @@ Python 用 `uv run --locked --extra dev python -m pytest -q <文件...>`；Node 
 - legacy `/api/questions/search`、`AgentService` 和现代查询链路的 fallback 不完全相同；接口相似不代表结果语义相同。
 - 通用 context/schema 有跨层依赖；重构前检查调用关系，不把静态双向包依赖直接判作运行循环导入故障。
 
-这些是导航与待治理边界，本知识库没有实施代码拆分。
+本轮已统一排名政策，拆出 API 错误映射与 QueryService 结果呈现，详见 [收口验收](../verification/2026-10-15-project-consolidation.md)。上述执行、状态和跨语言契约边界仍需逐项治理。

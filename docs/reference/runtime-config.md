@@ -199,5 +199,5 @@ v2 对应 `dedup_judge_v9_answer_boundary`，v3 对应 `dedup_judge_v10_source_e
 可用的离线验证入口包括 [配置校验](../../tests/unit/test_config.py)、
 [资源打包](../../tests/unit/test_packaged_resources.py)、[跨进程调用锁](../../tests/unit/test_model_call_gate.py)、
 [去重 provider](../../tests/unit/test_model_dedup_provider.py)、[账号隔离](../../tests/integration/test_tenants.py)
-和 [评测 collector](../../tests/integration/test_evaluation_collectors.py)。本页仅引用这些测试，本次未执行。
+和 [评测 collector](../../tests/integration/test_evaluation_collectors.py)。这里维护测试入口，本轮实际命令、结果及跳过项见 [收口验收](../verification/2026-10-15-project-consolidation.md)。
 改动默认值、入口注入、模型选择或资源打包时同步本页；实际部署状态以对应验收证据为准。

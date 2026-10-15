@@ -12,6 +12,7 @@ sources:
   - path: docs/verification/2026-10-09-markdown-sse.md
   - path: docs/verification/2026-10-14-agent-observability.md
   - path: docs/verification/2026-10-14-query-timeout-frequency.md
+  - path: docs/verification/2026-10-15-project-consolidation.md
   - path: src/interview_intelligence/api.py
     symbols: [create_app, record_api_call, internal_run, pi_tool]
   - path: src/interview_intelligence/agent/model_gateway.py
@@ -80,7 +81,9 @@ Q07 记录了补上下文后的直接执行与真实内部回调检查，没有�
 | 停用本次执行包装再跑仍复现 | 原报告保留该失败，不宣称工作区全量通过；需要独立修订测试 fixture/证明业务契约 |
 | 旧记录无明确计时或状态 | 保留未知，不生成看似精确的历史分解 |
 
-本次未重跑上述测试。该失败来自[原观测验收](../verification/2026-10-14-agent-observability.md)，不会在本页被改写成已修复。
+上述失败来自[原观测验收](../verification/2026-10-14-agent-observability.md)，初次整理时未重跑；原验收保留当时结论，后续修订另记如下。
+
+2026-10-15 收口补充：trace 测试替身只执行 embedding，却请求 `HYBRID_RERANK`；首次仅改模型 plan 为 `DENSE`，仍被当前请求的 pipeline 覆盖，定向回归为 29 passed、1 failed。随后将请求、plan 和 Pi run 明确统一为 `DENSE`，保留 embedding 调用归因、耗时及 `UNVERIFIED` 断言，同组 30 项通过，未削弱真实 rerank 失败契约。过程见[收口验收](../verification/2026-10-15-project-consolidation.md)；这是离线测试装配修订，不证明模型语义质量或已部署。
 
 ## 计时与失败率应怎么读
 
@@ -103,7 +106,7 @@ Q07 的一次自然语言 Top40 记录端到端约 6327ms，其中规划约 6231
 [10 月 14 日观测](../verification/2026-10-14-agent-observability.md)记载冻结包 Python 61 项、Node 21 项及实际 PostgreSQL 只读查询通过。
 浏览器的本地 205 条隔离日志与 SSH 隧道正式页面 16 步执行记录是两种不同验证，不可混成同一真实故障样本。
 该验收保留上述扩大回归失败；冻结包通过不能替代当前工作区全量通过，更不等于全部历史 run 都有完整计时。
-本次仅静态核对报告和 2026-10-15 工作区，没有访问线上观测页、模型端点或数据库。
+初次整理仅静态核对报告和 2026-10-15 工作区；本轮补充了上述离线回归，仍未访问线上观测页、真实模型端点或线上数据库。
 
 ## 防复发与排查顺序
 
@@ -113,7 +116,7 @@ Q07 的一次自然语言 Top40 记录端到端约 6327ms，其中规划约 6231
 4. 检查 Pi 主机前拒绝、主机失败、取消与中断是否各有结局；同一调用不重复计数。
 5. 若后端完成而页面仍等待，转到 [PIT-001](2026-10-14-query-timeout-state.md) 检查客户端状态和传输，不把差额全部归于模型。
 
-已有守护：[归因测试及上述已知 fixture 限制](../../tests/integration/test_query_agent.py)、[所有权/分母/只读/拒绝去重](../../tests/integration/test_agent_observability.py)、[真实增量契约](../../tests/unit/test_query_streaming.py)、[Pi 拒绝记录](../../tests/node/pi-observability.test.mjs)。本次未执行。
+已有守护：[归因测试及 fixture 范围](../../tests/integration/test_query_agent.py)、[所有权/分母/只读/拒绝去重](../../tests/integration/test_agent_observability.py)、[真实增量契约](../../tests/unit/test_query_streaming.py)、[Pi 拒绝记录](../../tests/node/pi-observability.test.mjs)。初次整理时未执行；本轮实际执行范围见收口验收。
 待补证据包括生产慢请求的分段关联和历史缺口覆盖率；未定位的 SSE/公网耗时差不能由静态代码推断。
 
 ## 自测两问

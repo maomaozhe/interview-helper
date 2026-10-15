@@ -14,7 +14,7 @@ sources:
 
 先看 [当前状态](status/current.md) 的一张表，区分能力、默认版本、部署证据、质量结论与下一步；本页只负责按任务导航。产品介绍见 [项目 README](../README.md)，AI 开发约定见 [AGENTS.md](../AGENTS.md)。
 
-当前知识页依据 2026-10-15 工作区静态核对，包含未提交实现。`verified_at` 是核对日期，不代表测试通过或线上已部署。
+当前知识页依据 2026-10-15 工作区源码核对；主题提交和本轮验证范围见 [收口验收](verification/2026-10-15-project-consolidation.md)。`verified_at` 是核对日期，不代表线上已部署。
 
 完整运行统一从 [普通 Compose](development.md#推荐完整运行普通-compose) 开始，Windows 经 WSL 启动。界面示例、模块直启、隔离评测和 SSH / Qwen 专项部署的用途见 [其他入口的用途](development.md#其他入口的用途)；候选实验和历史复现从 [评测手册](../eval/README.md#入口分类通用评测候选实验与历史复现) 进入。
 

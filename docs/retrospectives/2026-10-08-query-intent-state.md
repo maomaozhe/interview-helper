@@ -14,6 +14,7 @@ sources:
   - path: docs/verification/2026-10-06-quality-refinement.md
   - path: docs/verification/2026-10-08-agent-intents.md
   - path: docs/verification/2026-10-08-conversation-focus.md
+  - path: docs/verification/2026-10-15-project-consolidation.md
   - path: src/interview_intelligence/agent/query_contract.py
     symbols: [query_model_schema, validate_model_plan]
   - path: src/interview_intelligence/agent/harness.py
@@ -79,6 +80,8 @@ Q05 让页面列表请求与自然语言共用持久化会话状态；详情读�
 这些是模型输出/预算问题，不能归为同一个 focus 根因，也不能把 fallback 的成功答复算作 Pi 通过。
 端口冲突、请求携带不支持的字段、随机 UUID 同分排序断言属于验收装配问题，原报告保留，不能算模型语义失败。
 
+2026-10-15 收口补充：离线基线发现 5 个 legacy focus 用例失败，紧凑上下文对已投影的旧状态再次投影，把 `legacy_saved_state` 误标为 `completed_host_tool`。修复保留已知来源的投影幂等性，旧 ANSWER 不补造范围，也不回写原会话；与旧 Agent 修复相关的回归合计 61 项通过。命令与范围见[收口验收](../verification/2026-10-15-project-consolidation.md)；这是离线工程验证，不证明模型语义质量或已部署。
+
 ## 当前源码定位
 
 - [query_model_schema / validate_model_plan](../../src/interview_intelligence/agent/query_contract.py) 要求模型完整表达公共字段及动作专属字段；主机/UI 的便捷默认值仍独立保留。
@@ -103,7 +106,7 @@ Q04 原 issue 记载修复后真实 ENGINEERING+CODE+SECOND 范围为 4，五组
 - [quality-refinement](../verification/2026-10-06-quality-refinement.md)：已见集达到 50/50；预留集先 46/50，纠正两处 gold 枚举后同一预测重评分为 48/50，零新增调用，不能称模型提升。
 
 修正 gold 要保留旧版和理由；不能为了“看起来全过”把期望改成模型当前行为。评测基线漂移详见 [PIT-017](2026-10-06-evaluation-reference-drift.md)。
-本次只阅读这些报告及工作区代码/测试；没有复跑评测，未验证当前线上模型或 prompt。
+初次整理只阅读这些报告及工作区代码/测试；没有复跑上述评测。后续收口的离线验证见前述日期补充，仍未验证当前线上模型或 prompt。
 
 ## 防复发与排查顺序
 
@@ -113,7 +116,7 @@ Q04 原 issue 记载修复后真实 ENGINEERING+CODE+SECOND 范围为 4，五组
 4. 在新连续会话和旧状态独立副本分别复现；不要复用已被上一次测试推进的 fixture。
 5. 同时检查结果范围、COUNT/LIST 动作、provider/预算、状态；技术成功只是一部分证据。
 
-已有守护：[页面状态/重放](../../tests/integration/test_query_agent.py)、[目标与分页分离](../../tests/integration/test_conversation_focus.py)、[意图与扩展](../../tests/integration/test_query_intent.py)、[Pi 完整 schema](../../tests/node/pi-runtime.test.mjs)。本次未执行。
+已有守护：[页面状态/重放](../../tests/integration/test_query_agent.py)、[目标与分页分离](../../tests/integration/test_conversation_focus.py)、[意图与扩展](../../tests/integration/test_query_intent.py)、[Pi 完整 schema](../../tests/node/pi-runtime.test.mjs)。初次整理时未执行；本轮实际执行范围见收口验收。
 待补更多未见表达及长会话独立测试；已有开发集、legacy 副本和公开固定用例不能替代未见集。
 
 ## 自测两问
