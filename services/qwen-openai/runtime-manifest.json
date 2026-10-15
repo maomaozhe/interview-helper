@@ -12,6 +12,16 @@
     "sha256": "d98cdcbd03e17ce47681435b5150e34c1417f50b5c0019dd560e4882c5745785"
   },
   "cuda_repository": "https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2004/x86_64/",
+  "cublas12_headers": {
+    "source_package": "libcublas-dev-12-8_12.8.5.5-1_amd64.deb",
+    "files": {
+      "cublas.h": "6b494bab2fa4e3b36ec320e3bae782dd6d0ca5cf74f0c4d4ee8e6c309a84fb5c",
+      "cublasLt.h": "a07f53474d47e4259f18f223264ebe2e383c7903aed20868ed336df378029b08",
+      "cublasXt.h": "096f5dc976064945b5c045eb555ca153a3b104ad4f52f32861d5469504fb2fd0",
+      "cublas_api.h": "d5ae83dac0b5a0d29d04ae0d935d7f1e31cf7958aefd175b1d0d190fbc808aad",
+      "cublas_v2.h": "ab131d0798dbf7b96e11fc3ad4b10007e5a5afc03d0cb06f3b8ad1ca90c234ac"
+    }
+  },
   "cuda_packages": [
     {"filename": "cuda-cccl-12-8_12.8.90-1_amd64.deb", "sha256": "873dbdfc3c1aa2806145c94ba75d058f658974ffa2366c4bba9190440bacece4"},
     {"filename": "cuda-crt-12-8_12.8.93-1_amd64.deb", "sha256": "92a3c8eda8d3a3a8f3de71e0acf4edb8be568b20792e5bf7618898a72ffd6d10"},

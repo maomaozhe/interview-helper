@@ -6,9 +6,15 @@
 
 ## 当前发布版本
 
-2026-10-09 当前 SSH 使用 query v13 / context v4 / tool policy v2 / `rerank_v14_design_unit_scope_partial`，规划调用配置为4、请求总调用上限为6、截止180秒。工程系统设计修复见文末对应章节。随后发布4文件侧栏增量，支持拖动、隐藏和移动抽屉；公网资源哈希、正式页面交互及七个服务核验通过，后端版本与语料 r293/index293 保持。详见 [侧栏验收](verification/2026-10-09-sidebar.md)。
+2026-10-09 的 SSH 版本使用 query v13 / context v4 / tool policy v2 / `rerank_v14_design_unit_scope_partial`，规划调用配置为4、请求总调用上限为6、截止180秒。工程系统设计修复见文末对应章节。随后发布4文件侧栏增量，支持拖动、隐藏和移动抽屉；公网资源哈希、正式页面交互及七个服务核验通过，后端版本与语料 r293/index293 保持。详见 [侧栏验收](verification/2026-10-09-sidebar.md)。
 
 随后已补发 Markdown/SSE 增量，正式 workspace 版本为 `9377bec16b82`。原历史回答的加粗/列表渲染及真实模型完成前的回答增量已在正式服务验收；保持上述查询、检索版本和语料。旧页面需重载后取得新脚本。详见 [Markdown/SSE 正式验收](verification/2026-10-09-markdown-sse.md)。
+
+2026-10-09 已上线独立 GPU Qwen3-8B 服务及账号模型配置，最终发布 17 个应用增量文件，109 个原源码文件保持；Alembic head 为 `e937fb9c2160`。侧栏“账号与模型”支持注册、登录、每账号累计 10 次系统默认模型试用和个人 Key / Base URL 设置。独立 Qwen 仅监听 `127.0.0.1:18792`；账号默认对话与重排使用它，共享抽取与 embedding 保留原配置。八个服务、真实 Pi/Qwen 列题/回答/50 候选重排、公网 Cookie 与资源哈希验证通过。配置和备份说明见 [账号与模型](tenants.md)、[Qwen 部署](deployment-qwen.md) 和 [正式验收](verification/2026-10-09-qwen-tenants.md)。
+
+2026-10-11 已发布字节算法题元数据修复：以实际 SSH 包为基线叠加七文件，统一公司别名、算法任务范围与历史 LIST 重检；当时标签范围返回 27 道，首屏 20、下一页 7。后续内容审核发现误召回，该数量不代表合格算法题数量。冻结候选包 100 项测试和八个真实 Pi 模型用例只验证元数据链路，公网 API 与正式 Pi 健康、111 个其他包文件保持。query v13 提示词 SHA-256 更新为 `5d00bd87c9dc29b615a16fef2580620e5310904dc322de6f9d840b06b57da905`；schema `e937fb9c2160`、corpus/index293、reranker r14 保持。Qwen 在本次发布前已停止，继续保持；本次未发布使用统计和本地检索实验。详见 [SSH 字节算法修复与回归](verification/2026-10-11-byte-algorithm-ssh.md)。
+
+2026-10-12 已发布算法语义修复四文件，当前 query v13 / `rerank_v15_algorithm_problem_scope_partial` / `scope_verify_v6_algorithm_goal_source_context`。算法找题与历史重查改用来源任务核验的 SEARCH，普通返回 20 道合格算法题，覆盖回放 24/26，不能把旧 27 标签数量当语义总量。候选包 109、工作区兼容 193 项通过，五轮隔离与两轮正式 HTTPS/SSE 通过；114 个其他文件、12 条原问答及原账号配置保持。提示词 SHA-256 `aca4291096ed2c16441d57c1914aa6e845c5b4df78930f68b7f752fbc274fa93`，schema/语料及 Qwen inactive 保持。详见 [语义验收](verification/2026-10-12-byte-algorithm-semantic.md)。
 
 ## 上一轮发布记录：v12-r2
 

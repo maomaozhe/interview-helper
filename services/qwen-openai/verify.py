@@ -2,9 +2,11 @@
 """Run real OpenAI compatibility checks without displaying the private API key."""
 
 import argparse
+import csv
 import datetime
 import json
 from pathlib import Path
+import re
 import subprocess
 import time
 import urllib.error
@@ -17,6 +19,8 @@ def main():
                         default=Path.home() / "services/interview-qwen/provider.private.json")
     parser.add_argument("--output", type=Path,
                         default=Path.home() / "services/interview-qwen/verification.json")
+    parser.add_argument("--require-offload-log", action="store_true",
+                        help="Require a full layer offload record from the current service PID")
     args = parser.parse_args()
     config = json.loads(args.config.read_text())
     results = []
@@ -60,7 +64,7 @@ def main():
     record("chinese_chat", started, {"text": content, "usage": ordinary.get("usage")})
 
     started = time.monotonic()
-    response = chat({"messages": [{"role": "user", "content": "调用 add_numbers 计算 17 加 23，必须使用工具。"}],
+    response = chat({"messages": [{"role": "user", "content": "必须调用 add_numbers，参数 a 设为 17，b 设为 23。"}],
                      "tools": [{"type": "function", "function": {
                          "name": "add_numbers", "description": "Add two integers.",
                          "parameters": {"type": "object", "properties": {
@@ -95,6 +99,7 @@ def main():
     chunks = []
     done = False
     payload = {"model": config["model"], "max_tokens": 128, "stream": True,
+               "stream_options": {"include_usage": True},
                "messages": [{"role": "user", "content": "用一句话解释多租户隔离。"}]}
     with request("/chat/completions", payload) as response:
         for line in response:
@@ -106,7 +111,15 @@ def main():
                     chunks.append(json.loads(data))
     deltas = [c["choices"][0]["delta"].get("content", "") for c in chunks if c.get("choices")]
     assert done and sum(bool(d) for d in deltas) > 1, chunks
-    record("streaming", started, {"content_delta_count": sum(bool(d) for d in deltas), "done": done})
+    ids = {c["id"] for c in chunks}
+    assert len(ids) == 1 and next(iter(ids)).startswith("chatcmpl"), chunks
+    assert all(c.get("model") == config["model"] for c in chunks), chunks
+    reasons = [c["choices"][0].get("finish_reason") for c in chunks if c.get("choices")]
+    assert "stop" in reasons, chunks
+    usages = [c["usage"] for c in chunks if isinstance(c.get("usage"), dict)]
+    assert usages and usages[-1]["total_tokens"] > 0, chunks
+    record("streaming", started, {"content_delta_count": sum(bool(d) for d in deltas),
+                                  "done": done, "finish_reason": "stop", "usage": usages[-1]})
 
     started = time.monotonic()
     payload.update({"messages": [{"role": "user", "content": "必须调用 ping 工具，参数 text 为 hello。"}],
@@ -117,6 +130,7 @@ def main():
                     "tool_choice": "required"})
     functions = {}
     done = False
+    tool_finish_reasons = []
     with request("/chat/completions", payload) as response:
         for line in response:
             if not line.startswith(b"data: "):
@@ -127,14 +141,20 @@ def main():
                 continue
             chunk = json.loads(data)
             for item in chunk.get("choices", []):
+                tool_finish_reasons.append(item.get("finish_reason"))
                 for call in item["delta"].get("tool_calls", []):
-                    function = functions.setdefault(call["index"], {"name": "", "arguments": ""})
+                    function = functions.setdefault(call["index"], {"name": "", "arguments": "", "id": ""})
+                    if call.get("id"):
+                        assert not function["id"] or function["id"] == call["id"], call
+                        function["id"] = call["id"]
                     for field in ("name", "arguments"):
-                        function[field] += call.get("function", {}).get(field, "")
+                        function[field] += call.get("function", {}).get(field, "") or ""
     assert done and len(functions) == 1, functions
     function = next(iter(functions.values()))
     assert function["name"] == "ping" and json.loads(function["arguments"]) == {"text": "hello"}, functions
-    record("streaming_required_tool", started, {"tool_name": "ping", "arguments_valid": True})
+    assert function["id"] and "tool_calls" in tool_finish_reasons, (functions, tool_finish_reasons)
+    record("streaming_required_tool", started, {"tool_name": "ping", "arguments_valid": True,
+                                               "tool_id_present": True, "finish_reason": "tool_calls"})
 
     started = time.monotonic()
     long_prompt = "Reference records:\n" + ("cache database network transaction index.\n" * 650)
@@ -143,8 +163,31 @@ def main():
     assert "CONTEXT_OK" in response["choices"][0]["message"]["content"], response
     record("long_context", started, {"prompt_bytes": len(long_prompt.encode()), "usage": response.get("usage")})
 
+    pid = int(subprocess.check_output(["systemctl", "--user", "show", "interview-qwen-openai",
+                                       "--property", "MainPID", "--value"], text=True).strip())
+    compute_apps = subprocess.check_output(["nvidia-smi", "--query-compute-apps=pid,used_memory,process_name",
+                                            "--format=csv,noheader"], text=True)
+    app = next(row for row in csv.reader(compute_apps.splitlines()) if int(row[0].strip()) == pid)
+    gpu_memory_mib = int(app[1].strip().split()[0])
+    assert 4000 < gpu_memory_mib <= 8192, app
+    startup_log = subprocess.check_output(["journalctl", "--user", "_PID=" + str(pid),
+                                           "--no-pager", "--output", "cat"], text=True)
+    offload = re.findall(r"offloaded (\d+)/(\d+) layers to GPU", startup_log)
+    if offload:
+        assert offload[-1][0] == offload[-1][1], offload
+    elif args.require_offload_log:
+        raise AssertionError("No layer offload log for current PID; start with -lv 5 to expose GGML INFO")
+    command = Path("/proc") / str(pid) / "cmdline"
+    arguments = command.read_bytes().decode().split("\0")
+    requested_gpu_layers = int(arguments[arguments.index("--n-gpu-layers") + 1])
+    assert requested_gpu_layers == 99, requested_gpu_layers
     report = {"verified_at_utc": datetime.datetime.now(datetime.timezone.utc).isoformat(),
               "base_url": config["base_url"], "model": config["model"], "checks": results,
+              "gpu_service": {"pid": pid, "used_memory_mib": gpu_memory_mib,
+                              "offloaded_layers": "/".join(offload[-1]) if offload else None,
+                              "offload_log_present": bool(offload),
+                              "requested_gpu_layers": requested_gpu_layers,
+                              "executable": app[2].strip()},
               "gpu": subprocess.check_output(["nvidia-smi", "--query-gpu=name,memory.total,memory.free",
                                                "--format=csv,noheader"], text=True).strip()}
     args.output.write_text(json.dumps(report, ensure_ascii=False, indent=2) + "\n")

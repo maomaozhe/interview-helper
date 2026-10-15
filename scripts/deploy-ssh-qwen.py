@@ -17,6 +17,7 @@ import shlex
 import shutil
 import socket
 import subprocess
+import tarfile
 import time
 import urllib.request
 
@@ -65,6 +66,10 @@ def main():
     parser.add_argument("--prepare-only", action="store_true")
     parser.add_argument("--build-only", action="store_true",
                         help="Build the private CUDA runtime while the model downloads separately")
+    parser.add_argument("--cublas-root", type=Path,
+                        help="Copy this user's existing cuBLAS headers/libraries into the isolated runtime")
+    parser.add_argument("--cublas-headers", type=Path,
+                        help="Use verified CUDA 12 cuBLAS headers from an operator-created private archive")
     args = parser.parse_args()
     if os.name != "posix" or not 1024 <= args.port <= 65535:
         raise SystemExit("Requires Linux and an unprivileged TCP port")
@@ -98,7 +103,10 @@ def main():
 
     pool = ThreadPoolExecutor(max_workers=3)
     model_future = None if args.build_only else pool.submit(download, model_url, model_path, model["sha256"])
-    package_futures = [pool.submit(prepare_cuda, p) for p in manifest["cuda_packages"]]
+    packages = manifest["cuda_packages"]
+    if args.cublas_root:
+        packages = [p for p in packages if not p["filename"].startswith("libcublas-")]
+    package_futures = [pool.submit(prepare_cuda, p) for p in packages]
     for future in package_futures:
         run(["dpkg-deb", "--extract", future.result(), cuda_root])
 
@@ -111,6 +119,47 @@ def main():
     if commit != llama["commit"]:
         raise RuntimeError("Runtime source is not the pinned commit")
     cuda = cuda_root / "usr/local/cuda-12.8"
+    cublas_receipt = None
+    if args.cublas_root:
+        cublas_source = args.cublas_root.expanduser().resolve()
+        if not cublas_source.is_relative_to(Path.home()):
+            raise SystemExit("Existing cuBLAS must belong to this SSH user's home directory")
+        include_dir = cuda / "include"
+        library_dir = cuda / "lib64"
+        cublas_files = list((cublas_source / "include").glob("cublas*.h"))
+        library_files = list((cublas_source / "lib").glob("libcublas*.so.*"))
+        if not cublas_files or not library_files:
+            raise RuntimeError("Existing cuBLAS headers or libraries are missing")
+        copied = []
+        for source_file in cublas_files + library_files:
+            destination = (include_dir if source_file.suffix == ".h" else library_dir) / source_file.name
+            source_sha = digest(source_file)
+            if not destination.exists() or digest(destination) != source_sha:
+                shutil.copy2(source_file, destination)
+            copied.append({"filename": source_file.name, "sha256": source_sha})
+        for name in ("libcublas", "libcublasLt"):
+            versions = sorted(p.name for p in library_files if p.name.startswith(name + ".so."))
+            if not versions:
+                raise RuntimeError("Missing cuBLAS runtime library: " + name)
+            link = library_dir / (name + ".so")
+            if link.is_symlink():
+                link.unlink()
+            if not link.exists():
+                link.symlink_to(versions[0])
+        cublas_receipt = {"copied_from": str(cublas_source), "files": copied}
+        if args.cublas_headers:
+            expected_headers = manifest["cublas12_headers"]["files"]
+            with tarfile.open(args.cublas_headers, "r:gz") as archive:
+                members = archive.getmembers()
+                if {m.name for m in members} != set(expected_headers) or any(not m.isfile() for m in members):
+                    raise RuntimeError("Unexpected CUDA 12 cuBLAS header archive members")
+                for member in members:
+                    content = archive.extractfile(member).read()
+                    if hashlib.sha256(content).hexdigest() != expected_headers[member.name]:
+                        raise RuntimeError("CUDA 12 cuBLAS header checksum mismatch: " + member.name)
+                    (include_dir / member.name).write_bytes(content)
+            cublas_receipt["compile_headers"] = manifest["cublas12_headers"]
+            cublas_receipt["compile_header_archive_sha256"] = digest(args.cublas_headers)
     env = dict(os.environ, CUDACXX=str(cuda / "bin/nvcc"),
                LD_LIBRARY_PATH=str(cuda / "lib64"),
                PATH=str(cuda / "bin") + ":" + os.environ["PATH"])
@@ -185,6 +234,8 @@ WantedBy=default.target
                "alias": "qwen3-8b-interview", "context_tokens": args.context,
                "parallel_slots": 1, "kv_cache_type": "q8_0",
                "unit": unit_path.name, "client_config": str(client_config)}
+    if cublas_receipt:
+        receipt["cublas_runtime"] = cublas_receipt
     (root / "deployment-receipt.json").write_text(json.dumps(receipt, indent=2) + "\n")
     run(["systemctl", "--user", "daemon-reload"])
     if not args.prepare_only:

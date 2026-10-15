@@ -1,0 +1,491 @@
+{
+  "status": "PASSED",
+  "scope": "functional_deployment",
+  "date": "2026-10-09",
+  "public_url": "https://interview.101-47-18-72.sslip.io/",
+  "runtime": {
+    "model": "qwen3-8b-interview",
+    "base_url": "http://127.0.0.1:18792/v1",
+    "protocol_checks": 9,
+    "checks": [
+      {
+        "check": "authentication",
+        "passed": true,
+        "seconds": 0.003,
+        "unauthenticated_status": 401
+      },
+      {
+        "check": "models",
+        "passed": true,
+        "seconds": 0.0,
+        "model_ids": [
+          "qwen3-8b-interview"
+        ]
+      },
+      {
+        "check": "chinese_chat",
+        "passed": true,
+        "seconds": 0.364,
+        "text": "杩炴帴鎴愬姛",
+        "usage": {
+          "completion_tokens": 3,
+          "prompt_tokens": 17,
+          "total_tokens": 20,
+          "prompt_tokens_details": {
+            "cached_tokens": 16
+          }
+        }
+      },
+      {
+        "check": "required_tool",
+        "passed": true,
+        "seconds": 0.242,
+        "tool_name": "add_numbers",
+        "arguments_valid": true
+      },
+      {
+        "check": "tool_result_roundtrip",
+        "passed": true,
+        "seconds": 0.137,
+        "result_understood": true
+      },
+      {
+        "check": "strict_json_schema",
+        "passed": true,
+        "seconds": 0.132,
+        "parsed": {
+          "ok": true
+        }
+      },
+      {
+        "check": "streaming",
+        "passed": true,
+        "seconds": 0.328,
+        "content_delta_count": 38,
+        "done": true,
+        "finish_reason": "stop",
+        "usage": {
+          "completion_tokens": 39,
+          "prompt_tokens": 20,
+          "total_tokens": 59,
+          "prompt_tokens_details": {
+            "cached_tokens": 19
+          }
+        }
+      },
+      {
+        "check": "streaming_required_tool",
+        "passed": true,
+        "seconds": 0.169,
+        "tool_name": "ping",
+        "arguments_valid": true,
+        "tool_id_present": true,
+        "finish_reason": "tool_calls"
+      },
+      {
+        "check": "long_context",
+        "passed": true,
+        "seconds": 0.093,
+        "prompt_bytes": 27379,
+        "usage": {
+          "completion_tokens": 3,
+          "prompt_tokens": 3925,
+          "total_tokens": 3928,
+          "prompt_tokens_details": {
+            "cached_tokens": 3924
+          }
+        }
+      }
+    ],
+    "gpu_service": {
+      "pid": 3721723,
+      "used_memory_mib": 6760,
+      "offloaded_layers": null,
+      "offload_log_present": false,
+      "requested_gpu_layers": 99,
+      "executable": "/home/dylan/services/interview-qwen/runtime/build/bin/llama-server"
+    }
+  },
+  "tests": {
+    "python": {
+      "tests": 857,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 2,
+      "passed": 855,
+      "seconds": 115.819
+    },
+    "final_frozen_r14_passed": 64,
+    "final_frozen_r14_seconds": 23.98,
+    "node_passed": 59,
+    "web_integration_passed": 21,
+    "js_static_check_passed": true
+  },
+  "postgres_concurrency": {
+    "postgres_concurrency": true,
+    "attempts": 32,
+    "accepted": 10,
+    "rejected": 22,
+    "replay_no_charge": true,
+    "restart_preserves_lifetime_usage": true,
+    "production_rows_changed": false
+  },
+  "real_smoke": {
+    "ok": true,
+    "created_at": "2026-10-09T08:42:42.981028+00:00",
+    "checks": {
+      "B_CANNOT_READ_A_HISTORY": {
+        "status": 404
+      },
+      "B_CANNOT_READ_A_RUN": {
+        "status": 404
+      },
+      "B_CANNOT_READ_A_EVENTS": {
+        "status": 404
+      },
+      "B_CANNOT_READ_A_RECEIPT": {
+        "status": 404
+      },
+      "B_CANNOT_CANCEL_A_RUN": {
+        "status": 404
+      },
+      "B_CANNOT_WRITE_A_CONVERSATION": {
+        "status": 404
+      },
+      "B_PRIVATE_PREFERENCES_ISOLATED": true,
+      "B_TRIAL_REMAINING": 10
+    },
+    "accounts_retained": true,
+    "direct_sql_used": false,
+    "corpus_modified": false,
+    "corpus_revision": 293,
+    "indexed_revision": 293,
+    "preserved_reranker_version": "rerank_v14_design_unit_scope_partial",
+    "query_prompt_version": "query_agent_v13",
+    "real_pi_qwen_sse": {
+      "status": "SUCCEEDED",
+      "provider": "pi",
+      "intent": "LIST",
+      "returned": 5,
+      "sql_equal": true,
+      "sse_events": {
+        "accepted": 1,
+        "pi_event": 8,
+        "stage": 3,
+        "model_request": 1,
+        "model_result": 1,
+        "tool_result": 1,
+        "completed": 1
+      },
+      "model_calls": 1,
+      "tool_calls": 1,
+      "trial_remaining": 9,
+      "request_replay_same_receipt": true,
+      "sse_cursor_no_duplicates": true
+    },
+    "personal_config": {
+      "accepted": true,
+      "version_incremented": true,
+      "secret_echo": false,
+      "key_masked": true,
+      "reset_to_system": true,
+      "trial_remaining": 9,
+      "fake_key_upstream_calls": 0
+    },
+    "duration_seconds": 2.485
+  },
+  "real_answer": {
+    "ok": true,
+    "mode": "answer",
+    "direct_sql_used": false,
+    "corpus_modified": false,
+    "accounts_and_history_retained": true,
+    "started_at": "2026-10-09T08:43:08.186717+00:00",
+    "run_status": "SUCCEEDED",
+    "run_error_code": null,
+    "trial_before": 9,
+    "trial_after": 8,
+    "provider": "pi",
+    "intent": "ANSWER",
+    "sse_events": {
+      "accepted": 1,
+      "pi_event": 8,
+      "stage": 3,
+      "model_request": 1,
+      "answer_delta": 72,
+      "model_result": 1,
+      "tool_result": 1,
+      "completed": 1
+    },
+    "model_calls": 1,
+    "tool_calls": 1,
+    "default_model": "qwen3-8b-interview",
+    "corpus_revision": 293,
+    "preserved_reranker_version": "rerank_v14_design_unit_scope_partial",
+    "answer_chars": 119,
+    "duration_seconds": 2.86
+  },
+  "real_search": {
+    "ok": true,
+    "mode": "search",
+    "account_label": "b",
+    "direct_sql_used": false,
+    "corpus_modified": false,
+    "accounts_and_history_retained": true,
+    "started_at": "2026-10-09T09:15:57.848999+00:00",
+    "search_oracle": {
+      "source": "free_sql_frequency_list",
+      "topic_l1": "Redis",
+      "canonical_question_id": "4a0a94c0-cbe5-4b2e-8ae8-401533b79308",
+      "query_chars": 17,
+      "language_preference_active": false,
+      "free_sql_does_not_charge": true
+    },
+    "run_status": "SUCCEEDED",
+    "run_error_code": null,
+    "trial_before": 9,
+    "trial_after": 8,
+    "provider": "pi",
+    "intent": "SEARCH",
+    "sse_events": {
+      "accepted": 1,
+      "pi_event": 8,
+      "stage": 8,
+      "model_request": 1,
+      "model_result": 1,
+      "tool_result": 1,
+      "completed": 1
+    },
+    "model_calls": 1,
+    "tool_calls": 1,
+    "default_model": "qwen3-8b-interview",
+    "corpus_revision": 293,
+    "preserved_reranker_version": "rerank_v14_design_unit_scope_partial",
+    "search": {
+      "pipeline": "HYBRID_RERANK",
+      "requested_pipeline": "HYBRID_RERANK",
+      "executed_pipeline": "HYBRID_RERANK",
+      "rerank_status": "COMPLETED",
+      "candidate_count": 50,
+      "relevance_status": "VERIFIED",
+      "candidate_verification_status": "COMPLETE",
+      "invalid_candidate_count": 0,
+      "returned_count": 1,
+      "reranker_version": "rerank_v14_design_unit_scope_partial",
+      "scope_verification_status": "COMPLETE",
+      "audited_candidates": 50,
+      "known_question_returned": false
+    },
+    "duration_seconds": 66.84
+  },
+  "real_search_upstream_operations": [
+    "QUERY_PLAN",
+    "EMBEDDING",
+    "RERANK",
+    "RERANK_VERIFY"
+  ],
+  "public_https": {
+    "public_https": true,
+    "login_cookie_secure": true,
+    "private_cache": true,
+    "static_files": {
+      "app.js": "4890b97c458a04c673c0d87f5140399dcac4c650a8890a06d17b0210936f788e",
+      "tenant.js": "c6a8aae4fd0c863019bd883d12c9c8b8a8332050ce78593784ad23020b00a6bb",
+      "tenant.css": "a55a368a9a2ade6e2d1ad16f1b73f6afc58f4ad187cde29af11c1111de17cf6a"
+    },
+    "history_owned": true,
+    "logout_revoked": true,
+    "model_calls": 0,
+    "default_model": "qwen3-8b-interview",
+    "remaining": 7
+  },
+  "deployment": {
+    "schema_revision": "e937fb9c2160 (head)",
+    "files": {
+      "interview_intelligence/access.py": "9a5578aa09d2aba665de5bd84fee2fec0b7df56a88feb6606ceb12e400987a04",
+      "interview_intelligence/api.py": "177edecc9d4a284502c230642e37d0c627fe50d62912545de2495fed1bc5770d",
+      "interview_intelligence/config.py": "8e2b81e4ba0f887c5e0052a94528c94d17cb330b7b8201b602a2777328356826",
+      "interview_intelligence/domain/models.py": "b8a6a97ce10c763710ea7ca5fb1a0909cf970101c14ed7946f10f731673d8b0a",
+      "interview_intelligence/agent/model_gateway.py": "642d30aa3634ab3281f8c3eada2280dc3059ec37cc7f44dd9faaa88f9172b99c",
+      "interview_intelligence/tenant.py": "ca1199a0003424b2950e82620abd68a73b36bb25091e9145f69ba8da8378bbc4",
+      "interview_intelligence/tenant_models.py": "64ce796266fe638e5ca55050add40c8d8b4f9e660d5695124ac66c78fc294496",
+      "interview_intelligence/tenant_retriever.py": "c5e32f4503780f55a3b601b8e45d437b5c886f97e7deefba8957dc5ffa13faa9",
+      "interview_intelligence/providers/tenant_transport.py": "8b473e45a944d2840820434ac367c1ea125c0fd76f5e3163133689c3b596c101",
+      "interview_intelligence/web.py": "e20b85ab361912f9b15ddbb781bbc2ce0aa55fd4c21ab39909f7eedee979822f",
+      "interview_intelligence/web/index.html": "519716114dd959693bd8b6cb3a1993ca60e31e948b54abf0a3dad559a5c79642",
+      "interview_intelligence/web/assets/app.js": "4890b97c458a04c673c0d87f5140399dcac4c650a8890a06d17b0210936f788e",
+      "interview_intelligence/web/assets/tenant.js": "c6a8aae4fd0c863019bd883d12c9c8b8a8332050ce78593784ad23020b00a6bb",
+      "interview_intelligence/web/assets/tenant.css": "a55a368a9a2ade6e2d1ad16f1b73f6afc58f4ad187cde29af11c1111de17cf6a",
+      "migrations/env.py": "53066ef0bbe41af726e0cca233ce62801fbf537ce586aea0df055738a445b543",
+      "migrations/versions/e937fb9c2160_tenant_providers.py": "1bccb43c64ef18a28d17596d62a19b225c32a0f176376a048d82a4912a3982c8",
+      "interview_intelligence/providers/qwen_identity.py": "4505e44df95217091bfcd5c7d5ab6a59af0631112686c8dc36ead2349a9c7312"
+    },
+    "protected_files": {
+      "interview_intelligence/__init__.py": "09cb476dafa2a1f8b7f55c6b7aa917e96d0bfdd18af81ff00a3e8fefd5fd9644",
+      "interview_intelligence/access_models.py": "39921dabffcca1bcc123c4ea584fbd46c18c556bebf8dd7c6607cc42314bf95d",
+      "interview_intelligence/agent/__init__.py": "a766ded901bd73fa0a0b3a0dcb1b22928210593b088fe618b2bb430d5d884a35",
+      "interview_intelligence/agent/annotation_review.py": "d7c54b8a297e944144a2ba580e9b15aebcdcb1b813555eeafeaf4e0f232c9e89",
+      "interview_intelligence/agent/feedback_memory.py": "c60f76503cc08a098319c65f00651ae88661fdfb819c63ea4e9ced95bc09b0a2",
+      "interview_intelligence/agent/harness.py": "31847349b932b1f00c387eb8e838964e2475c6841501981b36c1a464e6108268",
+      "interview_intelligence/agent/history.py": "057ca476758d7d3e3d1e115c6c23294519e83707bf8e64f8d4b48b4d78867a0d",
+      "interview_intelligence/agent/jev.py": "25b39cf47d21ff31450ea943e1989f5b3eff95b8e85656f1cb4a4fb2b94fec62",
+      "interview_intelligence/agent/journal.py": "685071f8ede9be7b34762d51ded7fa22a9b1d11bf1aaad0b344ea225108a5d7e",
+      "interview_intelligence/agent/planner.py": "a4ba5227d82faf1e32e7c3c3c28b57bd8164715d3731aa15993417b02f15a45c",
+      "interview_intelligence/agent/preferences.py": "c80bc8e02b056e07bff6bb61eaf04dc368220ca116852e6939e2d5f312bda6ad",
+      "interview_intelligence/agent/presentation.py": "0c642f75209ea19829d5d34828f27a0febede9ad4a87b9a177c154a02d75e9c6",
+      "interview_intelligence/agent/query_contract.py": "a17cb1cc46a51f9cb35547df42c3c5dad3ff7af2fa339e5750b63b3aeb378106",
+      "interview_intelligence/agent/query_service.py": "8e6eecc6c6790d454817544cabd4700fd4b2ca6cf1d7b38e73ddf5a58b681b62",
+      "interview_intelligence/agent/service.py": "ec091c5783fec924dfa9c0cc5e4a7acaad84fe37f18c0757c5baf824c94ab1ff",
+      "interview_intelligence/agent/task_annotation.py": "d291f4131eb62d3cd133266734b83c9bc168df461acd6885a26ad14204f9d05e",
+      "interview_intelligence/agent/task_context.py": "7ab473db835ec23e1808e3e1bfa9724d0c78d06b4ac92e3c88a75a71a558906c",
+      "interview_intelligence/analytics/__init__.py": "ecc1aaf398d07e9046f039a4c05fe3ce943aa1984eabf4dd268f3a5a0160b93f",
+      "interview_intelligence/analytics/counts.py": "b9269f706f5a9674daa9273d343fb61bc59ffc2fd1b660e849ca409d1aeb595e",
+      "interview_intelligence/analytics/detail.py": "ce26ad79eac08c6531fb0a0a1d96d6633c2c1ee4124897509f3ed6216d2e7755",
+      "interview_intelligence/analytics/listing.py": "2d05bf25c621439ebb0ce7fbb9288c024acfdaea3e5723751c81c493da8fd370",
+      "interview_intelligence/analytics/scope.py": "99ba6e9b739d6be2bf14aaf3e7bf69f04e75a09971d6214da59ce6521d79967f",
+      "interview_intelligence/analytics/stats.py": "413413c152c01b2e5c8f6a6c10b510af17ee1f0512078dd85fad0d75cbd23140",
+      "interview_intelligence/cli.py": "c22bd2e9341c33255c12de4fd4e7ff8851b3aa6142b5812f980e72bd67e21d9d",
+      "interview_intelligence/contracts/__init__.py": "6e6f2537021d4f002a75024db483d354afc5d9948738692152ac8cc3eef9832b",
+      "interview_intelligence/dedup/__init__.py": "674896866f4e2a45f253046314ffa634c638c74feb15fb0fe0b6c26c27bb69df",
+      "interview_intelligence/dedup/candidates.py": "2b4f8431d8f2659f22001cd7365c2401471b1d2b22631c1742b816c058ff6b7d",
+      "interview_intelligence/dedup/provider.py": "99fe4ce98306a9dc9aa7a3cddb5f1123da32d25434a59bffb98c7e37b993ed09",
+      "interview_intelligence/dedup/service.py": "93ed7410ebb319d9c7f57f15f7383df120c87b8158d24072ceb62c0272f8976d",
+      "interview_intelligence/domain/__init__.py": "bf0b2076ec71c0f4bc308fcc2e7cf7dcc90ddd7aaa188ba7a53ef4d626717714",
+      "interview_intelligence/extraction/__init__.py": "f409fbada7db162877b623021f2cd740ee0720193465e1dbca0960a8e3c77e23",
+      "interview_intelligence/extraction/provider.py": "4d1a181921d0214e4c98d89909613eeb21786b9e5195bb9ba2a70dfbc1dfb3bd",
+      "interview_intelligence/extraction/validation.py": "1763992cddb31da8df0224aab6de121a15864c0a8f6ad752abebcb6a1b38b860",
+      "interview_intelligence/ingestion/__init__.py": "4dd28642992852602d97c122fd51e515802de261fae9171fcb23a99679ce7e45",
+      "interview_intelligence/ingestion/algorithm.py": "6442bd1281a93e8ba9417e573418e3873065d00b7498602d6e29e7361c362ee5",
+      "interview_intelligence/ingestion/extraction_cache.py": "df792645b4b96c45053c1a25ac4049cdbe7256a7decfef681b28b0b8c7b1468e",
+      "interview_intelligence/ingestion/identity.py": "1ce4c8e7882a4b78ec8ad459996257fcd7a4c47e1d3568243f83ede1f8058c17",
+      "interview_intelligence/ingestion/pipeline.py": "1f930ff42406ec3f3392103be9b038f16ef360ae5fdfca85aa2db106b751ffd6",
+      "interview_intelligence/ingestion/snapshot.py": "025ea74151d47dd9e241bce3350bb95d8ee2b6a5cd20928fc75156edb09db28d",
+      "interview_intelligence/providers/__init__.py": "e50bc36da88663ac89ca3c214d2f8244a73567472ed0829ee835ca1f5fbc04a1",
+      "interview_intelligence/providers/budget.py": "5df9464a6067f8a82475ef237059d6d0edb28ecb5fc88c916ec9f7a9e6f047a2",
+      "interview_intelligence/providers/gate.py": "9975a1d182bac09dc3ba92a95c7b5e2b4a289151751c6fa3acd59d5891afe4f4",
+      "interview_intelligence/providers/runtime.py": "7e5989968170b074df1d832c00a7b7ccb75ce72bd0d42624356fccf579247059",
+      "interview_intelligence/reports/__init__.py": "6709bfcd4e6d91599ea1c76e655358514b37427c9afd4cb3bc4398d548a10e7b",
+      "interview_intelligence/reports/status.py": "f9422647adac1e77febfff3e2ebc7f5d6a3d5964ddb2145ccc44c0614c7ad203",
+      "interview_intelligence/repository/__init__.py": "59fdaa2bae6599a1d95267a270a4e5d3884f8f3d14556f81fb9b82a313e6a06c",
+      "interview_intelligence/repository/corpus.py": "901e69167036a1d4364e6e2781ea511fbbcdf3f99c3508f72fd66d9f538040c7",
+      "interview_intelligence/resources/config/taxonomy/v1.yaml": "a6023f9deecaba4884f4e01811a3442f5f5215aa552145abac303cfad9f0fd4b",
+      "interview_intelligence/resources/prompts/dedup_judge_v1.md": "0ed8501eeb1e80e8b65295822c2ce416282e234620b7d08da8c28c17660189d3",
+      "interview_intelligence/resources/prompts/extract_question_v1.md": "8935ce75b06971170e2efc6aa59c65fb6dbadf49950798744336bb8de606a53a",
+      "interview_intelligence/resources/prompts/extract_question_v2.md": "1b30a6fbf35e73801aaae9ff75c7168dd62295069e25ecd9eb73e171f222e7b9",
+      "interview_intelligence/resources/prompts/extract_question_v3.md": "c09c8cfdeef1c7786d14b20158d4085cddea63fa6d9b95c1b2b39e1af8f88165",
+      "interview_intelligence/resources/prompts/extract_question_v4.md": "1c28c9945a6146223a1ead0380973845ebe0852ef6cd3506f20ecd8da51c937b",
+      "interview_intelligence/resources/prompts/extract_question_v5.md": "5aac6a4241946e7e12770ff15b5d9fdca9ccac2f0b485cd57820b41601490805",
+      "interview_intelligence/resources/prompts/query_agent_v1.md": "01e0e837be45ca9c97123804b1e9c10badce9fb35f640364ec1656058ea232ed",
+      "interview_intelligence/resources/prompts/query_agent_v10.md": "8f303dacbbef1226de672570af0d17ddde4e752425f98f14114206790fd6ce91",
+      "interview_intelligence/resources/prompts/query_agent_v11.md": "1175453f40cb2672b2ce04b28d400f2b573f32274e0726cd778f0b8d95eac85a",
+      "interview_intelligence/resources/prompts/query_agent_v12.md": "ccdd630a7eb8967732a9b46ad96b29828fa99dd8be8929648344e0ea8bf4b17c",
+      "interview_intelligence/resources/prompts/query_agent_v13.md": "41c2a7ef8d72e388bdc814c34d1e4db838cc99f595baf0e49d2566cbc190a82f",
+      "interview_intelligence/resources/prompts/query_agent_v2.md": "3b0eef9265616cf8f62906be1895cd5b860f81f1b7d33b725a48182f62100f00",
+      "interview_intelligence/resources/prompts/query_agent_v3.md": "b7bc9d66bf4a27d82c57f9945c6e922676132a5d54a3242d2c442f7a05b54579",
+      "interview_intelligence/resources/prompts/query_agent_v4.md": "7ca74910c68fbd3efdadec4a2af9925e9eacfcaf32e3e16ac4c0ea0af3914159",
+      "interview_intelligence/resources/prompts/query_agent_v5.md": "ab30db977f4ac9cb012a78f93c6f71bf6c899fd6f318d6ca94d9c369c953ad0c",
+      "interview_intelligence/resources/prompts/query_agent_v6.md": "0da89edeeb846a1f7c002738ec69330f2e44c6f80553eceb525bbfd49e9ee9e1",
+      "interview_intelligence/resources/prompts/query_agent_v7.md": "0491266a2a21f3573348e646a97fcb7c2b1c3a7b95ffe63534479c0a6a8c62fa",
+      "interview_intelligence/resources/prompts/query_agent_v8.md": "24f4f960e96a897f53aab89f0943c647d7a1b4b7ddc64f9a0aa6ed6eb1496224",
+      "interview_intelligence/resources/prompts/query_agent_v9.md": "01a7632a707c5043d2335fb80d457658b96e760a1ff5c7aa1a7d8ab36bd85f35",
+      "interview_intelligence/resources/prompts/search_plan_v1.md": "1d42ae1f375f43871209ba844ac92da1a0e88c804d5351c550cc5cccc86dc43c",
+      "interview_intelligence/resources/prompts/task_annotation_v1.md": "6c2a77ea315b4e3218b31f932e574018bcc3c67658ed336244b66ae60f44a3f3",
+      "interview_intelligence/resources/prompts/task_annotation_v2.md": "19b20cca2d99dda4cf33d467654bed63c460b708f0a0635ad0328f144f046568",
+      "interview_intelligence/resources/prompts/task_annotation_v3.md": "faf73e6f8943c89bdb4b0c34dcb92a66440438ccff569890e2a2b17a336f6c93",
+      "interview_intelligence/resources/prompts/task_annotation_v4.md": "d15e2fe984c8d0d62c5ba209fd150c76e1340494d607f521da14b6c9867b13b3",
+      "interview_intelligence/resources/prompts/task_annotation_v5.md": "9d17844f2e014c3d6c0d874df0d3715583d41c5f7f7a40e178551be27c93be02",
+      "interview_intelligence/resources/prompts/task_annotation_v6.md": "9835b5fca76d3ea06bcd2d83d139784363e3cdf84bae454a906f61ea28e111ff",
+      "interview_intelligence/resources/prompts/task_annotation_v7.md": "b3bae0bb491aab080945621f50f4a1a65eee7fed97e4b0a548262204490b1e62",
+      "interview_intelligence/resources.py": "6307ac8fbaf65ca5331b31e70e29d0c5f387f4169d034d0258f80529cd2d37a0",
+      "interview_intelligence/review/__init__.py": "ed95493087d7bad34dbf04347838f3bf37a5ca645738f27751a8242e1f3c4094",
+      "interview_intelligence/review/service.py": "670e5573247c8765d4125922e4dc369105b662ad3dece666a9dc1cf172e526d8",
+      "interview_intelligence/search/__init__.py": "7f65cc1c490e34d9e31e65225afaf0033add675d8a1f6bc393cec3c0fedc0159",
+      "interview_intelligence/search/candidate_prompt.py": "9acef06f47b3fbd4c1e69ddc6f141f9cc8113b752c17b1174791f81af25ad201",
+      "interview_intelligence/search/elasticsearch.py": "77d876b7d69ae32dc796c34bf94e0e18250c36ce216eeeb278dff54058b81ef3",
+      "interview_intelligence/search/evidence.py": "2a14c9b8078fa34df5a97baec893f72541a3d64a889b43ae6d78e9a525ff7370",
+      "interview_intelligence/search/reranker.py": "0024418d270fe4e1919e815aaf1023a175d9c534e0026a998e16df91b2ed422a",
+      "interview_intelligence/search/service.py": "8511203a346e5cb82487d5e9cfccb57712d31f1863d152186237616d3ad74cde",
+      "interview_intelligence/taxonomy/__init__.py": "2c894606de768de0af3768635a39344e1d042496d17887241cec30d69f5e0910",
+      "interview_intelligence/web/admin.html": "839bd8cf9554970c18ae12c0e8858ec2b9d09c9123c6ed719e77ddeea52b239a",
+      "interview_intelligence/web/assets/admin.css": "fa681b272d5d34e89277796228383954b9c43350d64d09dfe144f27017116420",
+      "interview_intelligence/web/assets/admin.js": "213c119c70eb8e5e5f1255535c25ff39b0a24ad50978cf420488464a8a26ddd8",
+      "interview_intelligence/web/assets/answer-stream.js": "dde0ac4b87dca6d8ad5fb4611c540aef1d30bd21f731e98b0931e951040046c5",
+      "interview_intelligence/web/assets/app.css": "fde45710a23a5c3d3a4d3f25aa3fcf623138cc205a77ad1b9a1bb1cf9d209b85",
+      "interview_intelligence/web/assets/core.js": "65fbe5c7e8fa6990647c0aece4991d465c77a9d9f74e80b37eace89c9924c093",
+      "interview_intelligence/web/assets/markdown.css": "1db006424ac0026f14d3f99bda24c127b2e9ae72ce727080d7a753551393067c",
+      "interview_intelligence/web/assets/markdown.js": "1a957d68eb16414028fc99d9d08fea86450add9189c65a6357b02680c6258a48",
+      "interview_intelligence/web/assets/query-stream.js": "ed0e01fa81af0a9f8f7e4043b65799ec5171fd7057538caa67125d472f0ef216",
+      "interview_intelligence/web/assets/sidebar.js": "c407390782c1a1a2b4eaa2840c0fdaf46e8f5c575c57f5a4bf55020ab08f5167",
+      "interview_intelligence/web/assets/vendor/README.md": "70c03e8885011d0eb4d655ef100761d26cdd8e149f2dc86e981bd27498325a44",
+      "interview_intelligence/web/assets/vendor/THIRD_PARTY_LICENSES.md": "6c8216dad2698d72fdfd42dd44b7936de98541a1aa4a44a15f41391cd75a26c8",
+      "interview_intelligence/web/assets/vendor/markdown-it.LICENSE": "792c48c5a849a15fdf9e37e8bcf9e6d1dd13b32b46c642a748a0a46a9919d473",
+      "interview_intelligence/web/assets/vendor/markdown-it.umd.min.js": "635972b985228e8af9f0143647c68616b7a3bb09f6946e7e4a52e43dcf5e7be5",
+      "interview_intelligence/web/assets/vendor/markdown-it.umd.min.js.map": "54f473ad859c0c6ff2ef507c6ebc50c6dff27128e3bbbc7b5e3d9838c8ce5861",
+      "interview_intelligence/web/assets/workspace.css": "fc35e442c38daafffdaa563b2f90e9b560d3589758743bfa78f7c4ed5a30e829",
+      "interview_intelligence/worker.py": "094ed7364f0bccecf4f10f850b91887fd277d0986f66dea089887761c9885f84",
+      "migrations/README": "31595cf53626af9ed16e15c44fa43183209cc163fbc3ebcb904b22ac436a8884",
+      "migrations/script.py.mako": "d38920781b4d31ae1c0a71bc09f41c2ade8feab9e5a087e3f30cb4bbf0c1c9d3",
+      "migrations/versions/630dc9fee8e6_embedding_cache.py": "5dc91924e060f81fad659064499f31ef6fc35b2c21bef1e5b78e19d9675fa328",
+      "migrations/versions/72b61c031c41_initial_schema.py": "48e342207ce3544217d2b682e0c1079ed1c54df2b4026729ad122ad918ad2429",
+      "migrations/versions/b16ab30d6171_query_agent.py": "dc41f9882cc8075b19f34b8c032c484ed78a51f18953752982b0435415df03a6",
+      "migrations/versions/c21d4857a941_query_lifecycle_preferences.py": "3a603d9ba4496d43dd6a5941cace142278e8d08d97ed7e95d48b58a1dd05ded5",
+      "migrations/versions/d82f9c1a7054_access_operations.py": "83a6235cb982598c3af6830f006e91ce0ee7ed2e8e449e26a35cc3b8696a63e5"
+    },
+    "initial_backup": "/home/dylan/services/interview-intelligence/backups/qwen-tenants-20261009T083822Z",
+    "repair_backup": "/home/dylan/services/interview-intelligence/backups/qwen-rerank-20261009T091509Z",
+    "repair_files": [
+      "interview_intelligence/tenant_retriever.py",
+      "interview_intelligence/providers/qwen_identity.py"
+    ],
+    "trial_limit": 10
+  },
+  "final_check": {
+    "published_files_verified": 17,
+    "protected_files_verified": 109,
+    "original_shared_model_config_preserved": true,
+    "env_matches_candidate": true,
+    "private_files_mode_600": true,
+    "model_loopback_only": true,
+    "services": {
+      "interview-intelligence-postgres": "active",
+      "interview-intelligence-elasticsearch": "active",
+      "interview-intelligence-api": "active",
+      "interview-intelligence-pi": "active",
+      "interview-intelligence-worker": "active",
+      "interview-intelligence-web": "active",
+      "interview-intelligence-proxy": "active",
+      "interview-qwen-openai": "active"
+    },
+    "health": {
+      "database": "ready",
+      "current_revision": 293,
+      "indexed_revision": 293,
+      "index": "ready",
+      "model_max_in_flight": 1,
+      "model_min_interval_seconds": 2.0,
+      "query_router_enabled": true,
+      "task_filters_enabled": true,
+      "task_annotation_policy": "KNOWN",
+      "pi_agent_enabled": true,
+      "query_prompt_version": "query_agent_v13",
+      "query_prompt_sha256": "41c2a7ef8d72e388bdc814c34d1e4db838cc99f595baf0e49d2566cbc190a82f",
+      "reranker_version": "rerank_v14_design_unit_scope_partial",
+      "jev_decision_enabled": false,
+      "model": "configured"
+    },
+    "backup": "/home/dylan/services/interview-intelligence/backups/qwen-tenants-20261009T083822Z"
+  },
+  "limits": {
+    "full_retrieval_quality_gate_evaluated": false,
+    "multi_instance_capacity_evaluated": false,
+    "legacy_anonymous_history_preserved": true,
+    "legacy_history_assigned_to_new_accounts": false
+  },
+  "earlier_results": {
+    "smoke_fixture_scope_corrected": true,
+    "smoke_key_fixture_corrected": true,
+    "initial_wide_rerank_duplicate_aliases": 11,
+    "initial_wide_rerank_missing_aliases": 11,
+    "initial_failures_retained_privately": true
+  }
+}
