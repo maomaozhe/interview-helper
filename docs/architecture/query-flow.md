@@ -8,6 +8,8 @@ sources:
     symbols: [conversation_message, execute_query, query_events, internal_run]
   - path: src/interview_intelligence/agent/query_service.py
     symbols: [QueryService.begin, QueryService._execute, QueryService.finish]
+  - path: src/interview_intelligence/agent/query_response.py
+    symbols: [build_query_response]
   - path: src/interview_intelligence/agent/harness.py
     symbols: [ContextCompiler, ToolPolicy]
   - path: src/interview_intelligence/agent/query_contract.py
@@ -111,6 +113,8 @@ ANSWER 不向题库新增题目或标准答案，最多引用当前页 10 题，
 题干来源只能证明题目出处，不能证明生成解答正确。约束与对应测试见 [QuerySpec](../../src/interview_intelligence/agent/query_contract.py)、[回答集成测试](../../tests/integration/test_intent_answers.py)。
 
 ## SEARCH 与 SQL 全集的区别
+
+工具执行后的答案文案与响应结构由 [query_response::build_query_response](../../src/interview_intelligence/agent/query_response.py) 生成；facts 与 warnings 保留主机对象引用。QueryService 继续负责范围/权限检查、会话状态、预算和 journal，呈现函数不承担这些职责。
 
 1. `search/service.py::eligible_canonical_ids` 从当前 SQL 事实计算匹配 ID，超过 50,000 拒绝。
 2. `ElasticsearchRetriever.retrieve` 对该 ID 集合执行 BM25、DENSE 或 HYBRID；混合召回用 RRF。

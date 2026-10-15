@@ -10,6 +10,8 @@ sources:
     symbols: [build_worker_services, process_queued_run]
   - path: src/interview_intelligence/agent/query_service.py
     symbols: [QueryService]
+  - path: src/interview_intelligence/agent/query_response.py
+    symbols: [build_query_response]
   - path: src/interview_intelligence/analytics/ranking.py
     symbols: [score_components, sql_score_components, importance_score, gap_score, sql_gap_score]
   - path: services/pi-agent/runtime.mjs
@@ -52,7 +54,8 @@ tests:
 | [search/service](../../src/interview_intelligence/search/service.py) | `eligible_canonical_ids`、`search_questions` | SQL 限定范围，检索后用 SQL 补事实 |
 | [search/elasticsearch](../../src/interview_intelligence/search/elasticsearch.py) | 召回、融合、候选、`rebuild_index` | ES 物理索引/alias、embedding cache、语料版本 |
 | [search/reranker](../../src/interview_intelligence/search/reranker.py) | `LLMReranker` 及范围复核 | [citations](../../src/interview_intelligence/search/citations.py)、[design_scope](../../src/interview_intelligence/search/design_scope.py)、[retry](../../src/interview_intelligence/search/retry.py) |
-| [agent/query_service](../../src/interview_intelligence/agent/query_service.py) | `_begin` 幂等与状态；`_execute` 工具执行；`finish` 提交 | 契约、权限、scope、SQL/检索/复习、呈现与 journal |
+| [agent/query_service](../../src/interview_intelligence/agent/query_service.py) | `_begin` 幂等与状态；`_execute` 工具执行；`finish` 提交 | 契约、权限、scope、SQL/检索/复习及 journal；结果呈现委托下方纯函数 |
+| [agent/query_response](../../src/interview_intelligence/agent/query_response.py) | `build_query_response` 组装答案文案、facts 与工具回执 | 不更新会话或数据库；[输入/引用守护](../../tests/unit/test_query_response.py)及各查询入口集成测试 |
 | [agent/harness](../../src/interview_intelligence/agent/harness.py) / [query_contract](../../src/interview_intelligence/agent/query_contract.py) | `ContextCompiler`、`ToolPolicy`、`QuerySpec`、`TOOL_ACTIONS` | Pi schema 是一层投影，主机仍独立校验 |
 | [agent/journal](../../src/interview_intelligence/agent/journal.py) | `QueryJournal` 持久化 turn、工具回执和事件 | 活跃执行对象另在进程内 |
 | [agent/task_annotation](../../src/interview_intelligence/agent/task_annotation.py) / [annotation_review](../../src/interview_intelligence/agent/annotation_review.py) | 分类生成、核验草稿和发布 | prompt 选择、证据、annotation revision；与检索重排不同 |

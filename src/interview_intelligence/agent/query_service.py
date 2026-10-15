@@ -26,6 +26,7 @@ from interview_intelligence.agent.preferences import PreferenceService
 from interview_intelligence.agent.feedback_memory import FeedbackMemory
 from pathlib import Path
 from interview_intelligence.agent.journal import QueryJournal
+from interview_intelligence.agent.query_response import build_query_response
 from interview_intelligence.analytics.stats import _active_from, _conditions, query_question_stats
 from interview_intelligence.analytics.usage import record_usage
 from interview_intelligence.company import COMPANY_ALIASES
@@ -727,35 +728,8 @@ class QueryService:
         result["meta"].setdefault("timings",{}).update({"tool_ms":int((time.perf_counter()-started)*1000)})
         run.plan = plan
         rows = result.get("data", [])
-        count_labels = [str(value) for value in (plan.filters.company, plan.filters.topic_l1,
-                                                 plan.filters.topic_l2) if value]
-        count_scope = (f"当前筛选范围（{' / '.join(count_labels)}）" if count_labels else "当前筛选范围")
-        answer = (plan.answer_text if plan.action == "ANSWER" else
-                  (f"{count_scope if result['meta']['count_scope'] == 'filtered_corpus' else '当前全库'}共有 "
-                   f"{result['meta']['counts']['canonical_questions']:,} 道去重题目，"
-                   f"{result['meta']['counts']['occurrences']:,} 条提问记录，来自 "
-                   f"{result['meta']['counts']['interviews']:,} 场面试、"
-                   f"{result['meta']['counts']['source_documents']:,} 篇面经。") if plan.action == "COUNT" else
-                  plan.clarification if plan.action == "CLARIFY" else
-                  f"已保存 {len(plan.review_items)} 道题的复习记录。" if plan.action == "RECORD_REVIEW" else
-                  "已读取当前题目的复习状态。" if plan.action == "REVIEW_STATE" else
-                  (f"当前已收录的{plan.filters.company or '所选范围'}面经中，共有 "
-                   f"{result['meta']['pagination']['result_total']} 道去重算法题、"
-                   f"{result['meta']['sample_counts']['selected_occurrences']} 次算法提问；"
-                   f"本页显示 {len(rows)} 道，按真实提问频次排序。"
-                   + ("可继续查看下一页。" if result["meta"]["pagination"]["next_cursor"] else "已显示到最后一页。"))
-                  if plan.action in {"LIST", "NEXT"} and plan.semantic_task and plan.sort == "frequency" else
-                  f"返回 {len(rows)} 道题，按真实提问频次排序。" if plan.action in {"LIST", "NEXT"} and plan.sort == "frequency" else
-                  ("相关性核验未完成，请重试。" if result["meta"].get("relevance_status") == "UNAVAILABLE" else
-                   f"本次语义核验候选中，按当前筛选范围的真实提问频次排序，返回 {len(rows)} 道题。" if plan.action == "SEARCH" and search_ranking == "frequency" and result["meta"].get("relevance_status") == "VERIFIED" else
-                   f"本次检索候选中，按当前筛选范围的真实提问频次排序，返回 {len(rows)} 道题；相关性未核验。" if plan.action == "SEARCH" and search_ranking == "frequency" else
-                   f"找到 {len(rows)} 道经语义筛选的题目，按相关度排列。" if plan.action == "SEARCH" and result["meta"].get("relevance_status") == "VERIFIED" else
-                   f"返回 {len(rows)} 条结果。"))
-        run.result = {"intent": plan.action, "answer": answer, "facts": result,
-                      "planning": {"spec": plan.model_dump(mode="json"), "version": self.prompt_version},
-                      "tool_trace": [{"name": name, "parameters": plan.model_dump(mode="json"),
-                                      "elapsed_ms": result["meta"]["timings"]["tool_ms"]}],
-                      "warnings": warnings}
+        run.result = build_query_response(plan, result, search_ranking=search_ranking,
+            tool_name=name, prompt_version=self.prompt_version, warnings=warnings)
         run.parts.append(run.result)
         run.terminal=plan.final
         if plan.action == "CLARIFY":
