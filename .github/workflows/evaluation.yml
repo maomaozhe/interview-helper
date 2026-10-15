@@ -17,7 +17,7 @@ jobs:
       - run: npm ci --ignore-scripts --legacy-peer-deps
       - run: npm run build:pi
       - run: npm run check
-      - run: node --test tests/node/pi-runtime.test.mjs tests/web/test_core.cjs tests/web/test_query_stream.cjs
+      - run: node --test tests/node/pi-runtime.test.mjs tests/node/tool-contract.test.mjs tests/web/test_core.cjs tests/web/test_query_stream.cjs
       - run: uv run --locked --extra dev pytest -q
       - run: uv run --locked --extra dev python -m eval.demo --output data/reports/ci-evaluation-demo
       - uses: actions/upload-artifact@v4

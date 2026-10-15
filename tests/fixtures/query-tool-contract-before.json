@@ -1,0 +1,667 @@
+{
+  "input_schema": {
+    "$defs": {
+      "DateBasis": {
+        "enum": [
+          "INTERVIEW",
+          "PUBLISH",
+          "BEST_AVAILABLE"
+        ],
+        "title": "DateBasis",
+        "type": "string"
+      },
+      "FilterSpec": {
+        "additionalProperties": false,
+        "properties": {
+          "company": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Apply filter_catalog.company_aliases FIRST, case-insensitively, before matching filter_catalog.companies. Never add a prefix, department or subsidiary not specified by the user. The host normalizes maintained exact aliases.",
+            "title": "Company"
+          },
+          "position": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Exact stored job title from filter_catalog.positions. For a broad job direction, choose job_family and language explicitly and leave position null; preserve explicit UI position filters.",
+            "title": "Position"
+          },
+          "job_family": {
+            "anyOf": [
+              {
+                "enum": [
+                  "BACKEND",
+                  "AI_APPLICATION",
+                  "ALGORITHM",
+                  "OTHER"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Job Family"
+          },
+          "language": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Language"
+          },
+          "topic_l1": {
+            "anyOf": [
+              {
+                "enum": [
+                  "Java",
+                  "数据库",
+                  "Redis",
+                  "Spring",
+                  "中间件",
+                  "分布式",
+                  "计算机基础",
+                  "系统设计",
+                  "算法",
+                  "AI",
+                  "项目",
+                  "其他"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Topic L1"
+          },
+          "topic_l2": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Topic L2"
+          },
+          "question_type": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/QuestionType"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Legacy metadata category, not proof of semantic relevance. Find algorithm practice problems with SEARCH, source task checks and soft preferred_question_type=ALGORITHM; keep this hard filter null unless explicitly selected by the user or UI."
+          },
+          "response_form": {
+            "anyOf": [
+              {
+                "enum": [
+                  "VERBAL",
+                  "CODE",
+                  "SQL",
+                  "EXPLANATION",
+                  "DESIGN",
+                  "OTHER",
+                  "UNKNOWN"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Response modality, only when explicitly requested or set by UI. An algorithm task may be solved verbally; do not infer CODE merely to hide unrelated questions. Semantic SEARCH checks the original task.",
+            "title": "Response Form"
+          },
+          "annotation_status": {
+            "anyOf": [
+              {
+                "enum": [
+                  "KNOWN",
+                  "VERIFIED",
+                  "NEEDS_REVIEW",
+                  "UNKNOWN"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Annotation Status"
+          },
+          "coding_focus": {
+            "anyOf": [
+              {
+                "enum": [
+                  "ALGORITHM",
+                  "ENGINEERING",
+                  "MIXED",
+                  "NONE",
+                  "UNKNOWN"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Historical task annotation, independent from topic and question_type. Use ALGORITHM or ENGINEERING for explicitly requested metadata filters. Semantic algorithm SEARCH keeps it null because stale/UNKNOWN labels can cause false matches and omissions; preserve explicit UI filters.",
+            "title": "Coding Focus"
+          },
+          "round": {
+            "anyOf": [
+              {
+                "enum": [
+                  "FIRST",
+                  "SECOND",
+                  "THIRD",
+                  "FOURTH_PLUS",
+                  "HR",
+                  "OTHER"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Round"
+          },
+          "start_date": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Start Date"
+          },
+          "end_date": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "End Date"
+          },
+          "date_basis": {
+            "$ref": "#/$defs/DateBasis",
+            "default": "BEST_AVAILABLE"
+          }
+        },
+        "title": "FilterSpec",
+        "type": "object",
+        "required": [
+          "company",
+          "position",
+          "job_family",
+          "language",
+          "topic_l1",
+          "topic_l2",
+          "question_type",
+          "response_form",
+          "annotation_status",
+          "coding_focus",
+          "round",
+          "start_date",
+          "end_date",
+          "date_basis"
+        ]
+      },
+      "QuestionType": {
+        "enum": [
+          "KNOWLEDGE",
+          "PRINCIPLE",
+          "SCENARIO",
+          "SYSTEM_DESIGN",
+          "PROJECT",
+          "ALGORITHM",
+          "AI",
+          "HR",
+          "OTHER"
+        ],
+        "title": "QuestionType",
+        "type": "string"
+      },
+      "ReviewItem": {
+        "additionalProperties": false,
+        "properties": {
+          "canonical_question_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Canonical Question Id"
+          },
+          "raw_question": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Raw Question"
+          },
+          "status": {
+            "$ref": "#/$defs/ReviewStatus"
+          },
+          "score": {
+            "anyOf": [
+              {
+                "maximum": 5,
+                "minimum": 0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Score"
+          },
+          "note": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Note"
+          },
+          "occurred_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Occurred At"
+          },
+          "expected_version": {
+            "anyOf": [
+              {
+                "minimum": 0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Expected Version"
+          }
+        },
+        "required": [
+          "status"
+        ],
+        "title": "ReviewItem",
+        "type": "object"
+      },
+      "ReviewStatus": {
+        "enum": [
+          "UNSEEN",
+          "REVIEWED",
+          "WEAK",
+          "MASTERED"
+        ],
+        "title": "ReviewStatus",
+        "type": "string"
+      }
+    },
+    "additionalProperties": false,
+    "properties": {
+      "action": {
+        "enum": [
+          "LIST",
+          "COUNT",
+          "STATS",
+          "SEARCH",
+          "DETAILS",
+          "ANSWER",
+          "REVIEW_STATE",
+          "RECORD_REVIEW",
+          "CLARIFY",
+          "NEXT"
+        ],
+        "title": "Action",
+        "type": "string"
+      },
+      "semantic_task": {
+        "anyOf": [
+          {
+            "const": "ALGORITHM_PROBLEM",
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "title": "Semantic Task"
+      },
+      "filters": {
+        "$ref": "#/$defs/FilterSpec"
+      },
+      "sort": {
+        "default": "frequency",
+        "enum": [
+          "frequency",
+          "importance",
+          "gap"
+        ],
+        "title": "Sort",
+        "type": "string"
+      },
+      "top_n": {
+        "anyOf": [
+          {
+            "maximum": 1000,
+            "minimum": 1,
+            "type": "integer"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "title": "Top N"
+      },
+      "page_size": {
+        "default": 20,
+        "maximum": 100,
+        "minimum": 1,
+        "title": "Page Size",
+        "type": "integer"
+      },
+      "group_by": {
+        "default": "question",
+        "enum": [
+          "question",
+          "topic",
+          "company",
+          "round"
+        ],
+        "title": "Group By",
+        "type": "string"
+      },
+      "topic_level": {
+        "default": "L1",
+        "enum": [
+          "L1",
+          "L2"
+        ],
+        "title": "Topic Level",
+        "type": "string"
+      },
+      "search_query": {
+        "anyOf": [
+          {
+            "maxLength": 500,
+            "minLength": 1,
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "title": "Search Query"
+      },
+      "relevance_query": {
+        "anyOf": [
+          {
+            "maxLength": 500,
+            "minLength": 1,
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "title": "Relevance Query"
+      },
+      "lexical_facets": {
+        "items": {
+          "maxLength": 150,
+          "minLength": 1,
+          "type": "string"
+        },
+        "maxItems": 3,
+        "title": "Lexical Facets",
+        "type": "array"
+      },
+      "preferred_question_type": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/QuestionType"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null
+      },
+      "pipeline": {
+        "default": "HYBRID_RERANK",
+        "enum": [
+          "BM25",
+          "HYBRID",
+          "DENSE",
+          "HYBRID_RERANK"
+        ],
+        "title": "Pipeline",
+        "type": "string"
+      },
+      "question_ids": {
+        "items": {
+          "type": "string"
+        },
+        "maxItems": 100,
+        "title": "Question Ids",
+        "type": "array"
+      },
+      "answer_text": {
+        "anyOf": [
+          {
+            "maxLength": 12000,
+            "minLength": 1,
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "title": "Answer Text"
+      },
+      "answer_kind": {
+        "default": "EXPLAIN",
+        "enum": [
+          "EXPLAIN",
+          "COMPARE",
+          "SOLVE",
+          "STUDY_PLAN",
+          "CHAT"
+        ],
+        "title": "Answer Kind",
+        "type": "string"
+      },
+      "answer_basis": {
+        "default": "GENERAL_KNOWLEDGE",
+        "enum": [
+          "GENERAL_KNOWLEDGE",
+          "CORPUS",
+          "MIXED"
+        ],
+        "title": "Answer Basis",
+        "type": "string"
+      },
+      "review_items": {
+        "items": {
+          "$ref": "#/$defs/ReviewItem"
+        },
+        "maxItems": 100,
+        "title": "Review Items",
+        "type": "array"
+      },
+      "review_statuses": {
+        "items": {
+          "enum": [
+            "UNSEEN",
+            "WEAK",
+            "REVIEWED",
+            "MASTERED"
+          ],
+          "type": "string"
+        },
+        "maxItems": 4,
+        "title": "Review Statuses",
+        "type": "array"
+      },
+      "review_order": {
+        "default": "BEFORE_TOP_N",
+        "enum": [
+          "BEFORE_TOP_N",
+          "AFTER_TOP_N"
+        ],
+        "title": "Review Order",
+        "type": "string"
+      },
+      "scope": {
+        "default": "current_page",
+        "enum": [
+          "current_page",
+          "full_scope"
+        ],
+        "title": "Scope",
+        "type": "string"
+      },
+      "final": {
+        "default": true,
+        "title": "Final",
+        "type": "boolean"
+      },
+      "clarification": {
+        "anyOf": [
+          {
+            "maxLength": 1000,
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "title": "Clarification"
+      },
+      "clarification_options": {
+        "items": {
+          "type": "string"
+        },
+        "maxItems": 4,
+        "title": "Clarification Options",
+        "type": "array"
+      }
+    },
+    "required": [
+      "action",
+      "filters",
+      "sort",
+      "top_n",
+      "page_size"
+    ],
+    "title": "QuerySpec",
+    "type": "object"
+  },
+  "tools": [
+    {
+      "name": "list_questions",
+      "sha256": "6a520789502cd8339f935d1b4e7f31edd261822ffb30833dad077582948158c3"
+    },
+    {
+      "name": "search_questions",
+      "sha256": "f6ad449a25401cefca9d297eb52f1be8cfe0566b02d3161fae5103b03f226393"
+    },
+    {
+      "name": "get_question_stats",
+      "sha256": "9bfaef0aaa3949dda195aa2d194cfc9e56c8217f7db24ce09bf6f39705e0fe24"
+    },
+    {
+      "name": "get_question_details",
+      "sha256": "115d0d07a01a6bd85996508ed31515f49a1b02725f3db7854a8fda2d81975b95"
+    },
+    {
+      "name": "get_question_count",
+      "sha256": "135f35c05e2d9bec6916805b14eb3fb1a14fb979377074289a032fba2914ff2d"
+    },
+    {
+      "name": "answer_question",
+      "sha256": "f3a68e23cb5c7f3b54a8a7c47abf70f5744d6629bfc139a9676dfda44cfc615c"
+    },
+    {
+      "name": "get_review_state",
+      "sha256": "d9457eae38a579d3f62d730dd3fc30be58ca066aac9de92236ee9785747cdba6"
+    },
+    {
+      "name": "record_review",
+      "sha256": "9987f7fc06979696bfaa45c2645db1f09f2c064d597f89f7d16b533bba09dec3"
+    }
+  ]
+}

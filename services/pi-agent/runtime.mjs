@@ -2,12 +2,23 @@ import {Agent} from "@earendil-works/pi-agent-core";
 import {createModels, createProvider, envApiKeyAuth, Type} from "@earendil-works/pi-ai";
 import {openAICompletionsApi} from "@earendil-works/pi-ai/api/openai-completions.lazy";
 
-const toolsByAction = {
-  list_questions: ["LIST", "NEXT", "CLARIFY"], search_questions: ["SEARCH"],
-  get_question_stats: ["STATS"], get_question_details: ["DETAILS"],
-  get_question_count: ["COUNT"], answer_question: ["ANSWER"],
-  get_review_state: ["REVIEW_STATE"], record_review: ["RECORD_REVIEW"],
+// BEGIN GENERATED TOOL CONTRACT (python scripts/sync-tool-contract.py)
+const toolContract = {
+  common_required: ["action", "filters", "sort", "top_n", "page_size"],
+  tools: {
+    "list_questions": {"actions": ["LIST", "NEXT", "CLARIFY"], "pi_order": 0, "fields": ["semantic_task", "final", "clarification", "clarification_options", "review_statuses", "review_order"], "required": [], "hint": " Use LIST when the user requests a question list. If the current user goal is COUNT and the message only corrects or restates its subject, continue COUNT even if the previous count already used that subject; do not infer a new list request. For LIST without an explicit requested N, set top_n=null and use page_size for one page. Never infer Top 20 from a default page_size of 20; keep the complete scope pageable. Broad algorithm lists use semantic_task=ALGORITHM_PROBLEM (LIST); this is a complete evidence-audited SQL collection, not semantic retrieval Top50."},
+    "search_questions": {"actions": ["SEARCH"], "pi_order": 1, "fields": ["final", "search_query", "relevance_query", "lexical_facets", "preferred_question_type", "pipeline"], "required": ["search_query", "pipeline"], "hint": " SEARCH requires top_n=null; use page_size (1–50) for the requested result count.", "replace_properties": {"top_n": {"type": "null"}}, "merge_properties": {"page_size": {"type": "integer", "minimum": 1, "maximum": 50}}},
+    "get_question_stats": {"actions": ["STATS"], "pi_order": 2, "fields": ["semantic_task", "final", "group_by", "topic_level", "review_statuses", "review_order"], "required": ["group_by"], "hint": " Group authoritative counts by topic, company or round. Use topic_level=L2 for a breakdown within one L1 topic such as Redis; use L1 for broad topic distribution."},
+    "get_question_count": {"actions": ["COUNT"], "pi_order": 4, "fields": ["semantic_task", "final", "review_statuses"], "required": [], "hint": " Count the complete current discussion scope within filters, not a result page. A bare total question inherits the current topic; only an explicit whole-corpus request clears it. When the current goal is COUNT, subject corrections or restatements remain COUNT even after an already-correct count. One COUNT returns both counts.canonical_questions (distinct questions) and counts.occurrences (appearances). For a direct total question, including asking both numbers, call only this tool once with final=true; do not call STATS for appearances or ANSWER to restate counts. Use final=false only when the user explicitly also requests analysis, advice or an explanation.", "replace_properties": {"top_n": {"type": "null"}}},
+    "get_question_details": {"actions": ["DETAILS"], "pi_order": 3, "fields": ["final", "question_ids", "scope"], "required": ["question_ids"], "hint": ""},
+    "answer_question": {"actions": ["ANSWER"], "pi_order": 5, "fields": ["final", "answer_text", "answer_kind", "answer_basis", "question_ids"], "required": ["answer_text"], "hint": " Finish with a direct explanation, comparison, solution, study plan or conversation response. Set final=true and identify the knowledge basis. Cite only question_ids returned by host tools; corpus sources establish interview questions, not the correctness of a generated answer.", "pi_required_extra": ["answer_kind", "answer_basis", "final"], "replace_properties": {"final": {"type": "boolean", "const": true}}, "merge_existing_properties": {"question_ids": {"maxItems": 10}}},
+    "get_review_state": {"actions": ["REVIEW_STATE"], "pi_order": 6, "fields": ["final", "question_ids", "scope"], "required": ["question_ids"], "hint": ""},
+    "record_review": {"actions": ["RECORD_REVIEW"], "pi_order": 7, "fields": ["final", "review_items", "scope"], "required": ["review_items"], "hint": ""}
+  }
 };
+// END GENERATED TOOL CONTRACT
+const toolsByAction = Object.fromEntries(Object.entries(toolContract.tools)
+  .sort(([,a],[,b]) => a.pi_order-b.pi_order).map(([name,tool]) => [name,tool.actions]));
 
 function inlineSchema(value, definitions) {
   if (Array.isArray(value)) return value.map(v => inlineSchema(v, definitions));
@@ -61,36 +72,21 @@ export async function runQuery(input, {hostUrl, token, signal, streamFn: injecte
   const makeTools = () => Object.keys(toolsByAction).filter(name => permittedActions(name).length).map(name => {
     const actions = permittedActions(name);
     const parameters = inlineSchema(schema, schema.$defs || {});
-    const fields={list_questions:["semantic_task","final","clarification","clarification_options","review_statuses","review_order"],
-      search_questions:["final","search_query","relevance_query","lexical_facets","preferred_question_type","pipeline"],get_question_stats:["semantic_task","final","group_by","topic_level","review_statuses","review_order"],
-      get_question_details:["final","question_ids","scope"],get_review_state:["final","question_ids","scope"],
-      record_review:["final","review_items","scope"],get_question_count:["semantic_task","final","review_statuses"],
-      answer_question:["final","answer_text","answer_kind","answer_basis","question_ids"]};
-    const allowed=new Set(["action","filters","sort","top_n","page_size",...fields[name]]);
+    const definition = toolContract.tools[name];
+    const allowed=new Set([...toolContract.common_required,...definition.fields]);
     parameters.properties=Object.fromEntries(Object.entries(parameters.properties).filter(([key])=>allowed.has(key)));
     parameters.required=(parameters.required || []).filter(key=>allowed.has(key));
     parameters.properties.action = {type:"string",enum:actions};
-    if (name === "get_question_count") parameters.properties.top_n = {type:"null"};
-    if (name === "search_questions") {
-      parameters.properties.top_n = {type:"null"};
-      parameters.properties.page_size = {...parameters.properties.page_size,type:"integer",minimum:1,maximum:50};
-    }
-    if (name === "answer_question") {
-      parameters.properties.final = {type:"boolean",const:true};
-      if (parameters.properties.question_ids)
-        parameters.properties.question_ids = {...parameters.properties.question_ids,maxItems:10};
-    }
-    const extraRequired={get_question_stats:["group_by"],search_questions:["search_query","pipeline"],
-      get_question_details:["question_ids"],get_review_state:["question_ids"],record_review:["review_items"],
-      answer_question:["answer_text","answer_kind","answer_basis","final"]};
-    parameters.required=Array.from(new Set([...(parameters.required || []),...(extraRequired[name] || [])
+    for (const [key,value] of Object.entries(definition.replace_properties || {}))
+      parameters.properties[key] = inlineSchema(value, {});
+    for (const [key,value] of Object.entries(definition.merge_properties || {}))
+      parameters.properties[key] = {...parameters.properties[key],...inlineSchema(value, {})};
+    for (const [key,value] of Object.entries(definition.merge_existing_properties || {}))
+      if (parameters.properties[key])
+        parameters.properties[key] = {...parameters.properties[key],...inlineSchema(value, {})};
+    parameters.required=Array.from(new Set([...(parameters.required || []),...[...definition.required,...(definition.pi_required_extra || [])]
       .filter(key=>Object.hasOwn(parameters.properties,key))]));
-    const countHint = {list_questions:" Use LIST when the user requests a question list. If the current user goal is COUNT and the message only corrects or restates its subject, continue COUNT even if the previous count already used that subject; do not infer a new list request. For LIST without an explicit requested N, set top_n=null and use page_size for one page. Never infer Top 20 from a default page_size of 20; keep the complete scope pageable. Broad algorithm lists use semantic_task=ALGORITHM_PROBLEM (LIST); this is a complete evidence-audited SQL collection, not semantic retrieval Top50.",
-      search_questions:" SEARCH requires top_n=null; use page_size (1–50) for the requested result count.",
-      get_question_stats:" Group authoritative counts by topic, company or round. Use topic_level=L2 for a breakdown within one L1 topic such as Redis; use L1 for broad topic distribution.",
-      get_question_count:" Count the complete current discussion scope within filters, not a result page. A bare total question inherits the current topic; only an explicit whole-corpus request clears it. When the current goal is COUNT, subject corrections or restatements remain COUNT even after an already-correct count. One COUNT returns both counts.canonical_questions (distinct questions) and counts.occurrences (appearances). For a direct total question, including asking both numbers, call only this tool once with final=true; do not call STATS for appearances or ANSWER to restate counts. Use final=false only when the user explicitly also requests analysis, advice or an explanation.",
-      answer_question:" Finish with a direct explanation, comparison, solution, study plan or conversation response. Set final=true and identify the knowledge basis. Cite only question_ids returned by host tools; corpus sources establish interview questions, not the correctness of a generated answer."}[name] || "";
-    return {name,label:name,description:`Execute ${actions.join("/")} using authoritative host data; fill the declared scope fields.${countHint}`,
+    return {name,label:name,description:`Execute ${actions.join("/")} using authoritative host data; fill the declared scope fields.${definition.hint}`,
       parameters:Type.Unsafe(parameters), constrainedSampling:{type:"json_schema",strict:"prefer"},
       async execute(_toolCallId,args,toolSignal) {
         if (completed || ++toolCalls > 8) throw new Error("QUERY_TOOL_BUDGET_EXCEEDED");

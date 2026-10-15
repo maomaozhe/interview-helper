@@ -2,8 +2,11 @@
 id: module-map
 status: current
 scope: workspace
-verified_at: 2026-10-15
+verified_at: 2026-10-16
 sources:
+  - path: src/interview_intelligence/agent/tool_definitions.py
+  - path: scripts/sync-tool-contract.py
+    symbols: [generated_section]
   - path: src/interview_intelligence/api.py
     symbols: [create_app]
   - path: src/interview_intelligence/api_errors.py
@@ -25,6 +28,8 @@ tests:
 ---
 
 # 模块与验证导航
+
+静态工具声明统一维护在 [tool_definitions.py](../../src/interview_intelligence/agent/tool_definitions.py)，通过 [生成脚本](../../scripts/sync-tool-contract.py) 更新 Pi runtime 标记区；[Python 一致性](../../tests/unit/test_tool_contract.py) 和 [实际 Pi 菜单快照](../../tests/node/tool-contract.test.mjs) 守护漂移。主机业务校验与动态 ToolPolicy 仍独立执行。
 
 按任务定位代码和守护测试。本页列出入口，不复制实现细节；跨模块流程见 [系统](../architecture/system.md)、[入库](../architecture/ingestion-flow.md) 和 [查询](../architecture/query-flow.md)。返回 [知识库首页](../README.md)。
 
@@ -111,7 +116,7 @@ Python 用 `uv run --locked --extra dev python -m pytest -q <文件...>`；Node 
 ## 已知维护热点
 
 - API 与 QueryService 职责较集中；定位时按装配、生命周期、scope、工具执行、呈现划分阅读。
-- Python/JS 分别维护工具映射和证据投影；改契约时联查两边，不能仅通过一侧语法检查。
+- 工具声明由 Python 单源生成 Pi 数据；证据投影仍有两侧口径，下一步围绕 host 投影核对和收敛。
 - legacy `/api/questions/search`、`AgentService` 和现代查询链路的 fallback 不完全相同；接口相似不代表结果语义相同。
 - 通用 context/schema 有跨层依赖；重构前检查调用关系，不把静态双向包依赖直接判作运行循环导入故障。
 

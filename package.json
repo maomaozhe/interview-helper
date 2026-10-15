@@ -7,7 +7,7 @@
   "scripts": {
     "build:pi": "node scripts/build-pi.mjs",
     "check": "node --check services/pi-agent/runtime.mjs && node --check services/pi-agent/server.mjs",
-    "test:agent": "node --test tests/node/pi-runtime.test.mjs",
+    "test:agent": "node --test tests/node/pi-runtime.test.mjs tests/node/tool-contract.test.mjs",
     "start:agent": "node services/pi-agent/server.mjs"
   },
   "dependencies": {"@earendil-works/pi-agent-core": "1.0.2", "@earendil-works/pi-ai": "1.0.2", "typebox": "1.3.27"},

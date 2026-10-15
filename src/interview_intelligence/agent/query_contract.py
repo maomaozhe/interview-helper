@@ -5,6 +5,7 @@ from pydantic import Field, model_validator
 
 from interview_intelligence.contracts import FilterSpec, ReviewItem, StrictModel, QuestionType
 from interview_intelligence.analytics.listing import ListRequest, StatsListRequest
+from interview_intelligence.agent.tool_definitions import ACTION_REQUIRED_FIELDS, COMMON_REQUIRED, TOOL_ACTIONS
 
 
 QUERY_AGENT_VERSION = "query_agent_v13"
@@ -84,22 +85,10 @@ class QuerySpec(StrictModel):
         return self
 
 
-TOOL_ACTIONS = {
-    "list_questions": {"LIST", "NEXT", "CLARIFY"},
-    "search_questions": {"SEARCH"},
-    "get_question_stats": {"STATS"},
-    "get_question_count": {"COUNT"},
-    "get_question_details": {"DETAILS"},
-    "answer_question": {"ANSWER"},
-    "get_review_state": {"REVIEW_STATE"},
-    "record_review": {"RECORD_REVIEW"},
-}
-
-
 def query_model_schema(tool_policy=None):
     """Require explicit scope from a model; host/UI contracts keep their defaults."""
     schema = QuerySpec.model_json_schema()
-    schema["required"] = ["action", "filters", "sort", "top_n", "page_size"]
+    schema["required"] = list(COMMON_REQUIRED)
     schema["$defs"]["FilterSpec"]["required"] = list(FilterSpec.model_fields)
     if tool_policy is not None:
         allowed = {action for name, actions in tool_policy["allowed_actions"].items()
@@ -111,10 +100,8 @@ def query_model_schema(tool_policy=None):
 def validate_model_plan(payload):
     if not isinstance(payload, dict):
         raise ValueError("QUERY_PLAN_INCOMPLETE: provide a complete query object")
-    required = {"action", "filters", "sort", "top_n", "page_size"}
-    required.update({"STATS": {"group_by"}, "SEARCH": {"search_query", "pipeline"},
-        "DETAILS": {"question_ids"}, "ANSWER": {"answer_text"}, "REVIEW_STATE": {"question_ids"},
-        "RECORD_REVIEW": {"review_items"}}.get(payload.get("action"), set()))
+    required = set(COMMON_REQUIRED)
+    required.update(ACTION_REQUIRED_FIELDS.get(payload.get("action"), ()))
     missing = required - payload.keys()
     if isinstance(payload.get("filters"), dict):
         missing.update("filters." + k for k in FilterSpec.model_fields if k not in payload["filters"])

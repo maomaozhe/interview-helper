@@ -2,8 +2,11 @@
 id: architecture-query-flow
 status: current
 scope: workspace
-verified_at: 2026-10-15
+verified_at: 2026-10-16
 sources:
+  - path: src/interview_intelligence/agent/tool_definitions.py
+  - path: scripts/sync-tool-contract.py
+    symbols: [generated_section]
   - path: src/interview_intelligence/api.py
     symbols: [conversation_message, execute_query, query_events, internal_run]
   - path: src/interview_intelligence/agent/query_service.py
@@ -98,6 +101,7 @@ sequenceDiagram
 | CLARIFY | 保存澄清问题与选项，终结该轮，等待下一条用户消息 |
 
 结构校验入口是 [query_contract.py::QuerySpec / validate_model_plan](../../src/interview_intelligence/agent/query_contract.py)。
+静态动作、字段投影和必填声明以 [tool_definitions.py](../../src/interview_intelligence/agent/tool_definitions.py) 为唯一编辑来源；运行 `python scripts/sync-tool-contract.py` 生成 Pi runtime 标记区，`--check` 检查漂移。Pi 的工具顺序和 ANSWER 额外必填字段显式保留，主机 `QuerySpec` / `validate_model_plan` 继续独立校验；详见 [10-16 契约收敛](../verification/2026-10-16-tool-contract.md)。
 权限最终由 [harness.py::ToolPolicy.require](../../src/interview_intelligence/agent/harness.py) 和 host 检查执行，不能靠模型声明获得。
 自然语言 COUNT/LIST/STATS 可消耗规划模型调用；执行 SQL 工具本身不等于整轮无需模型。
 
