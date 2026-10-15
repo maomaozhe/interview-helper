@@ -32,6 +32,7 @@ class ReviewService:
                 "states": {canonical_id: {
                     "status": stored[canonical_id].status if canonical_id in stored else "UNSEEN",
                     "review_count": stored[canonical_id].review_count if canonical_id in stored else 0,
+                    "last_reviewed_at": stored[canonical_id].last_reviewed_at.isoformat() if canonical_id in stored and stored[canonical_id].last_reviewed_at else None,
                     "binding_status": stored[canonical_id].binding_status if canonical_id in stored else "RESOLVED",
                     "note": stored[canonical_id].note if canonical_id in stored else None,
                     "last_score": stored[canonical_id].last_score if canonical_id in stored else None,

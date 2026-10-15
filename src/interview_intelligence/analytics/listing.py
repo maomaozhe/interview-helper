@@ -9,6 +9,9 @@ from pydantic import Field, model_validator
 from sqlalchemy import distinct, func, select, case, and_, or_
 
 from interview_intelligence.analytics.scope import sign_scope, verify_scope
+from interview_intelligence.analytics.semantic_scope import (
+    SemanticScope, load_semantic_scope, semantic_base_filters,
+)
 from interview_intelligence.analytics.stats import _active_from, _conditions, _effective_date, _group_key, subtract_calendar_months
 from interview_intelligence.contracts import FilterSpec, StatsRequest
 from interview_intelligence.domain.models import (
@@ -18,12 +21,19 @@ from interview_intelligence.domain.models import (
 
 
 class ListRequest(FilterSpec):
+    semantic_task: Literal["ALGORITHM_PROBLEM"] | None = None
     sort: Literal["frequency", "importance", "gap"] = "frequency"
     top_n: int | None = Field(default=None, ge=1, le=1000)
     page_size: int = Field(default=20, ge=1, le=100)
     cursor: str | None = Field(default=None, max_length=4096)
     review_statuses: list[Literal["UNSEEN","WEAK","REVIEWED","MASTERED"]] = Field(default_factory=list,max_length=4)
     review_order: Literal["BEFORE_TOP_N","AFTER_TOP_N"] = "BEFORE_TOP_N"
+
+    @model_validator(mode="after")
+    def validate_semantic_task_filters(self):
+        if self.semantic_task:
+            semantic_base_filters(filter_fields(self))
+        return self
 
 
 class StatsListRequest(ListRequest):
@@ -41,10 +51,15 @@ def filter_fields(request):
     return FilterSpec.model_validate({k:getattr(request,k) for k in FilterSpec.model_fields})
 
 
-def ranked_query(session, request, user_id, as_of):
+def ranked_query(session, request, user_id, as_of, *, semantic_scope: SemanticScope | None = None):
     """All aggregation, score normalization, Top N and review set order live in SQL."""
     grouped_by = getattr(request,"group_by","question")
     f = filter_fields(request)
+    conditions = _conditions(f)
+    if request.semantic_task:
+        f = semantic_base_filters(f)
+        semantic_scope = semantic_scope or load_semantic_scope(session, f, task=request.semantic_task)
+        conditions = [*_conditions(f), QuestionOccurrence.id.in_(semantic_scope.accepted_occurrence_ids)]
     key = _group_key(StatsRequest(**f.model_dump(),group_by=grouped_by,
         topic_level=getattr(request,"topic_level","L1")))
     effective = _effective_date(f.date_basis)
@@ -55,9 +70,9 @@ def ranked_query(session, request, user_id, as_of):
         func.count(distinct(Interview.company_normalized)).label("company_count"),
         func.sum(case((recent,1),else_=0)).label("recent_count"),
         func.min(QuestionOccurrence.id).label("witness_id")
-    ).select_from(_active_from()).where(*_conditions(f)).group_by(key).subquery()
+    ).select_from(_active_from()).where(*conditions).group_by(key).subquery()
     known = session.scalar(select(func.count(distinct(Interview.company_normalized))).select_from(
-        _active_from()).where(*_conditions(f))) or 0
+        _active_from()).where(*conditions)) or 0
     freq = func.coalesce(func.ln(g.c.occurrence_count+1.0)/func.nullif(func.ln(func.max(g.c.occurrence_count).over()+1.0),0),0.0)
     recent_score = func.coalesce(g.c.recent_count*1.0/func.nullif(func.max(g.c.recent_count).over(),0),0.0)
     coverage = g.c.company_count*1.0/max(1,known)
@@ -117,6 +132,10 @@ def list_questions(session, request: ListRequest, *, signing_key: str,
     u=session.get(UserRevision,user_id)
     review_revision=u.state_revision if u else 0
     filters=filter_fields(request)
+    semantic_scope = None
+    if request.semantic_task:
+        filters = semantic_base_filters(filters)
+        semantic_scope = load_semantic_scope(session, filters, task=request.semantic_task)
     scope=request.model_dump(mode="json",exclude={"cursor"})
     offset,last=0,None
     as_of=as_of or date.today()
@@ -127,12 +146,14 @@ def list_questions(session, request: ListRequest, *, signing_key: str,
             raise ValueError("INVALID_CURSOR_SCOPE")
         if payload.get("user_revision")!=review_revision or payload.get("annotation_revision")!=state.task_annotation_revision:
             raise ValueError("SNAPSHOT_CHANGED")
+        if semantic_scope and payload.get("semantic_scope_hash") != semantic_scope.scope_hash:
+            raise ValueError("SNAPSHOT_CHANGED")
         offset=payload.get("offset")
         last=payload.get("last")
         if type(offset) is not int or offset<0 or not isinstance(last,list) or len(last)!=2:
             raise ValueError("INVALID_CURSOR_SCOPE")
         as_of=date.fromisoformat(payload["as_of"])
-    chosen,total=ranked_query(session,request,user_id,as_of)
+    chosen,total=ranked_query(session,request,user_id,as_of,semantic_scope=semantic_scope)
     result_total=session.scalar(select(func.count()).select_from(chosen)) or 0
     stmt=select(chosen).order_by(chosen.c.rank_score.desc(),chosen.c.key)
     if last:
@@ -165,20 +186,30 @@ def list_questions(session, request: ListRequest, *, signing_key: str,
     next_offset=offset+len(data)
     common={"kind":kind,"scope":scope,"as_of":as_of.isoformat(),"user_id":user_id,
             "user_revision":review_revision,"annotation_revision":state.task_annotation_revision}
+    if semantic_scope:
+        common["semantic_scope_hash"] = semantic_scope.scope_hash
     cursor=sign_scope({**common,"offset":next_offset,"last":[rows[-1]["rank_score"],rows[-1]["key"]]},
         key=signing_key,corpus_revision=state.current_revision) if rows and next_offset<result_total else None
     result_set=sign_scope({**common,"kind":"result_set"},key=signing_key,corpus_revision=state.current_revision)
     enriched_at=time.perf_counter()
     coverage=task_coverage(session,filters)
+    sample_conditions = _conditions(filters)
+    if semantic_scope:
+        sample_conditions.append(QuestionOccurrence.id.in_(semantic_scope.accepted_occurrence_ids))
     meta={"corpus_revision":state.current_revision,"task_annotation_revision":state.task_annotation_revision,
           "user_state_revision":review_revision,"applied_filters":filters.model_dump(mode="json"),
           "route":"SQL","sort":request.sort,"as_of":as_of.isoformat(),"result_set_id":result_set,
           "review_statuses":request.review_statuses,"review_order":request.review_order,
           "group_by":getattr(request,"group_by","question"),"scoring_versions":{"importance":"importance_v1","gap":"gap_v1"},
-          "sample_counts":{"occurrences":int(session.scalar(select(func.count()).select_from(_active_from()).where(*_conditions(filters))) or 0),
+          "sample_counts":{"occurrences":int(session.scalar(select(func.count()).select_from(_active_from()).where(*sample_conditions)) or 0),
                            "selected_occurrences":int(session.scalar(select(func.sum(chosen.c.occurrence_count))) or 0)},
           "pagination":{"total":total,"result_total":result_total,"returned":len(data),"offset":offset,
               "page_size":request.page_size,"top_n":request.top_n,"next_cursor":cursor},"task_coverage":coverage}
+    if semantic_scope:
+        meta["semantic_scope"] = semantic_scope.metadata()
+        meta["semantic_task"] = request.semantic_task
+        for item in data:
+            item["semantic_task"] = request.semantic_task
     meta["timings"]={"sql_rank_ms":round((ranked_at-started)*1000,2),
         "sql_enrichment_ms":round((enriched_at-ranked_at)*1000,2),
         "sql_metadata_ms":round((time.perf_counter()-enriched_at)*1000,2)}

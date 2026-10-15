@@ -221,6 +221,41 @@ class ToolInvocation(Base):
     result: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict, nullable=False)
 
 
+class UsageTrackingState(Base):
+    __tablename__ = "usage_tracking_state"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    started_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now_utc, nullable=False)
+    version: Mapped[str] = mapped_column(String(32), default="question_usage_v1", nullable=False)
+
+
+class QuestionUsageRun(Base):
+    __tablename__ = "question_usage_run"
+    __table_args__ = (
+        UniqueConstraint("user_id", "request_key"),
+        Index("ix_usage_run_user_time", "user_id", "occurred_at"),
+    )
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=new_id)
+    user_id: Mapped[str] = mapped_column(String(128), nullable=False)
+    request_key: Mapped[str] = mapped_column(String(160), nullable=False)
+    source: Mapped[str] = mapped_column(String(32), nullable=False)
+    purpose: Mapped[str] = mapped_column(String(16), nullable=False)
+    search_performed: Mapped[bool] = mapped_column(Boolean, nullable=False)
+    candidate_complete: Mapped[bool] = mapped_column(Boolean, nullable=False)
+    metadata_snapshot: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict, nullable=False)
+    occurred_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now_utc, nullable=False)
+
+
+class QuestionUsageEvent(Base):
+    __tablename__ = "question_usage_event"
+    usage_run_id: Mapped[str] = mapped_column(ForeignKey("question_usage_run.id"), primary_key=True)
+    canonical_question_id: Mapped[str] = mapped_column(ForeignKey("canonical_question.id"), primary_key=True, index=True)
+    candidate: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    accepted: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    returned: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    listed: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    decisions: Mapped[list[str]] = mapped_column(JSON, default=list, nullable=False)
+
+
 class UserPreference(Base):
     __tablename__ = "user_preference"
     user_id: Mapped[str] = mapped_column(String(128), primary_key=True)
@@ -496,5 +531,7 @@ def create_database(url: str, *, create_tables: bool = True) -> Database:
         with sessionmaker(engine)() as session:
             if session.get(CorpusState, 1) is None:
                 session.add(CorpusState(id=1))
-                session.commit()
+            if session.get(UsageTrackingState, 1) is None:
+                session.add(UsageTrackingState(id=1))
+            session.commit()
     return Database(engine=engine, session_factory=sessionmaker(engine, expire_on_commit=False))

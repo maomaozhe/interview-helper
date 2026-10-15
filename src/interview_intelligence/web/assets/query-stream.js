@@ -2,13 +2,49 @@
   "use strict";
   // Reconnect to the committed journal for the same run. Never submit a message here.
   function watchQueryRun({url,snapshot,readRun,onEvent=()=>{},signal,cancel=()=>{},
-    EventSourceClass=root.EventSource,timeoutMs=110000,pollMs=750}) {
+    EventSourceClass=root.EventSource,timeoutMs=210000,pollMs=750,statusPollMs=8000,statusReadTimeoutMs=12000}) {
     return new Promise((resolve,reject)=>{
       let cursor=snapshot.event_cursor || 0,ended=false,source=null,polling=false;
-      const cleanup=()=>{ended=true;source?.close();clearTimeout(deadline);signal?.removeEventListener("abort",abort);};
-      const fail=(code,partial)=>{cleanup();const error=new Error(code || "查询未完成");error.partial=partial;reject(error);};
+      let statusTimer=null,statusChecking=false,statusPollingStalled=false,deadlineChecking=false,readQueue=Promise.resolve();
+      const cleanup=()=>{ended=true;source?.close();clearTimeout(deadline);clearTimeout(statusTimer);
+        signal?.removeEventListener("abort",abort);};
+      const fail=(code,partial)=>{cleanup();const messages={
+        QUERY_RELEVANCE_UNAVAILABLE:"本次语义核验未完成，结果未作为成功查询保存，请重试。",
+        SEMANTIC_SCOPE_INCOMPLETE:"当前范围的全量算法核验尚未完成，暂时无法提供完整列表。"};
+        const error=new Error(messages[code] || code || "查询未完成");error.code=code;error.partial=partial;reject(error);};
       const abort=()=>{cleanup();cancel();reject(new DOMException("查询已取消","AbortError"));};
-      const deadline=setTimeout(()=>{cleanup();cancel();reject(new Error("查询超时，请重试。"));},timeoutMs);
+      // Serialize journal reads across the SSE health check, recovery, and
+      // deadline check. A stalled request cannot block the queue indefinitely.
+      const readCommitted=()=>{
+        const next=readQueue.catch(()=>{}).then(()=>{
+          if(ended)return null;
+          let timer;
+          const timedOut=new Promise((_,reject)=>{timer=setTimeout(()=>{
+            const error=new Error("查询状态读取超时，请重试。");error.code="RUN_STATUS_TIMEOUT";reject(error);
+          },statusReadTimeoutMs);});
+          return Promise.race([Promise.resolve().then(()=>readRun(cursor)),timedOut])
+            .finally(()=>clearTimeout(timer));
+        });
+        readQueue=next;
+        return next;
+      };
+      // The server may use its full 180-second query deadline. Check the
+      // committed result before cancelling a run whose SSE completion was late.
+      const deadline=setTimeout(async()=>{
+        if(ended)return;
+        deadlineChecking=true;clearTimeout(statusTimer);statusTimer=null;
+        source?.close();
+        try{
+          while(!ended){
+            const run=await readCommitted();
+            if(ended)return;
+            if(inspect(run))return;
+            if(cursor<run.last_sequence)continue;
+            break;
+          }
+        }catch(error){if(!ended){cleanup();reject(error);}return;}
+        if(!ended){cleanup();cancel();reject(new Error("查询超时，请重试。"));}
+      },timeoutMs);
       signal?.addEventListener("abort",abort,{once:true});
       const consume=(type,data,sequence)=>{
         if(ended || (Number.isInteger(sequence) && sequence<=cursor))return;
@@ -27,19 +63,41 @@
         if(run.status!=="RUNNING"){fail(run.error_code,run.partial_result);return true;}
         return false;
       };
+      const scheduleStatusCheck=()=>{
+        if(!ended && !polling && !deadlineChecking && !statusChecking && !statusPollingStalled && statusTimer===null)
+          statusTimer=setTimeout(checkPersisted,statusPollMs);
+      };
+      const checkPersisted=async()=>{
+        statusTimer=null;
+        if(ended || polling || deadlineChecking)return;
+        statusChecking=true;
+        try{
+          while(!ended && !polling && !deadlineChecking){
+            const run=await readCommitted();
+            if(ended || polling || deadlineChecking)return;
+            if(inspect(run) || cursor>=run.last_sequence)return;
+          }
+        }catch(error){
+          // A timed-out fetch cannot be aborted through the current readRun
+          // callback. Avoid piling up more requests while SSE is still open.
+          if(error?.code==="RUN_STATUS_TIMEOUT")statusPollingStalled=true;
+        }
+        finally{statusChecking=false;scheduleStatusCheck();}
+      };
       const recover=async()=>{
         if(ended || polling)return;
-        polling=true;source?.close();
+        polling=true;clearTimeout(statusTimer);statusTimer=null;source?.close();
         onEvent({type:"connection",state:"recovering"});
         try{
-          while(!ended){
-            const run=await readRun(cursor);
-            if(ended)return;
+          while(!ended && !deadlineChecking){
+            const run=await readCommitted();
+            if(ended || deadlineChecking)return;
             if(inspect(run))return;
             if(cursor < run.last_sequence)continue;
             await new Promise(done=>setTimeout(done,pollMs));
           }
-        }catch(error){if(!ended){cleanup();reject(error);}}
+        }catch(error){if(!ended && !deadlineChecking){cleanup();reject(error);}}
+        finally{polling=false;}
       };
       if(signal?.aborted){abort();return;}
       try{
@@ -59,6 +117,7 @@
           });
         }
         source.onerror=recover;
+        scheduleStatusCheck();
       }catch(error){cleanup();reject(error);}
     });
   }

@@ -13,6 +13,7 @@ from typing import Protocol
 from sqlalchemy import select
 
 from interview_intelligence.config import resolve_corpus_document
+from interview_intelligence.company import normalize_company as _normalize_company
 from interview_intelligence.contracts import ExtractionResult
 from interview_intelligence.domain.models import (
     AlgorithmMatch, CanonicalAssignment, CanonicalQuestion, CorpusState, DocumentBuild, Interview,
@@ -47,14 +48,6 @@ class IngestOutcome:
 def _fingerprint(extractor_version: str) -> str:
     config = {"extractor": extractor_version, "taxonomy": "v1", "normalizer": "metadata_v2", "schema": "v1"}
     return hashlib.sha256(json.dumps(config, sort_keys=True).encode()).hexdigest()
-
-
-def _normalize_company(raw: str | None) -> str | None:
-    if not raw:
-        return None
-    aliases = {"字节跳动": "字节", "抖音": "字节", "腾讯音乐": "腾讯音乐", "阿里云": "阿里云",
-               "pdd": "拼多多", "boss": "BOSS直聘", "boss直聘": "BOSS直聘"}
-    return aliases.get(raw.casefold(), raw)
 
 
 def _normalize_position(raw: str | None) -> tuple[str | None, str | None, list[str]]:

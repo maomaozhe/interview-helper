@@ -16,7 +16,8 @@ def test_recent_topic_question_routes_to_sql_stats():
     assert "2" in result["answer"]
 
 
-def test_byte_second_round_preparation_uses_gap_before_detail():
+@pytest.mark.parametrize("position", [None, "后端开发工程师", "Java开发"])
+def test_byte_second_round_preparation_uses_gap_before_detail(position):
     db, _, persistence_id = seed_corpus()
     with db.session() as session:
         with session.begin():
@@ -24,11 +25,15 @@ def test_byte_second_round_preparation_uses_gap_before_detail():
                                                            Interview.round == "SECOND"))
             interview.job_family = "BACKEND"
             interview.language_tags = ["JAVA"]
+            interview.position_normalized = position
     agent = AgentService(db)
     result = agent.chat("字节 Java 后端二面，按面经和复习记录给我冲刺清单")
     assert result["intent"] == "COMPOSITE"
     names = [step["name"] for step in result["tool_trace"]]
     assert names[:2] == ["query_question_stats", "get_user_question_state"]
+    filters = result["tool_trace"][0]["parameters"]
+    assert filters["position"] is None
+    assert filters["job_family"] == "BACKEND" and filters["language"] == "JAVA"
     assert result["facts"]["questions"][0]["canonical_question_id"] == persistence_id
 
 

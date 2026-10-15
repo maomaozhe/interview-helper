@@ -1,0 +1,431 @@
+{
+  "version": "byte_algorithm_semantic_ssh_v1",
+  "deployed_at_china": "2026-10-12T00:14:51.051233+08:00",
+  "public_url": "https://interview.101-47-18-72.sslip.io/#chat",
+  "model": "ark-code-latest",
+  "reranker": "rerank_v15_algorithm_problem_scope_partial",
+  "scope_verifier": "scope_verify_v6_algorithm_goal_source_context",
+  "supersedes_semantic_claims_in": "2026-10-11-byte-algorithm-ssh.md",
+  "root_causes": [
+    "Natural algorithm intent was routed to a stale metadata LIST without semantic verification.",
+    "Historical KNOWN annotations include principle/design/scenario false positives and UNKNOWN algorithm false negatives.",
+    "First semantic candidate still invented implementation requirements for an open-ended data structure design."
+  ],
+  "reference": {
+    "reviewer": "agent",
+    "human_gold": false,
+    "exposed_development_reference": true,
+    "not_exhaustive": true,
+    "reviewed_occurrences": 39,
+    "positive_canonical": 26,
+    "negative_only_canonical": 11,
+    "sha256": "3a540edf3eb39cdad33346e071e326de2545168fd073775519dcc90f91a600f8",
+    "coverage_returned": 24,
+    "coverage_denominator": 26,
+    "coverage_missing_titles": [
+      "实现支持 push/pop/top/getMin 的栈，所有操作都能在 O(1) 时间复杂度内取最小值。",
+      "将0、1、2、3、4、5……10、11拍扁成单个数字，例如11拍成1、1，并且跳过4，第N个数字是多少？要求考虑性能限制。"
+    ]
+  },
+  "automated_tests": {
+    "frozen_ssh_package": {
+      "tests": 109,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "sha256": "20f916b013c7a70160e04a78136248268d7bffdb974adb0e112b3492c75ba845"
+    },
+    "workspace_compatibility": {
+      "tests": 193,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "sha256": "c6e6ca26bddcd42478a6f6d874325292dfcbca65487799ef1301e4ca1ece7e3c"
+    },
+    "overlap_do_not_sum": true,
+    "candidate_import": "Explicitly imported frozen candidate before pytest; overrode pytest pythonpath; printed rerank_v15."
+  },
+  "live_cases": [
+    {
+      "case": "new-session",
+      "passed": true,
+      "returned": 20,
+      "elapsed_seconds": 104.19
+    },
+    {
+      "case": "correction",
+      "passed": true,
+      "returned": 20,
+      "elapsed_seconds": 97.68
+    },
+    {
+      "case": "coverage",
+      "passed": true,
+      "returned": 24,
+      "elapsed_seconds": 94.85
+    },
+    {
+      "case": "islands",
+      "passed": true,
+      "returned": 1,
+      "elapsed_seconds": 66.46
+    },
+    {
+      "case": "old-list-requery",
+      "passed": true,
+      "returned": 20,
+      "elapsed_seconds": 106.81
+    },
+    {
+      "case": "public-chat",
+      "passed": true,
+      "returned": 20,
+      "elapsed_seconds": 189.59
+    },
+    {
+      "case": "public-history-requery",
+      "passed": true,
+      "returned": 20,
+      "elapsed_seconds": 188.35
+    }
+  ],
+  "live_runtime": "staged SSH candidate package; deployed Pi runtime, shared production encoder and database; private loopback API",
+  "public_runtime": "formal public HTTPS and deployed API/Pi; isolated test tenant and cloned old LIST turn",
+  "public_backend_performance": [
+    {
+      "timings": {
+        "tool_ms": 100535,
+        "decision_ms": 9289,
+        "total_ms": 109868,
+        "model_attempts": 4,
+        "queue_ms": 0,
+        "interval_ms": 5269,
+        "provider_ms": 103511
+      },
+      "calls": [
+        {
+          "operation_type": "QUERY_PLAN",
+          "prompt_version": "query_agent_v13",
+          "input_tokens": 12181,
+          "output_tokens": 396,
+          "latency_ms": 9168,
+          "queue_ms": 0,
+          "interval_ms": 0,
+          "provider_ms": 9157,
+          "status": "SUCCEEDED",
+          "error_code": null
+        },
+        {
+          "operation_type": "EMBEDDING",
+          "prompt_version": "doubao-embedding-vision:1024:instructions_v2",
+          "input_tokens": 50,
+          "output_tokens": 0,
+          "latency_ms": 3943,
+          "queue_ms": 0,
+          "interval_ms": 1917,
+          "provider_ms": 2025,
+          "status": "SUCCEEDED",
+          "error_code": null
+        },
+        {
+          "operation_type": "RERANK",
+          "prompt_version": "rerank_v15_algorithm_problem_scope_partial",
+          "input_tokens": 14347,
+          "output_tokens": 4198,
+          "latency_ms": 69636,
+          "queue_ms": 0,
+          "interval_ms": 1356,
+          "provider_ms": 68279,
+          "status": "SUCCEEDED",
+          "error_code": null
+        },
+        {
+          "operation_type": "RERANK_VERIFY",
+          "prompt_version": "scope_verify_v6_algorithm_goal_source_context",
+          "input_tokens": 8239,
+          "output_tokens": 910,
+          "latency_ms": 26046,
+          "queue_ms": 0,
+          "interval_ms": 1996,
+          "provider_ms": 24050,
+          "status": "SUCCEEDED",
+          "error_code": null
+        }
+      ]
+    },
+    {
+      "timings": {
+        "tool_ms": 83941,
+        "decision_ms": 10547,
+        "total_ms": 94510,
+        "model_attempts": 4,
+        "queue_ms": 0,
+        "interval_ms": 5761,
+        "provider_ms": 88201
+      },
+      "calls": [
+        {
+          "operation_type": "QUERY_PLAN",
+          "prompt_version": "query_agent_v13",
+          "input_tokens": 14200,
+          "output_tokens": 389,
+          "latency_ms": 10428,
+          "queue_ms": 0,
+          "interval_ms": 0,
+          "provider_ms": 10420,
+          "status": "SUCCEEDED",
+          "error_code": null
+        },
+        {
+          "operation_type": "EMBEDDING",
+          "prompt_version": "doubao-embedding-vision:1024:instructions_v2",
+          "input_tokens": 55,
+          "output_tokens": 0,
+          "latency_ms": 3019,
+          "queue_ms": 0,
+          "interval_ms": 1945,
+          "provider_ms": 1073,
+          "status": "SUCCEEDED",
+          "error_code": null
+        },
+        {
+          "operation_type": "RERANK",
+          "prompt_version": "rerank_v15_algorithm_problem_scope_partial",
+          "input_tokens": 14334,
+          "output_tokens": 4104,
+          "latency_ms": 57985,
+          "queue_ms": 0,
+          "interval_ms": 1820,
+          "provider_ms": 56164,
+          "status": "SUCCEEDED",
+          "error_code": null
+        },
+        {
+          "operation_type": "RERANK_VERIFY",
+          "prompt_version": "scope_verify_v6_algorithm_goal_source_context",
+          "input_tokens": 8532,
+          "output_tokens": 895,
+          "latency_ms": 22541,
+          "queue_ms": 0,
+          "interval_ms": 1996,
+          "provider_ms": 20544,
+          "status": "SUCCEEDED",
+          "error_code": null
+        }
+      ]
+    }
+  ],
+  "public_extra_elapsed_cause_established": false,
+  "source_audit": {
+    "all_gates_pass": true,
+    "reference_sha256": "3a540edf3eb39cdad33346e071e326de2545168fd073775519dcc90f91a600f8",
+    "cases": [
+      {
+        "case": "new-session",
+        "rows": 20,
+        "verified_source_quotes": 22,
+        "positive_source_witnesses": 20,
+        "semantic_task": "ALGORITHM_PROBLEM"
+      },
+      {
+        "case": "correction",
+        "rows": 20,
+        "verified_source_quotes": 22,
+        "positive_source_witnesses": 20,
+        "semantic_task": "ALGORITHM_PROBLEM"
+      },
+      {
+        "case": "coverage",
+        "rows": 24,
+        "verified_source_quotes": 26,
+        "positive_source_witnesses": 24,
+        "semantic_task": "ALGORITHM_PROBLEM"
+      },
+      {
+        "case": "islands",
+        "rows": 1,
+        "verified_source_quotes": 1,
+        "positive_source_witnesses": 1,
+        "semantic_task": "ALGORITHM_PROBLEM"
+      },
+      {
+        "case": "old-list-requery",
+        "rows": 20,
+        "verified_source_quotes": 22,
+        "positive_source_witnesses": 20,
+        "semantic_task": "ALGORITHM_PROBLEM"
+      },
+      {
+        "case": "public-chat",
+        "rows": 20,
+        "verified_source_quotes": 22,
+        "positive_source_witnesses": 20,
+        "semantic_task": "ALGORITHM_PROBLEM"
+      },
+      {
+        "case": "public-history-requery",
+        "rows": 20,
+        "verified_source_quotes": 22,
+        "positive_source_witnesses": 20,
+        "semantic_task": "ALGORITHM_PROBLEM"
+      }
+    ],
+    "runtime_scope": "frozen ByteDance source hash/span and per-occurrence task review; no human gold claim"
+  },
+  "release": {
+    "backup": "/home/dylan/services/interview-intelligence/backups/byte-algorithm-semantic-20261011T161437Z",
+    "database_backup_sha256": "8ebfc52eae74c8cd6aa31589d16fb2990bf29ad5b63f24badb03116ffd784bed",
+    "files": {
+      "contracts/__init__.py": {
+        "before": "720e585f1c555af8e9df0630528db3efc885b9c4fa76739b1fdfb817effead4e",
+        "after": "9fa76bbd65e8898b82f7d83124f6e1230642d126b588062cc4cf61f0bf4c45e6"
+      },
+      "resources/prompts/query_agent_v13.md": {
+        "before": "5d00bd87c9dc29b615a16fef2580620e5310904dc322de6f9d840b06b57da905",
+        "after": "aca4291096ed2c16441d57c1914aa6e845c5b4df78930f68b7f752fbc274fa93"
+      },
+      "search/candidate_prompt.py": {
+        "before": "9acef06f47b3fbd4c1e69ddc6f141f9cc8113b752c17b1174791f81af25ad201",
+        "after": "b4b20cfa84dca4ba15ac7739243196e6c0d936b0b17f8cce9daef43fbdad8a6b"
+      },
+      "search/reranker.py": {
+        "before": "0024418d270fe4e1919e815aaf1023a175d9c534e0026a998e16df91b2ed422a",
+        "after": "6eea535d0cf86d031bc267d1a921de38b460e7b2508aa516679899b5a7de7e99"
+      }
+    },
+    "protected_files": 114,
+    "services": {
+      "interview-intelligence-postgres": "active",
+      "interview-intelligence-elasticsearch": "active",
+      "interview-intelligence-api": "active",
+      "interview-intelligence-pi": "active",
+      "interview-intelligence-worker": "active",
+      "interview-intelligence-web": "active",
+      "interview-intelligence-proxy": "active",
+      "interview-qwen-openai": "inactive"
+    },
+    "services_before": {
+      "interview-intelligence-postgres": "active",
+      "interview-intelligence-elasticsearch": "active",
+      "interview-intelligence-api": "active",
+      "interview-intelligence-pi": "active",
+      "interview-intelligence-worker": "active",
+      "interview-intelligence-web": "active",
+      "interview-intelligence-proxy": "active",
+      "interview-qwen-openai": "inactive"
+    },
+    "health": {
+      "database": "ready",
+      "current_revision": 293,
+      "indexed_revision": 293,
+      "index": "ready",
+      "model_max_in_flight": 1,
+      "model_min_interval_seconds": 2.0,
+      "query_router_enabled": true,
+      "task_filters_enabled": true,
+      "task_annotation_policy": "KNOWN",
+      "pi_agent_enabled": true,
+      "query_prompt_version": "query_agent_v13",
+      "query_prompt_sha256": "aca4291096ed2c16441d57c1914aa6e845c5b4df78930f68b7f752fbc274fa93",
+      "reranker_version": "rerank_v15_algorithm_problem_scope_partial",
+      "jev_decision_enabled": false,
+      "model": "configured"
+    },
+    "created_at": "2026-10-11T16:14:51.051233+00:00"
+  },
+  "integrity": {
+    "files_match": true,
+    "protected_files_match": 114,
+    "data_counts_preserved": true,
+    "counts": {
+      "canonical_question": 2668,
+      "question_occurrence": 4338,
+      "source_document": 190,
+      "source_revision": 190,
+      "document_build": 293,
+      "interview": 292,
+      "review_event": 16,
+      "user_question_state": 16
+    },
+    "corpus": {
+      "id": 1,
+      "current_revision": 293,
+      "indexed_revision": 293,
+      "taxonomy_version": "v1",
+      "canonical_revision": 0,
+      "task_annotation_revision": 30
+    },
+    "schema": "e937fb9c2160",
+    "original_turns_preserved": 12,
+    "original_turns_sha256": "0f4f16364587601b8d3e62cfe5144e8243e122469dd03414519acf853a382c01",
+    "public_https_health_matches": true,
+    "health": {
+      "database": "ready",
+      "current_revision": 293,
+      "indexed_revision": 293,
+      "index": "ready",
+      "model_max_in_flight": 1,
+      "model_min_interval_seconds": 2.0,
+      "query_router_enabled": true,
+      "task_filters_enabled": true,
+      "task_annotation_policy": "KNOWN",
+      "pi_agent_enabled": true,
+      "query_prompt_version": "query_agent_v13",
+      "query_prompt_sha256": "aca4291096ed2c16441d57c1914aa6e845c5b4df78930f68b7f752fbc274fa93",
+      "reranker_version": "rerank_v15_algorithm_problem_scope_partial",
+      "jev_decision_enabled": false,
+      "model": "configured"
+    },
+    "pi_health": {
+      "status": "ready",
+      "pi_version": "1.0.2"
+    }
+  },
+  "account_checks": {
+    "original_provider_unchanged": true,
+    "test_trial_used": 0,
+    "test_sessions_revoked": true,
+    "test_provider_removed": true,
+    "test_admissions_removed": 2
+  },
+  "failures_preserved": [
+    {
+      "kind": "candidate_1_semantic_failure",
+      "case": "old-list-requery",
+      "wrong_task": "泛数组/链表数据结构设计",
+      "deployed": false,
+      "private_sha256": "5c9e31ec0e693c21fd609a3028a077b1b53121f25ce96762eeb774b04ddb5e3e"
+    },
+    {
+      "kind": "workspace_test_fixture_failure",
+      "failed": 20,
+      "passed": 173,
+      "cause": "Fixture dispatched verifier schema by the obsolete v5 name; corrected to inspect schema properties.",
+      "sha256": "6fb69276c406bfc6ffb09576bcad66af083cdddf75bbfc13a5a58a154c3a223a"
+    },
+    {
+      "kind": "candidate_test_import_unconfirmed",
+      "used_as_release_gate": false,
+      "sha256": "7604957e5371cf185eb60096ea6dc692e49089eeff7cb7b5caf9913306df75eb"
+    }
+  ],
+  "private_artifact_hashes": {
+    "before.private.json": "c635b53bb51a94d31baf1864cf93a3247059b7d5ee3372c946bef422351d6c24",
+    "before-output.private.json": "8160df56976c5f765f16c17f9eb7e84d09ab7a5bb0341e2ea7547c9125a75ac8",
+    "manifest.json": "5036903be39668240866f005b5086e1613324e841a7f6fd3762f8ac419bf89d3",
+    "candidate.diff": "9e5b89102293f46fa78876aaab6a2dc380d6b93c94a30cdeca79260220a8c59c",
+    "live.private.json": "3a5a59cdfe1f5b10d701dd29983ffc54ac0a412498ee6d3075593cb5d4af8d21",
+    "public-live.private.json": "aff572ef37c6b2245ada3bbeeef55c29ac4080897068a525e05bd845586edb8b",
+    "deployment.json": "1ca6f1a2a780bd7511e69903c85f066aee18ce6141653a7b4322df0d5b7e64dd",
+    "verification.json": "40c4c847605529dd12b848e5430139bca5414f12f5413f3b3b9c6a6001a0d504",
+    "source-audit-public.json": "a99b173bacbef5d6941a8b1258e14c63207c377cd926779ff0d8b23c859e479a",
+    "public-performance.json": "545eb579a5abcc3e667c3521fc52a451ffeb28ef46491e226f23a9fa9cd5d694"
+  },
+  "limits": [
+    "No full corpus relabel or independent unseen gold evaluation.",
+    "Search result count is not an exhaustive semantic total; SQL metadata filters retain their existing meaning.",
+    "Measured personal model latency remains material; no performance tuning claimed.",
+    "Full V1 quality gates, production concurrency and rollback drill were not rerun.",
+    "Browser tab navigation was blocked by client; public HTTPS login, SSE and persisted results were tested directly."
+  ]
+}

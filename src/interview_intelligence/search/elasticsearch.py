@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from interview_intelligence.search.retry import RelevanceProviderUnavailable
+
 import hashlib
 import math
 import re
@@ -304,6 +306,7 @@ class ElasticsearchRetriever:
         rerank_audit = None
         executed=pipeline
         if pipeline in {"BM25", "DENSE"}:
+            candidate_ids = [canonical_id for canonical_id, _ in rankings[0]]
             data = [{"canonical_question_id": canonical_id, "score": score,
                      "stage_scores": {pipeline.lower(): score}}
                     for canonical_id, score in rankings[0][:top_k]]
@@ -324,6 +327,7 @@ class ElasticsearchRetriever:
                 for row in data} if preference else {}
             branch_counts = dict(Counter(row["candidate_selection_source"] for row in data)) if preference else {}
             candidate_count = len(data)
+            candidate_ids = [item["canonical_question_id"] for item in data]
             if pipeline == "HYBRID_RERANK":
                 if on_progress:
                     on_progress({"stage":"reranking", "count":candidate_count})
@@ -355,6 +359,10 @@ class ElasticsearchRetriever:
                                 "PAGE_CUTOFF" if item["decision"] == "ACCEPTED" else item["decision"]}
                             for item in rerank_audit["candidates"]]}
                     rerank_status="COMPLETED_PARTIAL" if partial else "COMPLETED"
+                except RelevanceProviderUnavailable as e:
+                    data = []
+                    rerank_status, executed = "FAILED", "HYBRID"
+                    rerank_audit = {"verification_failure": e.diagnostics}
                 except Exception as e:
                     if getattr(self.reranker, "fail_closed", False):
                         if isinstance(e, ValueError):
@@ -373,6 +381,7 @@ class ElasticsearchRetriever:
                 "reranker_version": self.reranker.version if pipeline == "HYBRID_RERANK" else None,
                 "rerank_audit": rerank_audit,
                 "candidate_count": candidate_count if pipeline in {"HYBRID", "HYBRID_RERANK"} else len(rankings[0]),
+                "candidate_ids": candidate_ids,
                 "embedding_version": self.encoder.version if self.encoder else None}
         if rerank_audit and "candidate_verification_status" in rerank_audit:
             metadata.update(candidate_verification_status=rerank_audit["candidate_verification_status"],

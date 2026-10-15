@@ -79,7 +79,9 @@ def test_candidate_context_is_loaded_for_actual_rerank_pool_only():
             assert a["source_context"][0]["original_question"].startswith("代码题")
             return candidates
     retriever = ElasticsearchRetriever("http://unused", Encoder(), client=FakeClient(), reranker=Reranker())
-    retriever.retrieve("缓存", ["a", "b", "outside"], "HYBRID_RERANK", 1, candidate_context_loader=load)
+    result = retriever.retrieve("缓存", ["a", "b", "outside"], "HYBRID_RERANK", 1, candidate_context_loader=load)
+    assert len(result["data"]) == 1
+    assert result["meta"]["candidate_count"] == 2 and set(result["meta"]["candidate_ids"]) == {"a", "b"}
     assert len(calls) == 1 and set(calls[0]) == {"a", "b"}
     retriever.retrieve("缓存", ["a", "b"], "HYBRID", 1, candidate_context_loader=load)
     assert len(calls) == 1

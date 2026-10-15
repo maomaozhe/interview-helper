@@ -1,0 +1,515 @@
+{
+  "date": "2026-10-11",
+  "deployment_target": "SSH interview application",
+  "public_url": "https://interview.101-47-18-72.sslip.io/",
+  "deployed_at_utc": "2026-10-11T08:43:55.954152+00:00",
+  "report_sha256": "da88282c5afc4b19716a0218e5fb3f87449885a7c6f4eed1307bb9e83526790a",
+  "report_identity_audit": {
+    "recorded_on": "2026-10-15",
+    "report_path": "docs/verification/2026-10-11-byte-algorithm-ssh.md",
+    "current_report_sha256": "0c79b1f210be897612b2534bb9d9d4a0edbd421466087fba4effbcc2e69891fc",
+    "recorded_report_sha256_matches_current": false,
+    "cause": "UNKNOWN",
+    "original_report_identity_reverified": false,
+    "note": "The existing report_sha256 is preserved as originally recorded. It does not match the current report bytes, including after LF normalization. The mismatch cause is unknown, and the report originally identified by that hash has not been reverified. This audit identifies only the current local report; it does not revalidate the historical deployment or acceptance results."
+  },
+  "cause": [
+    "company alias did not match canonical company",
+    "legacy topic/type intersections overconstrained algorithm tasks",
+    "local fix was not deployed to SSH"
+  ],
+  "sql_reference_counts": {
+    "alias_old": {
+      "canonical_questions": 0,
+      "occurrences": 0,
+      "interviews": 0,
+      "source_documents": 0,
+      "known_companies": 0
+    },
+    "canonical_old": {
+      "canonical_questions": 22,
+      "occurrences": 23,
+      "interviews": 19,
+      "source_documents": 19,
+      "known_companies": 1
+    },
+    "canonical_tasks": {
+      "canonical_questions": 27,
+      "occurrences": 28,
+      "interviews": 22,
+      "source_documents": 22,
+      "known_companies": 1
+    }
+  },
+  "sql_reference_ids_sha256": {
+    "alias_old": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+    "canonical_old": "4375bba93ab84eff65bc388ca01bbde7f357fda76293bbb41875457d97ea0244",
+    "canonical_tasks": "6473dc94d22f368e649a749d94113cd7cf28ba1281837e28e48d7bf212d36e8e"
+  },
+  "release": {
+    "baseline_package_files": 117,
+    "files": {
+      "analytics/stats.py": {
+        "before": "413413c152c01b2e5c8f6a6c10b510af17ee1f0512078dd85fad0d75cbd23140",
+        "after": "e33ad2063e066d16481b687e3915c6055154089c3d96c969392251cdc5ed2a74"
+      },
+      "contracts/__init__.py": {
+        "before": "6e6f2537021d4f002a75024db483d354afc5d9948738692152ac8cc3eef9832b",
+        "after": "720e585f1c555af8e9df0630528db3efc885b9c4fa76739b1fdfb817effead4e"
+      },
+      "ingestion/pipeline.py": {
+        "before": "1f930ff42406ec3f3392103be9b038f16ef360ae5fdfca85aa2db106b751ffd6",
+        "after": "8248c0c49a2efbf842fbe157711f1e432984e580b2a952516d1616022faf605c"
+      },
+      "agent/harness.py": {
+        "before": "31847349b932b1f00c387eb8e838964e2475c6841501981b36c1a464e6108268",
+        "after": "5e02ea47d6944c4df4dcbad78bc0fc3ea5f6f34e2979a983c2d79c2bc595821c"
+      },
+      "agent/query_service.py": {
+        "before": "8e6eecc6c6790d454817544cabd4700fd4b2ca6cf1d7b38e73ddf5a58b681b62",
+        "after": "e8f99e8a718dfdf0beff565f4b4b2fa6114d330ba02295f9e4d96dff457fe322"
+      },
+      "company.py": {
+        "before": null,
+        "after": "16d5fb170a29b4c1f7008211ff0bc1a6b8d6fde456d7a71990aab9c89d4fe93a"
+      },
+      "resources/prompts/query_agent_v13.md": {
+        "before": "41c2a7ef8d72e388bdc814c34d1e4db838cc99f595baf0e49d2566cbc190a82f",
+        "after": "5d00bd87c9dc29b615a16fef2580620e5310904dc322de6f9d840b06b57da905"
+      }
+    },
+    "protected_files": 111,
+    "prompt_bytes": 13968,
+    "health": {
+      "database": "ready",
+      "current_revision": 293,
+      "indexed_revision": 293,
+      "index": "ready",
+      "model_max_in_flight": 1,
+      "model_min_interval_seconds": 2.0,
+      "query_router_enabled": true,
+      "task_filters_enabled": true,
+      "task_annotation_policy": "KNOWN",
+      "pi_agent_enabled": true,
+      "query_prompt_version": "query_agent_v13",
+      "query_prompt_sha256": "5d00bd87c9dc29b615a16fef2580620e5310904dc322de6f9d840b06b57da905",
+      "reranker_version": "rerank_v14_design_unit_scope_partial",
+      "jev_decision_enabled": false,
+      "model": "configured"
+    },
+    "pi_health": {
+      "status": "ready",
+      "pi_version": "1.0.2"
+    },
+    "public_https_health_matches": true,
+    "services_before": {
+      "interview-intelligence-postgres": "active",
+      "interview-intelligence-elasticsearch": "active",
+      "interview-intelligence-api": "active",
+      "interview-intelligence-pi": "active",
+      "interview-intelligence-worker": "active",
+      "interview-intelligence-web": "active",
+      "interview-intelligence-proxy": "active",
+      "interview-qwen-openai": "inactive"
+    },
+    "services_after": {
+      "interview-intelligence-postgres": "active",
+      "interview-intelligence-elasticsearch": "active",
+      "interview-intelligence-api": "active",
+      "interview-intelligence-pi": "active",
+      "interview-intelligence-worker": "active",
+      "interview-intelligence-web": "active",
+      "interview-intelligence-proxy": "active",
+      "interview-qwen-openai": "inactive"
+    },
+    "backup": "/home/dylan/services/interview-intelligence/backups/byte-algorithm-20261011T084343Z",
+    "database_backup_sha256": "3fa67c7f156a9304ffe8a37c5f70d4de6b9d989f078b89867c2b7a8a8f73971f",
+    "selective_query_service_overlay": true
+  },
+  "automated_tests": [
+    {
+      "scope": "frozen SSH candidate package",
+      "tests": 100,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "xml_sha256": "8a93f2d03b40b0047b3ac916927f1ebe2ca1b4c19334c1666e36887a025ee65e",
+      "files": [
+        "tests/integration/test_analytics.py",
+        "tests/integration/test_byte_algorithm_regression.py",
+        "tests/integration/test_harness_policy.py",
+        "tests/integration/test_query_metadata_scope.py",
+        "tests/integration/test_search.py",
+        "tests/unit/test_engineering_design_prompt.py",
+        "tests/unit/test_harness.py",
+        "tests/unit/test_metadata_normalization.py",
+        "tests/unit/test_query_intents.py"
+      ]
+    },
+    {
+      "scope": "workspace compatibility; overlaps candidate tests",
+      "tests": 41,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "xml_sha256": "24c487629771d83af443a6e00c30413836733e679cbbe1035cf2456a14bf6514",
+      "files": [
+        "tests/integration/test_byte_algorithm_regression.py",
+        "tests/integration/test_query_metadata_scope.py",
+        "tests/integration/test_query_requery.py",
+        "tests/unit/test_query_filter_contract.py"
+      ]
+    }
+  ],
+  "new_regression_test": "tests/integration/test_byte_algorithm_regression.py",
+  "live_model_regression": {
+    "runtime": "deployed Python package and deployed Pi runtime; private loopback acceptance API",
+    "account_scope": "isolated regression owner; no user account credentials or model settings changed",
+    "model": "ark-code-latest",
+    "passed": 8,
+    "helpers_stopped": true,
+    "cases": [
+      {
+        "case": "new-session",
+        "passed": true,
+        "checks": {
+          "action": true,
+          "scope": true,
+          "no_extra_filters": true,
+          "total_matches_sql": true,
+          "ids_in_reference": true,
+          "sources_present": true,
+          "pi_provider": true,
+          "first_page_size": true
+        },
+        "action": "LIST",
+        "filters": {
+          "company": "字节",
+          "position": null,
+          "job_family": null,
+          "language": null,
+          "topic_l1": null,
+          "topic_l2": null,
+          "question_type": null,
+          "response_form": null,
+          "annotation_status": "KNOWN",
+          "coding_focus": "ALGORITHM",
+          "round": null,
+          "start_date": null,
+          "end_date": null,
+          "date_basis": "BEST_AVAILABLE"
+        },
+        "total": 27,
+        "returned": 20,
+        "elapsed_seconds": 20.27,
+        "provider": "pi",
+        "model": "ark-code-latest"
+      },
+      {
+        "case": "repeat-alias",
+        "passed": true,
+        "checks": {
+          "action": true,
+          "scope": true,
+          "no_extra_filters": true,
+          "total_matches_sql": true,
+          "ids_in_reference": true,
+          "sources_present": true,
+          "pi_provider": true
+        },
+        "action": "LIST",
+        "filters": {
+          "company": "字节",
+          "position": null,
+          "job_family": null,
+          "language": null,
+          "topic_l1": null,
+          "topic_l2": null,
+          "question_type": null,
+          "response_form": null,
+          "annotation_status": "KNOWN",
+          "coding_focus": "ALGORITHM",
+          "round": null,
+          "start_date": null,
+          "end_date": null,
+          "date_basis": "BEST_AVAILABLE"
+        },
+        "total": 27,
+        "returned": 20,
+        "elapsed_seconds": 10.76,
+        "provider": "pi",
+        "model": "ark-code-latest"
+      },
+      {
+        "case": "existence",
+        "passed": true,
+        "checks": {
+          "action": true,
+          "scope": true,
+          "no_extra_filters": true,
+          "total_matches_sql": true,
+          "ids_in_reference": true,
+          "sources_present": true,
+          "pi_provider": true
+        },
+        "action": "LIST",
+        "filters": {
+          "company": "字节",
+          "position": null,
+          "job_family": null,
+          "language": null,
+          "topic_l1": null,
+          "topic_l2": null,
+          "question_type": null,
+          "response_form": null,
+          "annotation_status": "KNOWN",
+          "coding_focus": "ALGORITHM",
+          "round": null,
+          "start_date": null,
+          "end_date": null,
+          "date_basis": "BEST_AVAILABLE"
+        },
+        "total": 27,
+        "returned": 20,
+        "elapsed_seconds": 11.3,
+        "provider": "pi",
+        "model": "ark-code-latest"
+      },
+      {
+        "case": "next-page",
+        "passed": true,
+        "checks": {
+          "action": true,
+          "scope": true,
+          "no_extra_filters": true,
+          "total_matches_sql": true,
+          "ids_in_reference": true,
+          "sources_present": true,
+          "pi_provider": true,
+          "page_union_complete": true
+        },
+        "action": "NEXT",
+        "filters": {
+          "company": "字节",
+          "position": null,
+          "job_family": null,
+          "language": null,
+          "topic_l1": null,
+          "topic_l2": null,
+          "question_type": null,
+          "response_form": null,
+          "annotation_status": "KNOWN",
+          "coding_focus": "ALGORITHM",
+          "round": null,
+          "start_date": null,
+          "end_date": null,
+          "date_basis": "BEST_AVAILABLE"
+        },
+        "total": 27,
+        "returned": 7,
+        "elapsed_seconds": 15.25,
+        "provider": "pi",
+        "model": "ark-code-latest"
+      },
+      {
+        "case": "count",
+        "passed": true,
+        "checks": {
+          "action": true,
+          "scope": true,
+          "no_extra_filters": true,
+          "total_matches_sql": true,
+          "ids_in_reference": true,
+          "sources_present": true,
+          "pi_provider": true
+        },
+        "action": "COUNT",
+        "filters": {
+          "company": "字节",
+          "position": null,
+          "job_family": null,
+          "language": null,
+          "topic_l1": null,
+          "topic_l2": null,
+          "question_type": null,
+          "response_form": null,
+          "annotation_status": "KNOWN",
+          "coding_focus": "ALGORITHM",
+          "round": null,
+          "start_date": null,
+          "end_date": null,
+          "date_basis": "BEST_AVAILABLE"
+        },
+        "total": 27,
+        "returned": 0,
+        "elapsed_seconds": 8.84,
+        "provider": "pi",
+        "model": "ark-code-latest"
+      },
+      {
+        "case": "explicit-ui",
+        "passed": true,
+        "checks": {
+          "action": true,
+          "scope": true,
+          "no_extra_filters": true,
+          "total_matches_sql": true,
+          "ids_in_reference": true,
+          "sources_present": true,
+          "pi_provider": true
+        },
+        "action": "LIST",
+        "filters": {
+          "company": "字节",
+          "position": null,
+          "job_family": null,
+          "language": null,
+          "topic_l1": null,
+          "topic_l2": null,
+          "question_type": null,
+          "response_form": "CODE",
+          "annotation_status": "KNOWN",
+          "coding_focus": "ALGORITHM",
+          "round": "SECOND",
+          "start_date": null,
+          "end_date": null,
+          "date_basis": "BEST_AVAILABLE"
+        },
+        "total": 3,
+        "returned": 3,
+        "elapsed_seconds": 13.06,
+        "provider": "pi",
+        "model": "ark-code-latest"
+      },
+      {
+        "case": "old-empty-state",
+        "passed": true,
+        "checks": {
+          "action": true,
+          "scope": true,
+          "no_extra_filters": true,
+          "total_matches_sql": true,
+          "ids_in_reference": true,
+          "sources_present": true,
+          "pi_provider": true
+        },
+        "action": "LIST",
+        "filters": {
+          "company": "字节",
+          "position": null,
+          "job_family": null,
+          "language": null,
+          "topic_l1": null,
+          "topic_l2": null,
+          "question_type": null,
+          "response_form": null,
+          "annotation_status": "KNOWN",
+          "coding_focus": "ALGORITHM",
+          "round": null,
+          "start_date": null,
+          "end_date": null,
+          "date_basis": "BEST_AVAILABLE"
+        },
+        "total": 27,
+        "returned": 20,
+        "elapsed_seconds": 10.98,
+        "provider": "pi",
+        "model": "ark-code-latest"
+      },
+      {
+        "case": "history-requery",
+        "passed": true,
+        "checks": {
+          "action": true,
+          "scope": true,
+          "no_extra_filters": true,
+          "total_matches_sql": true,
+          "ids_in_reference": true,
+          "sources_present": true,
+          "pi_provider": true
+        },
+        "action": "LIST",
+        "filters": {
+          "company": "字节",
+          "position": null,
+          "job_family": null,
+          "language": null,
+          "topic_l1": null,
+          "topic_l2": null,
+          "question_type": null,
+          "response_form": null,
+          "annotation_status": "KNOWN",
+          "coding_focus": "ALGORITHM",
+          "round": null,
+          "start_date": null,
+          "end_date": null,
+          "date_basis": "BEST_AVAILABLE"
+        },
+        "total": 27,
+        "returned": 20,
+        "elapsed_seconds": 12.07,
+        "provider": "pi",
+        "model": "ark-code-latest"
+      }
+    ],
+    "oracle": "independent SQL list; first and second page disjoint union equals 27 reference IDs",
+    "source_checks": "all nonempty LIST/NEXT rows carry source revision and quote",
+    "public_authenticated_model_flow_retested": false
+  },
+  "preservation": {
+    "table_counts_match": true,
+    "table_counts": {
+      "canonical_question": 2668,
+      "question_occurrence": 4338,
+      "source_document": 190,
+      "source_revision": 190,
+      "document_build": 293,
+      "interview": 292,
+      "review_event": 16,
+      "user_question_state": 16
+    },
+    "corpus": {
+      "id": 1,
+      "current_revision": 293,
+      "indexed_revision": 293,
+      "taxonomy_version": "v1",
+      "canonical_revision": 0,
+      "task_annotation_revision": 30
+    },
+    "schema": "e937fb9c2160",
+    "original_turns_preserved": 3,
+    "original_turns_sha256": "5450a26c07b9a8fa01ed5e474ac1a03c138377e36dd04deebe92ba5925a72523"
+  },
+  "deployment_attempts": [
+    {
+      "outcome": "failed before mutation",
+      "reason": "missing json import"
+    },
+    {
+      "outcome": "automatically rolled back",
+      "reason": "health check used an absent status field"
+    },
+    {
+      "outcome": "automatically rolled back",
+      "reason": "checker incorrectly required preexisting inactive Qwen to be active"
+    },
+    {
+      "outcome": "released and independently verified",
+      "reason": "health schema and preexisting service states respected"
+    }
+  ],
+  "private_receipt_sha256": {
+    "before.private.json": "affa5ddbb1543f53029976a6ca1119da63f09d0afb843fc39c5c25a7c2458ba0",
+    "manifest.json": "db286a70972397a26c5817f865483275e8048f4e858c7179e3c0db5494e40458",
+    "candidate.diff": "11ac6703153efb39264b030374d366775315a428c4d879eb6a8555d8463743e6",
+    "deployment.json": "9dd97a9eee847e8626a993e745257b71d03131bbe920b6e583579bcb128c509b",
+    "live.private.json": "11caa283bf290a9b9870add87412e1edc276347e5844f39919b160d77587dc4d",
+    "verification.json": "ac111f17d2004b4bea3324bcb39c09bb9bdb090ff81c57b1eefd059832e1c408"
+  },
+  "limits": [
+    "metadata query correctness under existing KNOWN policy",
+    "no full corpus human annotation audit",
+    "full V1 quality gates not rerun",
+    "public account authentication and trial accounting not retested"
+  ]
+}

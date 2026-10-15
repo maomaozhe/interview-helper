@@ -53,12 +53,7 @@ def _conditions(request: StatsRequest, *, include_time: bool = True):
     if request.company:
         conditions.append(Interview.company_normalized == request.company)
     if request.position:
-        if "后端" in request.position or "服务端" in request.position or "后台" in request.position:
-            conditions.append(Interview.job_family == "BACKEND")
-            if "java" in request.position.casefold():
-                conditions.append(cast(Interview.language_tags, String).like("%JAVA%"))
-        else:
-            conditions.append(Interview.position_normalized == request.position)
+        conditions.append(Interview.position_normalized == request.position)
     if request.job_family:
         conditions.append(Interview.job_family == request.job_family)
     if request.language:

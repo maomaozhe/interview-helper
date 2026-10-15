@@ -20,6 +20,21 @@ class QueryJournal:
         with self.database.session() as s,s.begin():
             t=self._turn(s,run_id)
             self.append(s,t,kind,payload)
+            # Pi can reject invalid/blocked calls before the host executor runs.
+            # Preserve that failed attempt, without duplicating host tool errors.
+            if kind=="pi_event" and payload.get("type")=="tool_execution_end" and payload.get("isError"):
+                start=s.scalar(select(AgentEvent).where(AgentEvent.run_id==run_id,
+                    AgentEvent.kind=="pi_event",AgentEvent.payload["type"].as_string()=="tool_execution_start",
+                    AgentEvent.payload["toolCallId"].as_string()==payload.get("toolCallId")).order_by(AgentEvent.sequence.desc()))
+                if start:
+                    previous=s.scalar(select(AgentEvent.id).where(AgentEvent.run_id==run_id,
+                        AgentEvent.sequence>start.sequence,AgentEvent.kind=="tool_error",
+                        AgentEvent.payload["tool"].as_string()==payload.get("toolName")))
+                    if not previous:
+                        self.append(s,t,"tool_error",{"tool":payload.get("toolName"),"action_id":None,
+                            "tool_call_id":payload.get("toolCallId"),"arguments":start.payload.get("args"),
+                            "error_code":payload.get("error") or "PI_TOOL_FAILED",
+                            "status":"CANCELLED" if t.cancel_requested else "FAILED","source":"pi"})
     def recover(self):
         with self.database.session() as s,s.begin():
             expired=list(s.scalars(select(AgentTurn).where(AgentTurn.status=="RUNNING",
@@ -27,6 +42,8 @@ class QueryJournal:
             for t in expired:
                 if t.lease_until and aware(t.lease_until)>now_utc(): continue
                 t.status,t.error_code="INTERRUPTED","QUERY_INTERRUPTED"
+                t.finished_at=now_utc()
+                self.close_tools(s,t,"INTERRUPTED",t.error_code)
                 self.append(s,t,"interrupted",{"code":t.error_code})
     def view(self,run_id,after=0):
         self.recover()
@@ -67,7 +84,35 @@ class QueryJournal:
             invocation=s.get(ToolInvocation,invocation_id)
             invocation.status,invocation.result="COMPLETED",run.result
             t.response,t.state_after=run.result,run.state
-            self.append(s,t,"tool_result",{"tool":invocation.tool_name,"result":run.result})
+            self.append(s,t,"tool_result",{"tool":invocation.tool_name,"ordinal":invocation.ordinal,
+                "action_id":invocation.id,"result":run.result})
+    def fail_tool(self,run,name,plan,error):
+        with self.database.session() as s,s.begin():
+            t=self._turn(s,run.id)
+            if t.status!="RUNNING":
+                # A cancelled worker thread can unwind after the run is closed.
+                # Its in-flight tool already has a durable terminal outcome.
+                return
+            invocation=s.scalar(select(ToolInvocation).where(ToolInvocation.run_id==run.id,
+                ToolInvocation.ordinal==run.tool_calls,ToolInvocation.tool_name==name,
+                ToolInvocation.status=="STARTED"))
+            code=str(error or "QUERY_TOOL_FAILED")[:128]
+            cancelled=code=="QUERY_CANCELLED" or type(error).__name__=="CancelledError"
+            if invocation:
+                invocation.status="CANCELLED" if cancelled else "FAILED"
+                invocation.result={"error_code":code}
+            self.append(s,t,"tool_error",{"tool":name,"ordinal":run.tool_calls,
+                "action_id":invocation.id if invocation else None,"error_code":code,
+                "status":"CANCELLED" if cancelled else "FAILED",
+                "arguments":plan.model_dump(mode="json")})
+    @classmethod
+    def close_tools(cls,s,t,status,code):
+        for invocation in s.scalars(select(ToolInvocation).where(
+                ToolInvocation.run_id==t.id,ToolInvocation.status=="STARTED")):
+            invocation.status=status
+            invocation.result={"error_code":code}
+            cls.append(s,t,"tool_error",{"tool":invocation.tool_name,"ordinal":invocation.ordinal,
+                "action_id":invocation.id,"error_code":code,"status":status})
     def resume(self,run_id):
         with self.database.session() as s:
             t=self._turn(s,run_id)

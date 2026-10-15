@@ -12,6 +12,7 @@ QUERY_AGENT_VERSION = "query_agent_v13"
 
 class QuerySpec(StrictModel):
     action: Literal["LIST", "COUNT", "STATS", "SEARCH", "DETAILS", "ANSWER", "REVIEW_STATE", "RECORD_REVIEW", "CLARIFY", "NEXT"]
+    semantic_task: Literal["ALGORITHM_PROBLEM"] | None = None
     filters: FilterSpec = Field(default_factory=FilterSpec)
     sort: Literal["frequency", "importance", "gap"] = "frequency"
     top_n: int | None = Field(default=None, ge=1, le=1000)
@@ -37,6 +38,10 @@ class QuerySpec(StrictModel):
 
     @model_validator(mode="after")
     def validate_action(self):
+        if self.semantic_task and self.action not in {"LIST", "NEXT", "COUNT", "STATS"}:
+            raise ValueError("SEMANTIC_SCOPE_ACTION_CONFLICT")
+        if self.semantic_task and (self.filters.coding_focus or self.filters.annotation_status):
+            raise ValueError("SEMANTIC_SCOPE_LEGACY_TASK_FILTER_CONFLICT")
         if self.action == "COUNT" and self.top_n is not None:
             raise ValueError("count requires top_n=null; use LIST pagination.result_total for a Top N set")
         if self.action == "SEARCH" and (not self.search_query or self.page_size > 50 or self.top_n):
@@ -128,6 +133,7 @@ class QueryRequest(StrictModel):
     conversation_id: str | None = Field(default=None, max_length=36)
     expected_version: int | None = Field(default=None, ge=0)
     request_id: str = Field(min_length=1, max_length=128)
+    usage_purpose: Literal["practice", "evaluation"] = "practice"
 
 
 class StructuredQueryRequest(QueryRequest):
@@ -140,10 +146,11 @@ class ListQueryRequest(StrictModel):
     conversation_id: str | None = Field(default=None, max_length=36)
     expected_version: int | None = Field(default=None, ge=0)
     request_id: str = Field(min_length=1, max_length=128)
+    usage_purpose: Literal["practice", "evaluation"] = "practice"
 
     def as_query(self):
         request = self.list_request
         filters = FilterSpec.model_validate({k:getattr(request,k) for k in FilterSpec.model_fields})
         return StructuredQueryRequest(message="结构化列表操作", filters=filters,
             page_size=request.page_size, list_request=request, conversation_id=self.conversation_id,
-            expected_version=self.expected_version, request_id=self.request_id)
+            expected_version=self.expected_version, request_id=self.request_id, usage_purpose=self.usage_purpose)

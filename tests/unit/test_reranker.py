@@ -19,7 +19,7 @@ class Client:
 
     def create(self, **kwargs):
         request = json.loads(kwargs["messages"][-1]["content"])
-        texts = {row["id"]: row["question"] for row in request["candidates"]}
+        texts = {row["id"]: "".join(row["question"].values()) if isinstance(row["question"], dict) else row["question"] for row in request["candidates"]}
         return SimpleNamespace(choices=[SimpleNamespace(message=SimpleNamespace(
             content=json.dumps({"query_object": "测试对象", "query_focus": "测试目标",
                 "query_task": self.query_evidence.get("task", "OTHER"),
@@ -280,7 +280,7 @@ def test_r14_schema_requests_only_scopes_and_query_quotes_but_not_numeric_self_g
     rows = LLMReranker(client=client, model="test")._rank_candidates("内存泄漏排查", [
         {"canonical_question_id": "a", "canonical_text": "内存泄漏的原因和预防"}])
     schema = requests[0]["response_format"]["json_schema"]
-    assert schema["name"] == "rerank_v19_design_unit_source_context"
+    assert schema["name"] == "rerank_v28_compact_verified_context_retry"
     assert {"query_object_evidence", "query_focus_evidence"} <= set(schema["schema"]["required"])
     item = schema["schema"]["$defs"]["CandidateRank"]
     assert {"object_scope", "focus_scope"} <= set(item["required"])
@@ -658,7 +658,7 @@ class TwoStageClient:
 
     def create(self, **kwargs):
         self.requests.append(kwargs)
-        verifier = kwargs["response_format"]["json_schema"]["name"] == "scope_verify_v5_design_unit_clarity_source_context"
+        verifier = "verifications" in kwargs["response_format"]["json_schema"]["schema"]["properties"]
         stage = "verify" if verifier else "primary"
         if verifier:
             request = json.loads(kwargs["messages"][-1]["content"])
@@ -713,7 +713,7 @@ def test_public_rerank_uses_two_calls_without_primary_judgment_in_verifier_input
         {"id": "c0", "question": candidates[1]["canonical_text"][:500]},
         {"id": "c1", "question": candidates[0]["canonical_text"]}]}
     schema = request["response_format"]["json_schema"]
-    assert schema["strict"] is True and schema["name"] == "scope_verify_v5_design_unit_clarity_source_context"
+    assert schema["strict"] is True and schema["name"] == "scope_verify_v13_business_mechanism"
     item_schema = schema["schema"]["$defs"]["CandidateVerify"]
     assert set(item_schema["properties"]) == {"candidate_id", "keep", "reason"}
     assert item_schema["additionalProperties"] is False
@@ -722,7 +722,7 @@ def test_public_rerank_uses_two_calls_without_primary_judgment_in_verifier_input
     assert schema["schema"]["properties"]["verifications"]["minItems"] == 2
     assert schema["schema"]["properties"]["verifications"]["maxItems"] == 2
     audit = rows.audit
-    assert audit["scope_verifier_version"] == "scope_verify_v5_design_unit_clarity_source_context"
+    assert audit["scope_verifier_version"] == "scope_verify_v13_business_mechanism"
     assert audit["scope_verification_status"] == "COMPLETE"
     assert len(audit["candidates"]) == 3
     assert [item["decision"] for item in audit["candidates"]] == ["ACCEPTED", "SCOPE_REJECTED", "BELOW_THRESHOLD"]
@@ -731,7 +731,7 @@ def test_public_rerank_uses_two_calls_without_primary_judgment_in_verifier_input
     assert audit["candidates"][1]["primary_diagnostic"]["decision"] == "ACCEPTED"
     assert audit["candidates"][1]["scope_verification_keep"] is False
     assert [log["operation_type"] for log in logs] == ["RERANK", "RERANK_VERIFY"]
-    assert [log["prompt_version"] for log in logs] == ["rerank_v19_design_unit_source_context", "scope_verify_v5_design_unit_clarity_source_context"]
+    assert [log["prompt_version"] for log in logs] == ["rerank_v28_compact_verified_context_retry", "scope_verify_v13_business_mechanism"]
     assert [log["input_tokens"] for log in logs] == [100, 200]
     assert [log["output_tokens"] for log in logs] == [10, 20]
     assert [log["model_revision"] for log in logs] == ["resolved-primary", "resolved-verify"]
@@ -751,7 +751,7 @@ def test_public_empty_candidate_pool_is_audited_without_any_model_call_or_invent
     client, logs = TwoStageClient(), []
     rows = LLMReranker(client=client, model="test", on_call=logs.append).rerank("无匹配候选", [])
     assert rows == [] and client.requests == logs == []
-    assert rows.audit["scope_verifier_version"] == "scope_verify_v5_design_unit_clarity_source_context"
+    assert rows.audit["scope_verifier_version"] == "scope_verify_v13_business_mechanism"
     assert rows.audit["scope_verification_status"] == "NOT_REQUIRED"
     assert rows.audit["candidate_verification_status"] == "COMPLETE"
     assert rows.audit["invalid_candidate_count"] == rows.audit["scope_invalid_candidate_count"] == 0

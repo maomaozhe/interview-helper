@@ -222,7 +222,9 @@ def test_legacy_focus_is_projected_after_restart_without_writing_back_or_inventi
         expected_scope = saved["last_count"] if intent == "COUNT" else saved["last_plan"]
         assert focus["filters"] == expected_scope["filters"]
     assert "conversation_focus" not in run.state
-    assert ContextCompiler.state_projection(saved)["conversation_focus"] == focus
+    projected = ContextCompiler.state_projection(saved)
+    assert projected["conversation_focus"] == focus
+    assert ContextCompiler.state_projection(projected)["conversation_focus"] == focus
     with db.session() as session:
         assert session.get(AgentConversation, first.conversation_id).state == saved
     restarted.fail(run)

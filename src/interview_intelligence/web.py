@@ -29,7 +29,7 @@ from interview_intelligence.tenant import tenant_user_id
 
 WEB_ROOT = Path(__file__).with_name("web")
 WEB_ASSETS = ("app.css", "workspace.css", "markdown.css", "core.js", "vendor/markdown-it.umd.min.js",
-              "markdown.js", "answer-stream.js", "query-stream.js", "app.js", "sidebar.js")
+              "markdown.js", "answer-stream.js", "query-stream.js", "app.js", "sidebar.js", "usage.css")
 
 
 def workspace_version():

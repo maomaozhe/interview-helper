@@ -1,0 +1,36 @@
+{
+  "incident": {
+    "run_id": "e71a5199-045a-46cb-812b-3e6997cac680",
+    "conversation_turn": 1,
+    "persisted_status": "SUCCEEDED",
+    "server_elapsed_seconds": 107.3,
+    "rerank_elapsed_seconds": 90.4,
+    "client_cancel_after_success_seconds": 4.0,
+    "original_frequency_prefix": [2, 1, 2]
+  },
+  "tests": {
+    "web_passed": 59,
+    "workspace_query_passed": 24,
+    "production_overlay_query_passed": 24,
+    "query_test_sets_overlap": true
+  },
+  "final_release": {
+    "query_service_sha256": "46849c86d6e0f61984145d04e10450c97ce62ff911a1d57d725ef7bd5e2fa19b",
+    "query_stream_sha256": "5d75e17d214452979656e21e12e7cce006ecee5ea649c4ed6c22788601ae31f2",
+    "protected_files_unchanged": 116,
+    "database_counts_preserved": true
+  },
+  "public_final": {
+    "run_id": "9a6aa0ac-6b49-473d-a1e7-534d4163ef66",
+    "persisted_status": "SUCCEEDED",
+    "sse_event_count": 21,
+    "last_sse_event": "completed",
+    "returned_questions": 16,
+    "frequency_prefix": [2, 2, 1, 1],
+    "semantic_candidates_matched": 16,
+    "candidate_pool_limit": 50,
+    "checks_passed": 21,
+    "checks_total": 21,
+    "isolated_credentials_cleared": true
+  }
+}

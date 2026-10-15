@@ -16,13 +16,19 @@ from interview_intelligence.providers.gate import ModelCallGate
 from interview_intelligence.providers.runtime import measured_model_call, request_timeout, current_limits
 from interview_intelligence.search.candidate_prompt import (
     candidate_payload, SOURCE_CONTEXT_INSTRUCTIONS, TASK_SHAPE_INSTRUCTIONS, task_evidence_grounded,
-    INDEPENDENT_DESIGN_SCOPE_INSTRUCTIONS,
+    INDEPENDENT_DESIGN_SCOPE_INSTRUCTIONS, ALGORITHM_PROBLEM_SCOPE_INSTRUCTIONS,
 )
+from interview_intelligence.search.retry import RelevanceRetry, rerank_retry_count
+from interview_intelligence.search.citations import (
+    primary_candidate_payload, primary_wire_payload, evidence_choice_schema, resolve_candidate_evidence,
+    PRIMARY_EVIDENCE_INSTRUCTIONS, DESIGN_UNIT_BOUNDARY_INSTRUCTIONS,
+)
+from interview_intelligence.search.design_scope import DesignVerification, DesignScopeResult, DESIGN_PROOF_INSTRUCTIONS, design_unit_grounded
 
 
 class CandidateRank(StrictModel):
     candidate_id: str
-    candidate_task: Literal["DESIGN_TASK", "PROJECT_REPORT", "CODE_TASK", "LOCAL_DETAIL", "KNOWLEDGE", "UNKNOWN"]
+    candidate_task: Literal["DESIGN_TASK", "PROJECT_REPORT", "ALGORITHM_TASK", "CODE_TASK", "LOCAL_DETAIL", "KNOWLEDGE", "UNKNOWN"]
     task_evidence: str = Field(max_length=160)
     object_evidence: str = Field(max_length=120)
     focus_evidence: str = Field(max_length=160)
@@ -58,7 +64,7 @@ class CandidateRank(StrictModel):
 
 
 class RerankResult(StrictModel):
-    query_task: Literal["INDEPENDENT_SYSTEM_DESIGN", "OTHER"]
+    query_task: Literal["INDEPENDENT_SYSTEM_DESIGN", "ALGORITHM_PROBLEM", "OTHER"]
     query_task_evidence: str = Field(min_length=1, max_length=160)
     query_object: str = Field(min_length=1, max_length=120)
     query_focus: str = Field(min_length=1, max_length=160)
@@ -69,7 +75,7 @@ class RerankResult(StrictModel):
 
 class RerankEnvelope(StrictModel):
     """Validate batch intent independently; each identified row stays strict below."""
-    query_task: Literal["INDEPENDENT_SYSTEM_DESIGN", "OTHER"]
+    query_task: Literal["INDEPENDENT_SYSTEM_DESIGN", "ALGORITHM_PROBLEM", "OTHER"]
     query_task_evidence: str = Field(min_length=1, max_length=160)
     query_object: str = Field(min_length=1, max_length=120)
     query_focus: str = Field(min_length=1, max_length=160)
@@ -226,9 +232,9 @@ class RerankedCandidates(list):
 
 class LLMReranker:
     fail_closed = True
-    version = "rerank_v19_design_unit_source_context"
+    version = "rerank_v28_compact_verified_context_retry"
     system_prompt = RERANK_SYSTEM_PROMPT
-    scope_verifier_version = "scope_verify_v5_design_unit_clarity_source_context"
+    scope_verifier_version = "scope_verify_v13_business_mechanism"
     scope_verifier_prompt = SCOPE_VERIFY_SYSTEM_PROMPT
 
     def __init__(self, *, model: str, client=None, api_key: str | None = None,
@@ -263,7 +269,10 @@ class LLMReranker:
                 "scope_verifier_version": self.scope_verifier_version,
                 "scope_verification_status": "NOT_REQUIRED", "scope_invalid_candidate_count": 0,
                 "candidates": []})
-        primary = self._rank_candidates(query, candidates)
+        retry = RelevanceRetry()
+        primary = retry.run(lambda: self._rank_candidates(query, candidates), phase="PRIMARY",
+            token_upper_bound=self.max_output_tokens + len(json.dumps(primary_wire_payload(primary_candidate_payload(candidates)), ensure_ascii=False).encode("utf-8")) + len(query.encode("utf-8")),
+            required_calls=2)
         if not isinstance(primary, RerankedCandidates):
             return primary
         audit = {**primary.audit,
@@ -275,7 +284,8 @@ class LLMReranker:
                 "scope_invalid_candidate_count": 0, "candidates": [
                     {**item, "scope_verification_status": "NOT_REQUIRED"} for item in audit["candidates"]]})
         # Failure is fatal: never fall back to unverified primary acceptance.
-        verified = self._verify_scope(query, primary)
+        verified = retry.run(lambda: self._verify_scope(query, primary), phase="SCOPE",
+            token_upper_bound=self.max_output_tokens + len(json.dumps(candidate_payload(primary), ensure_ascii=False).encode("utf-8")) + len(query.encode("utf-8")))
         by_id = {item["canonical_question_id"]: item for item in verified.audit["candidates"]}
         diagnostics = []
         for item in primary.audit["candidates"]:
@@ -291,6 +301,7 @@ class LLMReranker:
         invalid_ids = {item["canonical_question_id"] for item in diagnostics
                        if item["decision"] == "INVALID_SCHEMA"}
         return RerankedCandidates(verified, {**audit,
+            "transport_retry_count": retry.retry_count, "transport_retries": retry.diagnostics,
             "candidate_verification_status": "PARTIAL" if invalid_ids else "COMPLETE",
             "invalid_candidate_count": len(invalid_ids),
             "scope_verification_status": verified.audit["scope_verification_status"],
@@ -304,8 +315,9 @@ class LLMReranker:
         if len(original) != len(candidates):
             raise ValueError("duplicate rerank candidate ID")
         aliases = {f"c{index}": item["canonical_question_id"] for index, item in enumerate(candidates)}
-        payload = candidate_payload(candidates)
+        payload = primary_candidate_payload(candidates)
         schema = RerankResult.model_json_schema()
+        evidence_choice_schema(schema, payload)
         schema["$defs"]["CandidateRank"]["properties"]["candidate_id"]["enum"] = list(aliases)
         schema["properties"]["rankings"].update(minItems=len(aliases), maxItems=len(aliases))
         if self.budget:
@@ -315,13 +327,13 @@ class LLMReranker:
         invalid_candidate_count = 0
         phase = {}
         try:
-            with measured_model_call(self.call_gate, phase,token_upper_bound=self.max_output_tokens+len(json.dumps(payload,ensure_ascii=False).encode("utf-8"))+len(query.encode("utf-8"))):
+            with measured_model_call(self.call_gate, phase,token_upper_bound=self.max_output_tokens+len(json.dumps(primary_wire_payload(payload),ensure_ascii=False).encode("utf-8"))+len(query.encode("utf-8"))):
                 response = self.client.chat.completions.create(
                     model=self.model,
                     timeout=request_timeout(self.timeout_seconds),
                     messages=[
-                        {"role": "system", "content": SOURCE_CONTEXT_INSTRUCTIONS + TASK_SHAPE_INSTRUCTIONS + self.system_prompt},
-                        {"role": "user", "content": json.dumps({"query": query, "candidates": payload}, ensure_ascii=False)},
+                        {"role": "system", "content": ALGORITHM_PROBLEM_SCOPE_INSTRUCTIONS + SOURCE_CONTEXT_INSTRUCTIONS + TASK_SHAPE_INSTRUCTIONS + self.system_prompt + PRIMARY_EVIDENCE_INSTRUCTIONS},
+                        {"role": "user", "content": json.dumps({"query": query, "candidates": primary_wire_payload(payload)}, ensure_ascii=False)},
                     ],
                     response_format={"type": "json_schema", "json_schema": {
                         "name": self.version, "strict": True, "schema": schema}},
@@ -376,12 +388,15 @@ class LLMReranker:
                         "verification_status": "INVALID_SCHEMA", "decision": "INVALID_SCHEMA",
                         "schema_error_code": _model_error_code(row_error, row_index=rank - 1)})
                     continue
+                item = resolve_candidate_evidence(item, payload[int(candidate_id[1:])]["canonical_evidence_options"])
                 object_grounded = bool(item.object_evidence.strip() and item.object_evidence in texts[item.candidate_id])
                 focus_grounded = bool(item.focus_evidence.strip() and item.focus_evidence in texts[item.candidate_id])
                 grounded = object_grounded and focus_grounded
                 task_grounded = task_evidence_grounded(original[aliases[item.candidate_id]], item.candidate_task, item.task_evidence)
                 task_rejected = parsed.query_task == "INDEPENDENT_SYSTEM_DESIGN" and (
                     item.candidate_task != "DESIGN_TASK" or not task_grounded)
+                if parsed.query_task == "ALGORITHM_PROBLEM":
+                    task_rejected = item.candidate_task != "ALGORITHM_TASK" or not task_grounded
                 accepted = item.relevance_grade >= 2 and grounded and not task_rejected
                 diagnostics.append({"canonical_question_id": aliases[item.candidate_id],
                     "input_rank": int(item.candidate_id[1:]) + 1, "model_rank": rank,
@@ -423,7 +438,7 @@ class LLMReranker:
                     "output_tokens": getattr(usage, "completion_tokens", None),
                     "latency_ms": int((time.perf_counter() - started) * 1000),
                     **phase,
-                    "status": "FAILED" if error else "SUCCEEDED", "retry_count": 0,
+                    "status": "FAILED" if error else "SUCCEEDED", "retry_count": rerank_retry_count.get(),
                     "error_code": _model_error_code(error) if error else
                         f"PARTIAL_SCHEMA_REJECTED:{invalid_candidate_count}" if invalid_candidate_count else None})
 
@@ -431,8 +446,10 @@ class LLMReranker:
         aliases = {f"c{index}": item["canonical_question_id"] for index, item in enumerate(candidates)}
         # The verifier receives no primary grade, quotes, scopes or explanation.
         payload = candidate_payload(candidates)
-        schema = ScopeVerifyResult.model_json_schema()
-        schema["$defs"]["CandidateVerify"]["properties"]["candidate_id"]["enum"] = list(aliases)
+        design_scope = getattr(candidates, "audit", {}).get("query_task") == "INDEPENDENT_SYSTEM_DESIGN"
+        verification_model = DesignVerification if design_scope else CandidateVerify
+        schema = (DesignScopeResult if design_scope else ScopeVerifyResult).model_json_schema()
+        schema["$defs"][verification_model.__name__]["properties"]["candidate_id"]["enum"] = list(aliases)
         schema["properties"]["verifications"].update(minItems=len(aliases), maxItems=len(aliases))
         if self.budget:
             self.budget.before_call(estimated_input_tokens=(len(query) + sum(len(item["question"]) for item in payload)) // 2)
@@ -447,7 +464,7 @@ class LLMReranker:
                 response = self.client.chat.completions.create(
                     model=self.model,
                     timeout=request_timeout(self.timeout_seconds),
-                    messages=[{"role": "system", "content": INDEPENDENT_DESIGN_SCOPE_INSTRUCTIONS + SOURCE_CONTEXT_INSTRUCTIONS + self.scope_verifier_prompt},
+                    messages=[{"role": "system", "content": ALGORITHM_PROBLEM_SCOPE_INSTRUCTIONS + INDEPENDENT_DESIGN_SCOPE_INSTRUCTIONS + SOURCE_CONTEXT_INSTRUCTIONS + self.scope_verifier_prompt + DESIGN_UNIT_BOUNDARY_INSTRUCTIONS + (DESIGN_PROOF_INSTRUCTIONS if design_scope else "")},
                               {"role": "user", "content": json.dumps({"query": query, "candidates": payload}, ensure_ascii=False)}],
                     response_format={"type": "json_schema", "json_schema": {
                         "name": self.scope_verifier_version, "strict": True, "schema": schema}},
@@ -486,7 +503,7 @@ class LLMReranker:
             for rank, raw_item in enumerate(parsed.verifications, 1):
                 candidate_id = raw_item["candidate_id"]
                 try:
-                    item = CandidateVerify.model_validate(raw_item)
+                    item = verification_model.model_validate(raw_item)
                 except ValidationError as row_error:
                     invalid_candidate_count += 1
                     diagnostics.append({"canonical_question_id": aliases[candidate_id],
@@ -495,12 +512,17 @@ class LLMReranker:
                         "schema_error_code": _model_error_code(row_error, row_index=rank - 1, row_field="verifications"),
                         "decision": "INVALID_SCHEMA"})
                     continue
+                proof = not design_scope or design_unit_grounded(candidates[int(candidate_id[1:])], item)
+                keep = item.keep and proof
                 diagnostics.append({"canonical_question_id": aliases[candidate_id],
                     "scope_verification_rank": rank,
-                    "scope_verification_status": "CONFIRMED" if item.keep else "SCOPE_REJECTED",
-                    "scope_verification_keep": item.keep, "scope_verification_reason": item.reason,
-                    "decision": "ACCEPTED" if item.keep else "SCOPE_REJECTED"})
-                if item.keep:
+                    "scope_verification_status": "CONFIRMED" if keep else "SCOPE_REJECTED",
+                    "scope_verification_keep": keep, "scope_verification_reason": item.reason,
+                    **({"design_unit": item.design_unit, "design_unit_grounded": proof,
+                        "construction_evidence": item.construction_evidence, "constraint_a": item.constraint_a,
+                        "constraint_b": item.constraint_b, "model_scope_verification_keep": item.keep} if design_scope else {}),
+                    "decision": "ACCEPTED" if keep else "SCOPE_REJECTED"})
+                if keep:
                     kept_ids.add(aliases[candidate_id])
             return RerankedCandidates([item for item in candidates if item["canonical_question_id"] in kept_ids], {
                 "scope_verifier_version": self.scope_verifier_version,
@@ -521,6 +543,6 @@ class LLMReranker:
                     "input_tokens": getattr(usage, "prompt_tokens", None),
                     "output_tokens": getattr(usage, "completion_tokens", None),
                     "latency_ms": int((time.perf_counter() - started) * 1000), **phase,
-                    "status": "FAILED" if error else "SUCCEEDED", "retry_count": 0,
+                    "status": "FAILED" if error else "SUCCEEDED", "retry_count": rerank_retry_count.get(),
                     "error_code": _model_error_code(error) if error else
                         f"PARTIAL_SCHEMA_REJECTED:{invalid_candidate_count}" if invalid_candidate_count else None})

@@ -17,8 +17,8 @@ CONTEXT_VERSION = "query_context_v4"
 POLICY_VERSION = "query_tool_policy_v2"
 STATE_FIELDS = ("filters", "sort", "last_plan", "list_request", "current_page_ids",
                 "corpus_revision", "task_annotation_revision", "pending_clarification", "question_type_scope",
-                "search_filter_scope", "last_response", "last_count", "current_page_summary", "conversation_focus")
-PLAN_FIELDS = ("action", "filters", "sort", "top_n", "page_size", "group_by", "topic_level",
+                "search_filter_scope", "search_ranking", "last_response", "last_count", "current_page_summary", "conversation_focus")
+PLAN_FIELDS = ("action", "semantic_task", "filters", "sort", "top_n", "page_size", "group_by", "topic_level",
                "search_query", "relevance_query", "lexical_facets", "pipeline", "scope", "review_statuses", "review_order")
 
 
@@ -107,7 +107,10 @@ class ContextCompiler:
         saved = state.get("conversation_focus")
         if isinstance(saved, dict):
             focus = saved
-            provenance = "completed_host_tool"
+            # Compact compilation can project an already-projected legacy
+            # focus. Projection must not upgrade its source attribution.
+            provenance = ("legacy_saved_state" if saved.get("provenance") == "legacy_saved_state"
+                          else "completed_host_tool")
         else:
             response = state.get("last_response") or {}
             plan = state.get("last_plan") or {}
@@ -129,7 +132,7 @@ class ContextCompiler:
             provenance = "legacy_saved_state"
         projected = {key: value for key, value in focus.items() if key in {
             "intent", "message", "filters", "sort", "top_n", "review_statuses", "review_order",
-            "group_by", "topic_level", "run_id", "source_action", "answer_kind", "answer_basis", "question_ids"}}
+            "group_by", "topic_level", "run_id", "source_action", "answer_kind", "answer_basis", "question_ids", "semantic_task"}}
         projected["message"] = str(projected.get("message") or "")[:800]
         if isinstance(projected.get("filters"), dict):
             projected["filters"] = {key: value for key, value in projected["filters"].items()
@@ -167,7 +170,7 @@ class ContextCompiler:
 
     def compile(self, *, message, today, explicit_filters, preferences, state,
                 default_page_size, requested_pipeline, parts=(), terminal=False, remaining_tools=8,
-                query_feedback=(), query_memory=(), requery_origin=None):
+                query_feedback=(), query_memory=(), requery_origin=None, filter_catalog=None):
         session = self.state_projection(state)
         previous = [m[:800] for m in state.get("recent_messages", [])[-self.recent_messages:]
                     if isinstance(m, str) and m != message]
@@ -209,6 +212,8 @@ class ContextCompiler:
                        "recent_message_count": len(previous)}}
         if requery_origin:
             context["requery_origin"] = requery_origin
+        if filter_catalog is not None:
+            context["filter_catalog"] = filter_catalog
         encode = lambda: json.dumps(context, ensure_ascii=False, sort_keys=True, separators=(",", ":")).encode()
         raw = encode()
         # Optional prose and duplicate result excerpts share one budget. Keep
@@ -236,7 +241,8 @@ class ContextCompiler:
     def evidence_meta(meta):
         result = {key: value for key, value in meta.items() if key in {
             "route", "corpus_revision", "task_annotation_revision", "user_state_revision",
-            "applied_filters", "group_by", "topic_level", "sort", "counts", "sample_counts", "total_groups", "count_scope"}}
+            "applied_filters", "group_by", "topic_level", "sort", "counts", "sample_counts", "total_groups", "count_scope",
+            "search_ranking", "frequency_ranking"}}
         if meta.get("pagination"):
             result["pagination"] = {key: value for key, value in meta["pagination"].items()
                 if key in {"total", "result_total", "returned", "offset", "page_size", "top_n"}}

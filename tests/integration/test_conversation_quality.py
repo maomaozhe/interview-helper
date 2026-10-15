@@ -133,14 +133,21 @@ def test_failed_relevance_is_not_presented_as_verified_results(tmp_path, pipelin
     class Planner:
         def plan(self, run, context):
             return QuerySpec(action="SEARCH", search_query="Agent 应用设计")
-    client, _, _, _ = app_fixture(tmp_path, Planner(), Retriever())
+    client, db, _, _ = app_fixture(tmp_path, Planner(), Retriever())
     response = client.post("/api/query", json={"message": "Agent 应用设计", "request_id": pipeline, "pipeline": pipeline})
-    assert response.status_code == 200, response.text
-    result = response.json()
     if pipeline == "HYBRID_RERANK":
+        assert response.status_code == 503, response.text
+        assert response.json()["error"]["code"] == "QUERY_RELEVANCE_UNAVAILABLE"
+        with db.session() as session:
+            turn = session.scalar(select(AgentTurn).where(AgentTurn.request_id == pipeline))
+            assert turn.status == "FAILED"
+            result = {**turn.response["facts"], "meta": {
+                **turn.response["facts"]["meta"], "answer": turn.response["answer"]}}
         assert result["data"] == [] and result["meta"]["relevance_status"] == "UNAVAILABLE"
         assert "核验未完成" in result["meta"]["answer"]
     else:
+        assert response.status_code == 200, response.text
+        result = response.json()
         assert len(result["data"]) == 1 and result["meta"]["relevance_status"] == "UNVERIFIED"
 
 

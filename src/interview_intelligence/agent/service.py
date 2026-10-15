@@ -41,9 +41,11 @@ class AgentService:
         recent = "最近" in message or "近期" in message
         start = subtract_calendar_months(date.today(), 3) if recent else None
         end = date.today() + timedelta(days=1) if recent else None
-        position = "Java后端" if "Java" in message and ("后端" in message or "服务端" in message) else None
+        java_backend = "Java" in message and ("后端" in message or "服务端" in message)
         return StatsRequest(company=company, round=round_name, topic_l1=topic,
-                            position=position, start_date=start, end_date=end,
+                            job_family="BACKEND" if java_backend else None,
+                            language="JAVA" if java_backend else None,
+                            start_date=start, end_date=end,
                             group_by=group_by, sort=sort, limit=limit,
                             question_type="ALGORITHM" if "手撕" in message or "算法题" in message else None)
 

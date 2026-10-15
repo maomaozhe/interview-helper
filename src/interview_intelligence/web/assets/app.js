@@ -5,6 +5,9 @@ const pickFilters = window.InterviewWorkspace.pickFilters;
 const escapeHTML = (value) => String(value ?? "").replace(/[&<>"']/g, (char) => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[char]));
 const labels = {UNSEEN:"未复习", WEAK:"薄弱", REVIEWED:"已复习", MASTERED:"已掌握", KNOWLEDGE:"知识", PRINCIPLE:"原理", SCENARIO:"场景", SYSTEM_DESIGN:"系统设计", PROJECT:"项目", ALGORITHM:"算法", AI:"AI", HR:"HR", OTHER:"其他", INCLUDED:"已生效", PENDING:"尚未生效", EXCLUDED:"已排除", NEEDS_REVIEW:"待核验", QUEUED:"排队中", RUNNING:"导入中", SUCCEEDED:"已完成", FAILED:"失败", PARTIAL_FAILURE:"部分失败", IRRELEVANT:"检索偏题", TAG:"标签问题", DEDUP:"归并问题", SOURCE:"来源问题", HYBRID:"混合检索", BM25:"关键词检索", DENSE:"语义检索", HYBRID_RERANK:"混合检索 + 重排", CORE:"核心", COMMON:"常见", LONG_TAIL:"长尾"};
 const state = {page:"library", taxonomy:{}, topicLabels:{}, documents:[], selected:new Set(), feedback:[], detail:null, diagnostic:null, feedbackContext:null, searchSequence:0, detailSequence:0, sourceSequence:0, rows:[], chatBusy:false, chatContinuation:null, ingestBusy:false, libraryConversation:null, chatConversation:null, listRequest:null, nextCursor:null};
+state.usageRows=[];
+let usageSequence=0,usageOffset=0,usageSnapshot=null;
+let workspaceInitialized=false,libraryInitialized=false;
 labels.CHANGED = "内容已修改";
 labels.EXTRACT = "抽取问题"; labels.DEDUP = "核对与归并问题"; labels.PUBLISH = "发布数据"; labels.INDEX_SYNC = "同步检索索引";
 Object.assign(labels,{SQL:"数据库查询",CODE:"代码实现",ENGINEERING:"工程实现",MIXED:"混合任务"});
@@ -31,7 +34,11 @@ function renderHealth(incoming) {
 
 async function api(path, {method="GET", params={}, body, signal}={}) {
   const url = new URL(path.replace(/^\/+/, ""), document.baseURI);
-  for (const [key,value] of Object.entries(params)) if (value !== null && value !== undefined && value !== "") url.searchParams.set(key, value);
+  for (const [key,value] of Object.entries(params)) {
+    for(const item of Array.isArray(value) ? value : [value]) {
+      if(item !== null && item !== undefined && item !== "")url.searchParams.append(key,item);
+    }
+  }
   const started = performance.now();
   let response;
   try { response = await fetch(url, {method, headers:body ? {"Content-Type":"application/json"} : {}, body:body ? JSON.stringify(body) : undefined, signal}); }
@@ -148,6 +155,7 @@ async function loadPreferences(){
 }
 function topicOptions() {
   $("filter-topic").innerHTML = '<option value="">全部主题</option>' + Object.keys(state.taxonomy).map(name => `<option value="${escapeHTML(name)}">${escapeHTML(name)}</option>`).join("");
+  $("usage-topic").innerHTML=$("filter-topic").innerHTML;
   subtopicOptions();
 }
 function subtopicOptions() { $("filter-subtopic").innerHTML = '<option value="">全部细分主题</option>' + Object.keys(state.taxonomy[$("filter-topic").value] || {}).map(name => `<option value="${escapeHTML(name)}">${escapeHTML(name)}</option>`).join(""); }
@@ -164,6 +172,9 @@ async function refreshWorkspace() {
     const company = $("filter-company").value;
     $("filter-company").innerHTML = '<option value="">全部公司</option>' + data.companies.map(name => `<option value="${escapeHTML(name)}">${escapeHTML(name)}</option>`).join("");
     $("filter-company").value = company;
+    const usageCompany=$("usage-company").value;
+    $("usage-company").innerHTML=$("filter-company").innerHTML;
+    $("usage-company").value=usageCompany;
     renderHealth(health.data);
     notice("global-message");
   } catch(error) { $("connection-dot").className = "error"; $("connection-text").textContent = "连接暂时不可用"; notice("global-message",error.message,"error"); }
@@ -181,8 +192,44 @@ function rowHTML(row,index) {
   const matched=row.retrieval?.relevance_evidence;
   const evidence=matched ? `<details class="match-evidence"><summary>匹配到的原文</summary>${[...new Set([matched.object,matched.focus].filter(Boolean))].map(quote=>`<blockquote>${escapeHTML(quote)}</blockquote>`).join("")}</details>` : "";
   const meta = [row.importance_band ? `<span class="pill ${row.importance_band === "CORE" ? "green" : ""}">${escapeHTML(labels[row.importance_band])}</span>` : "", topic ? `<span class="pill">${escapeHTML(topic)}</span>` : "", taskLabel ? `<span class="pill">${escapeHTML(taskLabel)}</span>` : "", row.response_form ? `<span class="pill">${escapeHTML(row.response_form === "SQL" ? "SQL 实现" : labels[row.response_form] || row.response_form)}</span>` : "", row.user_status ? `<span class="pill ${row.user_status === "WEAK" ? "orange" : ""}">${escapeHTML(labels[row.user_status])}</span>` : "", row.interview_count != null ? `${row.interview_count} 场面试` : "", row.variants?.length ? `${row.variants.length} 种原始问法` : ""].filter(Boolean).join("");
-  return `<article class="question-row"><span class="question-number">${String(index+1).padStart(2,"0")}</span><div class="question-main"><button class="question-title" data-detail="${id}">${escapeHTML(row.canonical_text || row.key || "题目")}</button><div class="question-meta">${meta || '<span>点开详情，查看标签与原文</span>'}</div>${evidence}</div><div class="frequency"><strong>${escapeHTML(row.occurrence_count ?? "—")}</strong><small>真实提问</small></div><div class="row-actions"><button class="button secondary small" data-detail="${id}">查看详情 ↗</button><button class="icon-button" data-issue="${id}" aria-label="记录这道题的问题" title="记录问题">⚑</button></div></article>`;
+  return `<article class="question-row"><span class="question-number">${String(index+1).padStart(2,"0")}</span><div class="question-main"><button class="question-title" data-detail="${id}">${escapeHTML(row.canonical_text || row.key || "题目")}</button><div class="question-meta">${meta || '<span>点开详情，查看标签与原文</span>'}</div>${evidence}${row.candidate_count!=null ? usageRowHTML(row) : ""}</div><div class="frequency"><strong>${escapeHTML(row.occurrence_count ?? "—")}</strong><small>真实提问</small></div><div class="row-actions"><button class="button secondary small" data-detail="${id}">${row.candidate_count!=null ? "查看 / 复习 ↗" : "查看详情 ↗"}</button><button class="icon-button" data-issue="${id}" aria-label="记录这道题的问题" title="记录问题">⚑</button></div></article>`;
 }
+
+function usageFilters(){return pickFilters({topic_l1:$("usage-topic").value,company:$("usage-company").value});}
+function usageOrigin(row){return {query:"",context:{view:"usage",filters:usageFilters(),usage:row,meta:usageSnapshot}};}
+function usageRowHTML(row){
+  const hint={NO_CANDIDATE_OBSERVED:"未观察到候选召回",CANDIDATE_NOT_RETURNED:"进入候选但未返回",RETURNED_UNREVIEWED:"返回过，尚未复习",IN_USE:"已有使用记录"}[row.usage_hint];
+  return `<div class="usage-counts">${[["candidate_count","候选"],["accepted_count","核验通过"],["returned_count","检索返回"],["listed_count","题库浏览"],["review_count","复习"]].map(([key,label])=>`<span>${label}<b>${escapeHTML(row[key])}</b></span>`).join("")}</div><div class="usage-history">${escapeHTML(hint)} · 最近返回 ${escapeHTML(timestamp(row.last_returned_at))} · 最近复习 ${escapeHTML(timestamp(row.last_reviewed_at))}</div>`;
+}
+function detailUsageHTML(usage,review){
+  if(!usage)return "";
+  return `<h3>我的使用状态</h3><div class="usage-detail-counts">${[[usage.candidate_count,"进入候选"],[usage.accepted_count,"核验通过"],[usage.returned_count,"检索返回"],[usage.listed_count,"题库浏览"],[review.review_count || 0,"实际复习"]].map(([value,label])=>`<span><b>${escapeHTML(value)}</b>${label}</span>`).join("")}</div><p class="usage-history">使用统计从 ${escapeHTML(timestamp(usage.tracking_started_at))} 开始。最近返回 ${escapeHTML(timestamp(usage.last_returned_at))}；最近复习 ${escapeHTML(timestamp(review.last_reviewed_at))}。检索返回不自动算作复习。</p>`;
+}
+async function loadUsage(offset=0){
+  const sequence=++usageSequence;
+  usageOffset=offset;
+  $("usage-results").innerHTML=loading("正在读取使用与复习状态…");
+  $("usage-prev").hidden=true;$("usage-next").hidden=true;notice("usage-notice");
+  try{
+    const response=await api("api/questions/usage",{params:{...usageFilters(),usage_state:$("usage-state").value,
+      usage_days:$("usage-days").value,usage_sort:$("usage-sort").value,review_after_days:$("usage-review-days").value,offset,limit:20}});
+    if(sequence!==usageSequence)return;
+    state.usageRows=response.data;usageSnapshot=response.meta;
+    const meta=response.meta,summary=meta.summary,observed=meta.observation,pagination=meta.pagination;
+    for(const [id,key] of Object.entries({"usage-candidate-total":"candidate_questions","usage-unreturned-total":"not_returned_questions","usage-unreviewed-total":"returned_unreviewed","usage-due-total":"review_due_questions"}))$(id).textContent=summary[key].toLocaleString();
+    $("usage-candidate-caption").textContent=`当前范围共 ${summary.active_questions.toLocaleString()} 道有效题`;
+    $("usage-window").textContent=`统计启用：${timestamp(meta.tracking_started_at)}。当前统计期 ${timestamp(meta.window_start)} 至 ${timestamp(meta.window_end)}；个人检索 ${observed.search_runs} 次，完整候选观测 ${observed.complete_candidate_runs} 次。复习状态采用全部历史记录。`;
+    $("usage-caption").textContent=`匹配 ${pagination.total.toLocaleString()} 道 · ${pagination.total ? offset+1 : 0}–${offset+response.data.length} · ${meta.index_ready ? "索引已同步" : "索引待同步"}`;
+    $("usage-results").innerHTML=response.data.length ? response.data.map((row,index)=>rowHTML(row,offset+index)).join("") : empty("这个范围没有匹配的题目","放宽主题或使用状态，查看其他题目。");
+    $("usage-prev").hidden=offset===0;$("usage-next").hidden=pagination.next_offset==null;
+    if(response.warnings?.length>1)notice("usage-notice",response.warnings.slice(1).join(" "),"info");
+  }catch(error){if(sequence===usageSequence){$("usage-results").innerHTML=empty("使用统计暂时不可用",error.message);$("usage-caption").textContent="读取失败，可刷新重试";}}
+}
+$("usage-form").addEventListener("submit",event=>{event.preventDefault();loadUsage();});
+$("usage-form").addEventListener("change",()=>loadUsage());
+$("usage-refresh").addEventListener("click",()=>loadUsage(usageOffset));
+$("usage-prev").addEventListener("click",()=>loadUsage(Math.max(0,usageOffset-20)));
+$("usage-next").addEventListener("click",()=>loadUsage(usageSnapshot?.pagination?.next_offset || 0));
 function resultRow(row,index){
   if(row.canonical_question_id)return rowHTML(row,index);
   return `<article class="question-row"><span class="question-number">${index+1}</span><div class="question-main"><strong>${escapeHTML(state.topicLabels[row.key] || row.key)}</strong><p class="muted">统计分组</p></div><div class="frequency"><strong>${row.occurrence_count ?? 0}</strong><small>真实提问</small></div></article>`;
@@ -225,6 +272,7 @@ $("annotations-publish").addEventListener("click",async()=>{
   }catch(error){notice("annotations-notice",error.message,"error");$("annotations-publish").disabled=false;}
 });
 async function search(cursor=null, structured=false, changedField=null,retryBody=null,restored=null) {
+  libraryInitialized=true;
   if(window.InterviewTenant && !window.InterviewTenant.requireAccount())return;
   const sequence = ++state.searchSequence;
   libraryProgress?.finish("superseded");
@@ -352,6 +400,8 @@ async function showDetail(id, scope=state.diagnostic?.filters || filters(), orig
     const relations=(data.observed_followups || []).map(item=>`<li><button class="text-button" data-detail="${escapeHTML(item.canonical_question_id)}">${escapeHTML(item.canonical_text)}</button> · ${item.supporting_interview_count} 场面试有原文证据</li>`).join("");
     $("detail-content").innerHTML=`<h2 class="detail-title">${escapeHTML(data.canonical_text)}</h2><div class="question-meta"><span class="pill green">${escapeHTML(state.topicLabels[data.topic_id] || data.topic_id)}</span><span class="pill">${escapeHTML(labels[scope.coding_focus || data.question_type] || scope.coding_focus || data.question_type)}</span><span class="pill">${escapeHTML(labels[current])}</span></div><div class="detail-stats"><div><b>${data.occurrence_count}</b>真实提问</div><div><b>${data.interview_count}</b>面试场次</div><div><b>${data.source_document_count}</b>来源面经</div></div><div class="detail-section"><h3>原始问法 <span class="muted">${data.variants.length} 种</span></h3><ul class="variant-list">${data.variants.map(item=>`<li>${escapeHTML(item)}</li>`).join("") || "当前范围没有问法"}</ul></div><div class="detail-section"><h3>来源证据</h3>${sourceHTML || '<p class="muted">当前筛选范围没有来源。</p>'}${data.sources_total>data.sources.length ? `<p class="muted">先展示 ${data.sources.length} 条引用，共 ${data.sources_total} 条。</p>` : ""}</div>${relations ? `<div class="detail-section"><h3>真实追问</h3><ul class="variant-list">${relations}</ul></div>` : ""}<div class="detail-section"><h3>我的复习记录</h3><form id="review-form" class="review-form"><div class="review-fields"><label>复习状态<select id="review-status">${["UNSEEN","WEAK","REVIEWED","MASTERED"].map(status=>`<option value="${status}" ${current===status ? "selected" : ""}>${labels[status]}</option>`).join("")}</select></label><label>自评得分<select id="review-score"><option value="">不评分</option>${[0,1,2,3,4,5].map(score=>`<option value="${score}">${score} / 5</option>`).join("")}</select></label></div><label>笔记<textarea id="review-note" rows="2" maxlength="2000" placeholder="记录答题思路、遗漏点或下一步要补的内容"></textarea></label><div id="review-notice" class="notice" role="status" hidden></div><button class="button primary" id="review-button" type="submit">保存复习记录</button></form></div><div class="detail-foot"><span>题目编号 ${escapeHTML(id)}</span><button class="text-button" data-issue="${escapeHTML(id)}">⚑ 记录这道题的问题</button></div>`;
     $("review-form").addEventListener("submit",saveReview);
+    const usageSection=document.createElement("section");usageSection.className="detail-section";usageSection.id="detail-usage";
+    usageSection.innerHTML=detailUsageHTML(data.usage,reviewState);$("detail-content").querySelector(".detail-stats").after(usageSection);
     $("review-note").value=reviewState.note || "";
     $("review-score").value=reviewState.last_score ?? "";
   } catch(error) { if(sequence===state.detailSequence) $("detail-content").innerHTML=empty("题目详情暂时不可用",error.message); }
@@ -362,7 +412,12 @@ async function saveReview(event) {
   const button=$("review-button"), score=$("review-score").value;
   const payload={idempotency_key:crypto.randomUUID(),items:[{canonical_question_id:detail.canonical_question_id,status:$("review-status").value,note:$("review-note").value,score:score==="" ? null : Number(score),expected_version:detail.review_version}]};
   button.disabled=true;
-  try { await api("api/review",{method:"POST",body:payload}); if(state.detail===detail) { detail.review_version+=1; notice("review-notice","复习记录已保存。","info"); $("detail-content").querySelector(".question-meta").lastElementChild.textContent=labels[payload.items[0].status]; } toast("复习记录已保存"); if(state.page==="library") await search(); }
+  try { await api("api/review",{method:"POST",body:payload}); if(state.detail===detail) { detail.review_version+=1; notice("review-notice","复习记录已保存。","info"); $("detail-content").querySelector(".question-meta").lastElementChild.textContent=labels[payload.items[0].status]; } toast("复习记录已保存"); if(state.page==="library") await search(); if(state.page==="usage")await loadUsage(usageOffset);
+    try{
+      const updated=await api("api/review/state",{params:{canonical_question_ids:detail.canonical_question_id}});
+      if(state.detail===detail && $("detail-usage"))$("detail-usage").innerHTML=detailUsageHTML(detail.usage,updated.data.states[detail.canonical_question_id] || {});
+    }catch{if(state.detail===detail)notice("review-notice","复习记录已保存，统计暂未刷新；重新打开详情即可读取。","info");}
+  }
   catch(error) { if(state.detail?.canonical_question_id===detail.canonical_question_id) notice("review-notice",error.message,"error"); }
   finally { if(button.isConnected) button.disabled=false; }
 }
@@ -632,7 +687,7 @@ async function startIngest(mode,paths,runId) {
 }
 
 function openFeedback(questionId=null, supplied=null) {
-  const row=state.detail?.canonical_question_id===questionId ? state.detail : state.rows.find(item=>item.canonical_question_id===questionId);
+  const row=state.detail?.canonical_question_id===questionId ? state.detail : (state.page==="usage" ? state.usageRows : state.rows).find(item=>item.canonical_question_id===questionId);
   const origin=supplied || (row===state.detail ? state.detail?.origin : null) ||
     window.InterviewWorkspace.feedbackOrigin(state.diagnostic?.query || $("query").value.trim(),{meta:state.diagnostic?.meta || {}},"library");
   state.feedbackContext={...origin,canonical_question_id:questionId || null,context:{...origin.context,
@@ -668,15 +723,17 @@ async function loadFeedback() {
 }
 
 function navigate(page) {
-  if(!["library","chat","ingest","feedback","preferences","annotations"].includes(page)) page="chat"; state.page=page;
+  if(!["library","chat","ingest","feedback","preferences","annotations","usage"].includes(page)) page="chat"; state.page=page;
   document.querySelectorAll(".page").forEach(node=>node.hidden=node.id!==`page-${page}`);
   document.querySelectorAll(".nav-item").forEach(node=>{node.classList.toggle("active",node.dataset.page===page);node.setAttribute("aria-current",node.dataset.page===page ? "page" : "false");});
-  $("breadcrumb-page").textContent={library:"题库与检索",chat:"面经问答",ingest:"导入与状态",feedback:"问题记录",preferences:"查询偏好",annotations:"分类核验"}[page];
+  $("breadcrumb-page").textContent={library:"题库与检索",chat:"面经问答",ingest:"导入与状态",feedback:"问题记录",preferences:"查询偏好",annotations:"分类核验",usage:"使用与复习"}[page];
   history.replaceState(null,"",`#${page}`);
   if(!window.InterviewTenant || window.InterviewTenant.canUseWorkspace()){
     if(page==="ingest") loadIngest(); if(page==="feedback") loadFeedback();
     if(page==="preferences")loadPreferences();
     if(page==="annotations")loadAnnotations();
+    if(page==="usage")loadUsage();
+    if(page==="library" && workspaceInitialized && !libraryInitialized)search();
   }
   document.body.dataset.page=page;
 }
@@ -687,10 +744,12 @@ document.addEventListener("click",event=>{
   if(button.dataset.close) $(button.dataset.close).close();
   if(button.dataset.detail){
     const record=button.dataset.feedbackId ? state.feedback.find(item=>item.id===button.dataset.feedbackId) : null;
-    showDetail(button.dataset.detail,record ? record.context?.filters || {} : button.closest("#detail-dialog") ? state.detail?.filters : state.diagnostic?.filters || filters(),
-      record ? {query:record.query,context:record.context} : button.closest("#detail-dialog") ? state.detail?.origin : null);
+    const usageRow=button.closest("#usage-results") ? state.usageRows.find(row=>row.canonical_question_id===button.dataset.detail) : null;
+    showDetail(button.dataset.detail,usageRow ? usageFilters() : record ? record.context?.filters || {} : button.closest("#detail-dialog") ? state.detail?.filters : state.diagnostic?.filters || filters(),
+      usageRow ? usageOrigin(usageRow) : record ? {query:record.query,context:record.context} : button.closest("#detail-dialog") ? state.detail?.origin : null);
   }
-  if(button.dataset.issue !== undefined) openFeedback(button.dataset.issue || null);
+  if(button.dataset.issue !== undefined) openFeedback(button.dataset.issue || null,
+    button.closest("#usage-results") ? usageOrigin(state.usageRows.find(row=>row.canonical_question_id===button.dataset.issue)) : null);
   if(button.dataset.sourceIndex !== undefined) showSource(state.detail.sources[Number(button.dataset.sourceIndex)]);
   if(button.dataset.localSource) showSource({path:button.dataset.localSource});
   if(button.dataset.retry) startIngest(null,null,button.dataset.retry);
@@ -721,7 +780,7 @@ $("chat-input").addEventListener("keydown",event=>{if(event.key==="Enter" && !ev
 $("feedback-form").addEventListener("submit",saveFeedback);
 ["open-general-feedback","report-results","new-feedback"].forEach(id=>$(id).addEventListener("click",()=>openFeedback()));
 $("refresh-feedback").addEventListener("click",loadFeedback);
-$("refresh-workspace").addEventListener("click",()=>{refreshWorkspace();if(state.page==="ingest")loadIngest();else if(state.page==="library")search();});
+$("refresh-workspace").addEventListener("click",()=>{refreshWorkspace();if(state.page==="ingest")loadIngest();else if(state.page==="library")search();else if(state.page==="usage")loadUsage(usageOffset);});
 $("refresh-ingest").addEventListener("click",()=>{loadIngest();refreshWorkspace();});
 $("ingest-changed").addEventListener("click",()=>startIngest("changed"));
 $("reindex").addEventListener("click",()=>startIngest("reindex",[]));
@@ -814,14 +873,19 @@ async function init(){
   if(restoredFilters){
     reflectFilters(restoredFilters);
   }
-  await search(null,false,null,null,restored);
+  workspaceInitialized=true;
+  if(restored || state.page==="library")await search(null,false,null,null,restored);
 }
 window.addEventListener("interview:tenant-expired",()=>{
   searchController?.abort();chatController?.abort();
   ++state.searchSequence;++historySequence;++historyOpenSequence;
+  ++usageSequence;state.usageRows=[];usageSnapshot=null;usageOffset=0;
+  workspaceInitialized=false;libraryInitialized=false;
   state.libraryConversation=null;state.chatConversation=null;state.chatContinuation=null;
   state.feedback=[];state.feedbackContext=null;state.detail=null;state.rows=[];state.diagnostic=null;
   for(const id of ["chat-messages","conversation-list","feedback-list","preferences-list","query-memory-list","detail-content","results"]){$(id).replaceChildren();}
+  $("usage-results").replaceChildren();$("usage-window").textContent="登录后读取个人统计";$("usage-caption").textContent="";
+  for(const id of ["usage-candidate-total","usage-unreturned-total","usage-unreviewed-total","usage-due-total"])$(id).textContent="—";
   for(const id of ["detail-dialog","source-dialog","feedback-dialog"]){if($(id).open)$(id).close();}
   $("chat-input").value="";$("history-query").value="";$("chat-retry").hidden=true;$("query-retry").hidden=true;
 });

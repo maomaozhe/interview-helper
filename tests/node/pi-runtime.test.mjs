@@ -48,6 +48,26 @@ test("actual pinned Pi executes one domain tool and stops with all host rows ret
   assert.equal(fake.faux.state.callCount,1);
 });
 
+test("complete algorithm scope survives the Pi list schema and host boundary",async t=>{
+  const h=await host(t), fullPlan={action:"LIST",filters:{company:"字节"},top_n:null,page_size:20,
+    semantic_task:"ALGORITHM_PROBLEM"};
+  const fullSchema={...schema,additionalProperties:false,properties:{...schema.properties,
+    top_n:{type:"null"},semantic_task:{anyOf:[{type:"string",enum:["ALGORITHM_PROBLEM"]},{type:"null"}]}}};
+  const fake=stream([fauxAssistantMessage(fauxToolCall("list_questions",fullPlan))]);
+  const schemas=[];
+  const result=await runQuery({run_id:"all-algorithms",schema:fullSchema,prompt:"List the complete scope",
+    context:{message:"我要所有字节算法题",tool_policy:{allowed_actions:{list_questions:["LIST"]}}}},
+    {hostUrl:h.url,token:"internal",streamFn:(m,c,o)=>{
+      for(const message of c.messages.filter(x=>x.role==="system"))
+        for(const tool of message.toolsAdded || []) if(tool.name==="list_questions") schemas.push(tool.parameters);
+      return fake.fn(m,c,o);
+    }});
+  assert.equal(result.provider_calls,1);
+  assert.equal(h.received[0].plan.semantic_task,"ALGORITHM_PROBLEM");
+  assert.equal(h.received[0].plan.top_n,null);
+  assert.ok(schemas.every(s=>s.properties.semantic_task));
+});
+
 test("multiple terminal tools are rejected before any host mutation",async t=>{
   const h=await host(t), fake=stream([fauxAssistantMessage([
     fauxToolCall("list_questions",plan),fauxToolCall("record_review",{...plan,action:"RECORD_REVIEW"})])]);

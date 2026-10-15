@@ -9,6 +9,8 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
+from interview_intelligence.company import normalize_company
+
 
 class StrictModel(BaseModel):
     model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
@@ -40,8 +42,8 @@ class ReviewStatus(StrEnum):
 
 
 class FilterSpec(StrictModel):
-    company: str | None = None
-    position: str | None = None
+    company: str | None = Field(default=None, description="Apply filter_catalog.company_aliases FIRST, case-insensitively, before matching filter_catalog.companies. Never add a prefix, department or subsidiary not specified by the user. The host normalizes maintained exact aliases.")
+    position: str | None = Field(default=None, description="Exact stored job title from filter_catalog.positions. For a broad job direction, choose job_family and language explicitly and leave position null; preserve explicit UI position filters.")
     job_family: Literal["BACKEND", "AI_APPLICATION", "ALGORITHM", "OTHER"] | None = None
     language: str | None = None
     topic_l1: Literal[
@@ -49,14 +51,21 @@ class FilterSpec(StrictModel):
         "计算机基础", "系统设计", "算法", "AI", "项目", "其他",
     ] | None = None
     topic_l2: str | None = None
-    question_type: QuestionType | None = None
-    response_form: Literal["VERBAL", "CODE", "SQL", "EXPLANATION","DESIGN","OTHER","UNKNOWN"] | None = None
+    question_type: QuestionType | None = Field(default=None, description="Legacy metadata category, not proof of semantic relevance. Find algorithm practice problems with SEARCH, source task checks and soft preferred_question_type=ALGORITHM; keep this hard filter null unless explicitly selected by the user or UI.")
+    response_form: Literal["VERBAL", "CODE", "SQL", "EXPLANATION","DESIGN","OTHER","UNKNOWN"] | None = Field(default=None,
+        description="Response modality, only when explicitly requested or set by UI. An algorithm task may be solved verbally; do not infer CODE merely to hide unrelated questions. Semantic SEARCH checks the original task.")
     annotation_status: Literal["KNOWN","VERIFIED","NEEDS_REVIEW","UNKNOWN"] | None = None
-    coding_focus: Literal["ALGORITHM", "ENGINEERING", "MIXED", "NONE", "UNKNOWN"] | None = None
+    coding_focus: Literal["ALGORITHM", "ENGINEERING", "MIXED", "NONE", "UNKNOWN"] | None = Field(default=None,
+        description="Historical task annotation, independent from topic and question_type. Use ALGORITHM or ENGINEERING for explicitly requested metadata filters. Semantic algorithm SEARCH keeps it null because stale/UNKNOWN labels can cause false matches and omissions; preserve explicit UI filters.")
     round: Literal["FIRST", "SECOND", "THIRD", "FOURTH_PLUS", "HR", "OTHER"] | None = None
     start_date: date | None = None
     end_date: date | None = None
     date_basis: DateBasis = DateBasis.BEST_AVAILABLE
+
+    @field_validator("company")
+    @classmethod
+    def canonical_company(cls, value):
+        return normalize_company(value)
 
     @field_validator("language")
     @classmethod

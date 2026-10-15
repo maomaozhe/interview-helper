@@ -111,7 +111,8 @@ def main():
         raise SystemExit("Refuse to overwrite real acceptance receipts") from None
     try:
         prior = json.loads(args.prior_report.read_text(encoding="utf-8"))
-        with httpx.Client(base_url=args.url, timeout=100, trust_env=False) as client:
+        with httpx.Client(base_url=args.url, timeout=100, trust_env=False,
+                          headers={"X-Usage-Purpose": "evaluation"}) as client:
             evaluate(client, result, persist, prior)
         result["passed"] = True
         result["status"] = "SUCCEEDED"

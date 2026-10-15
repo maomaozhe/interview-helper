@@ -11,6 +11,7 @@
   <link rel="stylesheet" href="assets/workspace.css">
   <link rel="stylesheet" href="assets/markdown.css">
   <link rel="stylesheet" href="assets/tenant.css">
+  <link rel="stylesheet" href="assets/usage.css">
   <script src="assets/core.js" defer></script>
   <script src="assets/vendor/markdown-it.umd.min.js" defer></script>
   <script src="assets/markdown.js" defer></script>
@@ -33,6 +34,7 @@
       <button class="nav-item" data-page="feedback"><span class="nav-icon">⚑</span>问题记录<span class="nav-arrow">›</span></button>
       <button class="nav-item" data-page="preferences"><span class="nav-icon">◇</span>查询偏好<span class="nav-arrow">›</span></button>
       <button class="nav-item" data-page="annotations"><span class="nav-icon">✓</span>分类核验<span class="nav-arrow">›</span></button>
+      <button class="nav-item" data-page="usage"><span class="nav-icon">↗</span>使用与复习<span class="nav-arrow">›</span></button>
     </nav>
     <div class="conversation-browser"><button class="text-button" id="sidebar-new-chat">＋ 新对话</button><label class="sr-only" for="history-query">搜索历史对话</label><input id="history-query" placeholder="搜索对话…" maxlength="200"><div class="history-heading">最近对话</div><div id="conversation-list"></div><button id="conversation-more" class="text-button" hidden>更多对话</button></div>
     <div class="sidebar-bottom"><button type="button" class="tenant-account-button" id="tenant-open" aria-haspopup="dialog"><span class="tenant-avatar" aria-hidden="true">◇</span><span><strong id="tenant-account-label">账号与模型</strong><small id="tenant-account-caption">正在读取账号…</small></span><span aria-hidden="true">›</span></button><div class="connection"><i id="connection-dot"></i><span id="connection-text">正在连接本机服务</span></div><p>每一道题，都能回到原文。</p><a href="admin">访问管理 ↗</a> · <a href="docs" target="_blank" rel="noopener">接口文档 ↗</a></div>
@@ -61,6 +63,14 @@
       <div id="results-notice" class="notice" role="status" hidden></div><button type="button" id="query-retry" class="text-button" hidden>恢复本次查询</button>
       <div id="results" class="question-list" aria-live="polite"></div><button id="results-next" class="button secondary" hidden>下一页 →</button>
       <details id="search-diagnostics" class="card diagnostics" hidden><summary>查看本次检索过程 <span>查询、筛选、执行方式与请求编号</span></summary><button class="text-button" id="copy-diagnostics">复制排查信息</button><pre id="diagnostics-content"></pre></details>
+    </section>
+    <section class="page" id="page-usage" hidden>
+      <div class="page-heading"><div><div class="eyebrow">看见覆盖，也找到遗漏</div><h1>使用与复习<span class="heading-dot">.</span></h1><p>查看题目的召回记录，从尚未返回的题和复习缺口开始。</p></div><button type="button" class="button secondary" id="usage-refresh">↻ 刷新统计</button></div>
+      <div class="summary-grid usage-summary" aria-live="polite"><article class="summary-card"><div>进入过候选</div><strong id="usage-candidate-total">—</strong><small id="usage-candidate-caption">所选统计期</small></article><article class="summary-card"><div>尚未返回</div><strong id="usage-unreturned-total">—</strong><small>从这些题发现覆盖缺口</small></article><article class="summary-card"><div>返回后未复习</div><strong id="usage-unreviewed-total">—</strong><small>召回和复习分别记录</small></article><article class="summary-card"><div>待复习</div><strong id="usage-due-total">—</strong><small>未复习、薄弱或复习到期</small></article></div>
+      <form id="usage-form" class="card usage-controls"><label>查看哪些题<select id="usage-state"><option value="ALL">全部题目</option><option value="NOT_CANDIDATE">未观察到候选召回</option><option value="NOT_RETURNED" selected>检索未返回过</option><option value="RETURNED_UNREVIEWED">返回过但未复习</option><option value="REVIEW_DUE">待复习</option></select></label><label>使用统计期<select id="usage-days"><option value="">启用以来</option><option value="30">最近 30 天</option><option value="7">最近 7 天</option></select></label><label>知识主题<select id="usage-topic"><option value="">全部主题</option></select></label><label>公司<select id="usage-company"><option value="">全部公司</option></select></label><label>排序<select id="usage-sort"><option value="least_returned">返回次数从少到多</option><option value="least_candidate">候选次数从少到多</option><option value="most_returned">返回次数从多到少</option><option value="frequency">真实提问频次</option><option value="review_due">薄弱优先、最久未复习</option></select></label><label>多久后再复习<select id="usage-review-days"><option value="7">7 天</option><option value="14">14 天</option><option value="30">30 天</option></select></label></form>
+      <div class="card usage-explanation"><p id="usage-window">正在读取统计起点…</p><p>候选 → 相关性核验 → 检索返回；浏览题库和实际复习另计。返回次数表示服务返回题目，不代表已经阅读。</p><p>零次数是排查线索：先看是否搜索过相关主题、筛选范围是否合适，再检查问法、标签和索引。这里的浏览不会增加召回次数，评测流量不计入个人使用。</p></div>
+      <div id="usage-notice" class="notice" role="status" hidden></div><div class="results-heading"><div><h2>题目清单</h2><span id="usage-caption">正在读取…</span></div></div>
+      <div id="usage-results" class="question-list" aria-live="polite"></div><div class="usage-pagination"><button type="button" id="usage-prev" class="button secondary" hidden>← 上一页</button><button type="button" id="usage-next" class="button secondary" hidden>下一页 →</button></div>
     </section>
     <section class="page" id="page-chat" hidden>
       <div class="page-heading"><div><div class="eyebrow">带着问题，看真实面经</div><h1>面经问答<span class="heading-dot">.</span></h1><p>了解高频考点、类似问法，或按复习情况找准备方向。</p></div></div>

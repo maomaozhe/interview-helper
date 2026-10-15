@@ -7,12 +7,14 @@ from interview_intelligence.domain.models import (
 )
 
 
-def count_questions(session, filters, *, user_id="local", review_statuses=()):
+def count_questions(session, filters, *, user_id="local", review_statuses=(), occurrence_ids=None):
     source = _active_from().outerjoin(UserQuestionState, and_(
         UserQuestionState.canonical_question_id == CanonicalQuestion.id,
         UserQuestionState.user_id == user_id,
     ))
     conditions = _conditions(filters)
+    if occurrence_ids is not None:
+        conditions.append(QuestionOccurrence.id.in_(occurrence_ids))
     if review_statuses:
         conditions.append(func.coalesce(UserQuestionState.status, "UNSEEN").in_(review_statuses))
     row = session.execute(select(

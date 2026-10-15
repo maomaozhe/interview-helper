@@ -73,7 +73,7 @@ def main():
     transport = httpx.HTTPTransport(retries=2, limits=limits)
     report["transport"] = {"keepalive_connections": 0, "connection_retries": 2}
     with httpx.Client(base_url=url, auth=auth, trust_env=False, timeout=180,
-                      headers={"Connection": "close"}, transport=transport) as client:
+                      headers={"Connection": "close", "X-Usage-Purpose": "evaluation"}, transport=transport) as client:
         report["health_before"] = client.get("/api/health").raise_for_status().json()["data"]
         for case in selected:
             saved = {"id": case["id"], "scope": case["scope"], "turns": []}

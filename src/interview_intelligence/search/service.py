@@ -53,7 +53,8 @@ def search_questions(
         on_progress({"stage":"eligibility"})
     eligible = eligible_canonical_ids(session, filters)
     if not eligible:
-        return {"data": [], "meta": {"pipeline": pipeline, "eligible_count": 0}}
+        return {"data": [], "meta": {"pipeline": pipeline, "eligible_count": 0,
+                                      "candidate_count": 0, "candidate_ids": []}}
     options = {}
     if on_progress:
         if getattr(retriever, "supports_progress", False):
@@ -75,6 +76,10 @@ def search_questions(
         options.update(preferred_question_type=kind.value,
                        preferred_eligible_ids=sorted(set(preferred).intersection(eligible)))
     retrieval = retriever.retrieve(query, eligible, pipeline, top_k, **options)
+    candidate_ids = retrieval.get("meta", {}).get("candidate_ids")
+    if candidate_ids is not None and (not isinstance(candidate_ids, list)
+            or any(not isinstance(identity, str) or identity not in eligible for identity in candidate_ids)):
+        raise ValueError("retriever returned an ineligible candidate ID")
     if on_progress:
         on_progress({"stage":"assembling", "count":len(retrieval["data"])})
     data = []

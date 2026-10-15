@@ -206,7 +206,8 @@ def test_search_model_call_uses_query_receipt_trace_and_contributes_phase_timing
             return {"data": [{"canonical_question_id": fast_id}], "meta": {}}
     class Planner:
         async def plan(self, run, context):
-            return QuerySpec(action="SEARCH", search_query="Redis", page_size=10)
+            # This test double exercises embedding trace propagation, not reranking.
+            return QuerySpec(action="SEARCH", search_query="Redis", page_size=10, pipeline="DENSE")
     monkeypatch.setattr(api_module, "ArkMultimodalEncoder", encoder)
     monkeypatch.setattr(api_module, "ElasticsearchRetriever", Retriever)
     settings = Settings(database_url="sqlite+pysqlite:///:memory:", elasticsearch_url="http://es.test",
@@ -215,8 +216,10 @@ def test_search_model_call_uses_query_receipt_trace_and_contributes_phase_timing
         internal_agent_token="test-internal-token")
     app = create_app(db, settings, query_planner=Planner())
     client = TestClient(app)
-    result = client.post("/api/questions/query", json={"message": "Redis语义查询", "request_id": "same-query-trace"})
+    result = client.post("/api/questions/query", json={"message": "Redis语义查询", "request_id": "same-query-trace",
+                                                     "pipeline": "DENSE"})
     assert result.status_code == 200, result.text
+    assert result.json()["meta"]["relevance_status"] == "UNVERIFIED"
     assert result.json()["meta"]["timings"]["model_attempts"] == 1
     with db.session() as session:
         calls = list(session.scalars(select(ModelCall)))
@@ -224,10 +227,10 @@ def test_search_model_call_uses_query_receipt_trace_and_contributes_phase_timing
         assert calls[0].operation_type == "EMBEDDING"
         assert calls[0].provider_ms == result.json()["meta"]["timings"]["provider_ms"]
     # Pi callbacks arrive as separate HTTP requests and must restore the run trace.
-    run = app.state.query_service.begin(QueryRequest(message="Redis", request_id="same-pi-tool-trace"))
+    run = app.state.query_service.begin(QueryRequest(message="Redis", request_id="same-pi-tool-trace", pipeline="DENSE"))
     tool = client.post(f"/internal/agent/runs/{run.id}/tools/search_questions",
         headers={"Authorization":"Bearer test-internal-token"},
-        json=QuerySpec(action="SEARCH", search_query="Redis", page_size=10).model_dump(mode="json"))
+        json=QuerySpec(action="SEARCH", search_query="Redis", page_size=10, pipeline="DENSE").model_dump(mode="json"))
     assert tool.status_code == 200, tool.text
     with db.session() as session:
         call = session.scalar(select(ModelCall).where(ModelCall.request_id == "same-pi-tool-trace"))

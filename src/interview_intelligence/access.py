@@ -485,6 +485,8 @@ def register_access(app, database, settings):
     service = AccessService(database, settings)
     app.state.access_service = service
     app.add_middleware(AccessMiddleware, service=service)
+    from interview_intelligence.observability import register_observability
+    app.state.agent_observability = register_observability(app, database, service)
 
     @app.get("/admin", response_class=HTMLResponse)
     @app.get("/admin/", response_class=HTMLResponse)

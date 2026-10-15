@@ -36,6 +36,7 @@ from interview_intelligence.agent.feedback_memory import MemoryUpdate
 from interview_intelligence.agent.history import ConversationHistory
 from interview_intelligence.agent.annotation_review import AnnotationReviewer,AnnotationReview,AnnotationPublish
 from interview_intelligence.analytics.listing import ListRequest, list_questions
+from interview_intelligence.analytics.usage import UsageRequest, question_usage, question_usage_states, record_usage
 from interview_intelligence.providers.runtime import current_limits
 from interview_intelligence.config import Settings, load_settings, resolve_corpus_document, discover_corpus_documents, validate_backend_model_endpoint, validate_model_preflight
 from interview_intelligence.contracts import FilterSpec, ReviewRequest, StatsRequest, StrictModel
@@ -75,6 +76,7 @@ class ChatRequest(StrictModel):
     request_id: str | None = None
     conversation_id: str | None = Field(default=None, max_length=36)
     expected_version: int | None = Field(default=None, ge=0)
+    usage_purpose: Literal["practice", "evaluation"] = "practice"
 
 
 class RetryRequest(StrictModel):
@@ -85,12 +87,25 @@ class SearchRequest(FilterSpec):
     query: str = Field(min_length=1, max_length=500)
     top_k: int = Field(default=10, ge=1, le=50)
     pipeline: Literal["BM25", "DENSE", "HYBRID", "HYBRID_RERANK"] = "HYBRID_RERANK"
+    usage_purpose: Literal["practice", "evaluation"] = "practice"
 
 
 def _request_id(request: Request) -> str:
     if not getattr(request.state, "request_id", None):
         request.state.request_id = (request.headers.get("x-request-id") or str(uuid4()))[:128]
     return request.state.request_id
+
+
+def _with_usage_purpose(request, payload, *, explicit=None):
+    # An additive header lets existing evaluation clients also work against
+    # older servers, which ignore it. Persist it in the query receipt here.
+    purpose = request.headers.get("x-usage-purpose")
+    if purpose is None:
+        return payload
+    provided = "usage_purpose" in payload.model_fields_set if explicit is None else explicit
+    if purpose not in {"practice", "evaluation"} or (provided and payload.usage_purpose != purpose):
+        raise ValueError("INVALID_USAGE_PURPOSE")
+    return payload.model_copy(update={"usage_purpose": purpose})
 
 
 def _prefix_source_urls(value, prefix: str):
@@ -114,7 +129,7 @@ def _response(request: Request, database, data, *, filters=None, status_code=200
         "data": data,
         "meta": {"request_id": _request_id(request), "corpus_revision": revision,
                  "applied_filters": filters.model_dump(mode="json") if filters else None,
-                 "as_of": date.today().isoformat(), **(extra or {})},
+                 "as_of": getattr(request.app.state, "response_as_of", date.today)().isoformat(), **(extra or {})},
         "warnings": warnings or [],
     })
 
@@ -433,11 +448,11 @@ def create_app(database=None, settings: Settings | None = None, retriever=None, 
     @app.post("/api/query")
     @app.post("/api/questions/query")
     async def question_query(request: Request, payload: QueryRequest):
-        return library_response(request, await execute_query(payload, request))
+        return library_response(request, await execute_query(_with_usage_purpose(request, payload), request))
 
     @app.post("/api/questions/list")
     async def question_list_with_context(request: Request, payload: ListQueryRequest):
-        return library_response(request, await execute_query(payload.as_query(), request))
+        return library_response(request, await execute_query(_with_usage_purpose(request, payload).as_query(), request))
 
     @app.get("/api/preferences")
     def preferences(request:Request):
@@ -491,6 +506,7 @@ def create_app(database=None, settings: Settings | None = None, retriever=None, 
     live_tasks={}
     @app.post("/api/conversations/{conversation_id}/messages",status_code=202)
     async def conversation_message(request:Request,conversation_id:str,payload:QueryRequest):
+        payload = _with_usage_purpose(request, payload)
         if payload.conversation_id and payload.conversation_id!=conversation_id:
             raise ValueError("CONVERSATION_VERSION_CONFLICT")
         payload=payload.model_copy(update={"conversation_id":conversation_id})
@@ -574,6 +590,22 @@ def create_app(database=None, settings: Settings | None = None, retriever=None, 
             if session.bind.dialect.name == "postgresql":
                 session.connection(execution_options={"isolation_level": "REPEATABLE READ"})
             result = list_questions(session, params, signing_key=signing_key, user_id=tenant_user_id(settings))
+            record_usage(session, user_id=tenant_user_id(settings), request_key="list:" + str(uuid4()),
+                parts=[{"intent": "LIST", "facts": result}], source="LIST_API",
+                purpose=request.headers.get("x-usage-purpose", "practice"))
+            session.commit()
+        return _response(request, database, result["data"], extra=result["meta"], warnings=result["warnings"])
+
+    @app.get("/api/questions/usage")
+    def usage_list(request: Request, params: Annotated[UsageRequest, Query()]):
+        if not settings.task_filters_enabled and (params.coding_focus or params.response_form):
+            raise ValueError("TASK_FILTERS_DISABLED")
+        if (params.coding_focus or params.response_form) and not params.annotation_status:
+            params = params.model_copy(update={"annotation_status": settings.task_annotation_policy})
+        with database.session() as session:
+            if session.bind.dialect.name == "postgresql":
+                session.connection(execution_options={"isolation_level": "REPEATABLE READ"})
+            result = question_usage(session, params, user_id=tenant_user_id(settings))
         return _response(request, database, result["data"], extra=result["meta"], warnings=result["warnings"])
 
     @app.middleware("http")
@@ -610,8 +642,12 @@ def create_app(database=None, settings: Settings | None = None, retriever=None, 
         if code in {"INDEX_NOT_READY", "EMBEDDING_NOT_READY", "RERANKER_NOT_READY",
                     "MODEL_CONFIGURATION_INCOMPLETE", "MODEL_NOT_READY", "SOURCE_SNAPSHOT_MISSING",
                     "STREAM_INCOMPLETE", "MODEL_OUTPUT_TRUNCATED", "QUERY_DEADLINE_EXCEEDED", "LEXICAL_FACET_RETRIEVAL_FAILED",
-                    "QUERY_PLAN_MISSING", "QUERY_MODEL_BUDGET_EXCEEDED"}:
+                    "QUERY_PLAN_MISSING", "QUERY_MODEL_BUDGET_EXCEEDED", "QUERY_RELEVANCE_UNAVAILABLE", "SEMANTIC_SCOPE_INCOMPLETE"}:
             status = 503
+        if code == "QUERY_RELEVANCE_UNAVAILABLE":
+            message = "本次语义核验未完成，结果未作为成功查询保存，请重试。"
+        if code == "SEMANTIC_SCOPE_INCOMPLETE":
+            message = "当前范围的全量算法核验尚未完成，暂时无法提供完整列表。"
         if code == "MODEL_PROVIDER_UNAVAILABLE":
             status, message = 503, "模型请求未完成，请检查自己的模型配置。"
         return JSONResponse(status_code=status, content={"error": {
@@ -704,13 +740,16 @@ def create_app(database=None, settings: Settings | None = None, retriever=None, 
 
     @app.get("/api/questions/search")
     def question_search(request: Request, params: Annotated[SearchRequest, Query()]):
+        # FastAPI supplies query-model defaults as fields. Presence in the
+        # URL, rather than Pydantic fields_set, establishes an explicit choice.
+        params = _with_usage_purpose(request, params, explicit="usage_purpose" in request.query_params)
         # This legacy endpoint does not persist/replay results: each invocation
         # executes retrieval and receives its own admission, even with a reused header.
         if not settings.multi_tenant_enabled or params.pipeline != "BM25":
             # Shared deterministic BM25 recall does not call a model.
             tenant_service.admit(request, str(uuid4()), params.model_dump(mode="json"))
         query, pipeline, top_k = params.query, params.pipeline, params.top_k
-        filters = FilterSpec.model_validate(params.model_dump(exclude={"query", "pipeline", "top_k"}))
+        filters = FilterSpec.model_validate(params.model_dump(exclude={"query", "pipeline", "top_k", "usage_purpose"}))
         for attempt in range(2):
             with database.session() as session:
                 if session.bind.dialect.name == "postgresql":
@@ -739,6 +778,13 @@ def create_app(database=None, settings: Settings | None = None, retriever=None, 
             with database.session() as latest:
                 current = latest.get(CorpusState, 1)
                 if (current.current_revision, current.indexed_revision) == revision:
+                    usage_meta = {**result["meta"], "corpus_revision": revision[0], "indexed_revision": revision[1],
+                        "relevance_status": "VERIFIED" if result["meta"].get("rerank_status") in {
+                            "COMPLETED", "COMPLETED_PARTIAL"} else "UNVERIFIED"}
+                    record_usage(latest, user_id=tenant_user_id(settings), request_key="search:" + str(uuid4()),
+                        parts=[{"intent": "SEARCH", "facts": {**result, "meta": usage_meta}}],
+                        source="SEARCH_API", purpose=params.usage_purpose)
+                    latest.commit()
                     return _response(request, database, result["data"], filters=filters,
                                      extra={**result["meta"], "requested_pipeline": pipeline,
                                             "executed_pipeline": executed,
@@ -760,6 +806,8 @@ def create_app(database=None, settings: Settings | None = None, retriever=None, 
     def question_detail(request: Request, canonical_id: str, filters: Annotated[FilterSpec, Query()]):
         with database.session() as session:
             detail = get_question_detail(session, canonical_id, filters)
+            if not detail.get("redirect_to_id"):
+                detail["usage"] = question_usage_states(session, [canonical_id], user_id=tenant_user_id(settings))[canonical_id]
         return _response(request, database, detail, filters=filters)
 
     @app.get("/api/sources/{revision_id}")
@@ -814,10 +862,11 @@ def create_app(database=None, settings: Settings | None = None, retriever=None, 
 
     @app.post("/api/agent/chat")
     async def agent_chat(request: Request, payload: ChatRequest):
+        payload = _with_usage_purpose(request, payload)
         if settings.multi_tenant_enabled or settings.query_router_enabled or query_planner is not None:
             result = await execute_query(QueryRequest(message=payload.message,
                 conversation_id=payload.conversation_id, expected_version=payload.expected_version,
-                request_id=payload.request_id or _request_id(request)), request)
+                request_id=payload.request_id or _request_id(request), usage_purpose=payload.usage_purpose), request)
             return _response(request, database, result, extra=result["facts"]["meta"], warnings=result.get("warnings"))
         # Legacy AgentService does not persist complete chat results for replay.
         access_service.admit(request, str(uuid4()), payload.model_dump(mode="json"))

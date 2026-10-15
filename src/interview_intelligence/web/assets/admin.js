@@ -66,7 +66,7 @@
     visitorQuery: "", policy: null, policyDirty: false, policySaving: false, action: null,
     actionSaving: false, refreshing: false, refreshQueued: false, loggedOut: false, series: [], visitorRequest: 0,
     overviewRequest: 0 };
-  const pages = { overview: "流量概览", visitors: "访客与设备", policy: "使用策略", audit: "操作记录" };
+  const pages = { overview: "流量概览", agent: "Agent 观测", visitors: "访客与设备", policy: "使用策略", audit: "操作记录" };
   const policyFields = ["quota_enabled", "quota_limit", "quota_period", "quota_scope", "rate_enabled", "rate_per_minute"];
   const fieldId = key => key.replaceAll("_", "-");
   const setText = (id, value) => { $(id).textContent = String(value); };
@@ -111,6 +111,7 @@
     return body.data;
   }
   function showLogin(error = "") {
+    root.AgentObservation?.reset();
     state.authenticated = false;
     state.policy = null;
     state.policyDirty = false;
@@ -133,6 +134,8 @@
     await refresh();
   }
   function selectPage(page, shouldRefresh = true) {
+    const route = page;
+    page = page.split("/")[0];
     state.page = Object.hasOwn(pages, page) ? page : "overview";
     document.querySelectorAll(".page").forEach(item => { item.hidden = item.id !== `page-${state.page}`; });
     document.querySelectorAll(".nav-item").forEach(button => {
@@ -142,8 +145,9 @@
     });
     setText("page-name", pages[state.page]);
     document.title = `${pages[state.page]} · 面经研习访问管理`;
-    if (location.hash !== `#${state.page}`) history.replaceState(null, "", `${location.pathname}${location.search}#${state.page}`);
-    if (shouldRefresh && state.authenticated) refresh();
+    const fragment = state.page === "agent" && route.startsWith("agent/") ? route : state.page;
+    if (location.hash !== `#${fragment}`) history.replaceState(null, "", `${location.pathname}${location.search}#${fragment}`);
+    if (shouldRefresh && state.authenticated) refresh(true);
   }
   function renderChart(series) {
     const model = chartModel(series);
@@ -422,7 +426,7 @@
       policyFields.forEach(key => { $(fieldId(key)).disabled = !state.policy; }); updatePolicyDirty();
     }
   }
-  async function refresh() {
+  async function refresh(forceDetail = false) {
     if (!state.authenticated) return;
     if (state.refreshing) { state.refreshQueued = true; return; }
     state.refreshing = true; $("refresh-button").disabled = true;
@@ -430,6 +434,7 @@
     if (state.page === "overview") tasks.push(loadOverview());
     if (state.page === "visitors") tasks.push(loadVisitors());
     if (state.page === "audit") tasks.push(loadAudit());
+    if (state.page === "agent") tasks.push(root.AgentObservation.load(api, forceDetail));
     try { await Promise.allSettled(tasks); }
     finally {
       state.refreshing = false; $("refresh-button").disabled = false;
@@ -467,7 +472,7 @@
   $("action-form").addEventListener("submit", saveAction);
   ["action-close", "action-cancel"].forEach(id => $(id).addEventListener("click", () => { if (!state.actionSaving) $("action-dialog").close(); }));
   $("action-dialog").addEventListener("cancel", event => { if (state.actionSaving) event.preventDefault(); });
-  $("refresh-button").addEventListener("click", refresh);
+  $("refresh-button").addEventListener("click", () => refresh(true));
   window.addEventListener("hashchange", () => { if (state.authenticated) selectPage(location.hash.slice(1)); });
   document.addEventListener("visibilitychange", () => {
     setText("refresh-status", document.hidden ? "页面在后台，自动刷新已暂停" : "每 10 秒自动刷新");

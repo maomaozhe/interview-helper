@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import re
 import time
 from copy import deepcopy
 from datetime import date, timedelta, timezone
@@ -19,14 +20,17 @@ from interview_intelligence.agent.query_contract import QueryRequest, QuerySpec,
 from interview_intelligence.agent.harness import ContextCompiler, ToolPolicy, authorized_statuses
 from interview_intelligence.analytics.detail import get_question_detail
 from interview_intelligence.analytics.counts import count_questions
+from interview_intelligence.analytics.semantic_scope import load_semantic_scope, SemanticScopeIncomplete
 from interview_intelligence.analytics.listing import ListRequest, StatsListRequest, filter_fields, list_questions
 from interview_intelligence.agent.preferences import PreferenceService
 from interview_intelligence.agent.feedback_memory import FeedbackMemory
 from pathlib import Path
 from interview_intelligence.agent.journal import QueryJournal
-from interview_intelligence.analytics.stats import query_question_stats
+from interview_intelligence.analytics.stats import _active_from, _conditions, query_question_stats
+from interview_intelligence.analytics.usage import record_usage
+from interview_intelligence.company import COMPANY_ALIASES
 from interview_intelligence.contracts import FilterSpec, ReviewRequest, StatsRequest
-from interview_intelligence.domain.models import AgentConversation, AgentTurn, CorpusState, UserRevision, ModelCall, now_utc
+from interview_intelligence.domain.models import AgentConversation, AgentTurn, CorpusState, UserRevision, ModelCall, Interview, now_utc
 from interview_intelligence.providers.runtime import RequestLimits, current_limits
 from interview_intelligence.review.service import ReviewService
 from interview_intelligence.search.service import search_questions
@@ -35,6 +39,10 @@ from interview_intelligence.search.service import search_questions
 SEARCH_FILTER_POLICY_VERSION = "search_question_type_origin_v1"
 SEARCH_DIMENSION_POLICY_VERSION = "search_semantic_dimensions_origin_v1"
 SEARCH_SEMANTIC_FIELDS = ("topic_l1", "topic_l2", "coding_focus")
+SEARCH_FREQUENCY_CUES = re.compile(r"高频|频率|频次|出现次数|提问次数|考察次数|被问次数|出现最多|最常考", re.I)
+SEARCH_RELEVANCE_CUES = re.compile(r"(?:按|依|根据|按照).{0,5}(?:相关度|相关性|匹配度).{0,5}(?:排序|排名|排列)|(?:相关度|相关性|匹配度).{0,4}(?:排序|排名|排列)", re.I)
+SEARCH_CONTINUATION_CUES = re.compile(r"^(再|继续|更多|还有|下一批|同上|这些|这类|上面|刚才|前面|重查|重新|那)")
+SEARCH_RANKING_NEGATION = re.compile(r"(?:不要|不按|不是|不再|不用|无需|不必|别|避免|禁止).{0,10}$")
 
 
 @dataclass
@@ -81,10 +89,57 @@ class QueryService:
         self.reviews = ReviewService(database)
         self.runs: dict[str, QueryRun] = {}
 
+    @staticmethod
+    def _explicit_search_ranking(message: str) -> str | None:
+        """Use the last explicit ranking cue in a correction, if any."""
+        def negated(position: int) -> bool:
+            clause = re.split(r"[，,。；;！？!?、\n]", message[max(0, position - 18):position])[-1]
+            return bool(SEARCH_RANKING_NEGATION.search(clause))
+
+        cues = [(match.start(), "relevance" if negated(match.start()) else "frequency")
+                for match in SEARCH_FREQUENCY_CUES.finditer(message)]
+        cues.extend((match.start(), "relevance") for match in SEARCH_RELEVANCE_CUES.finditer(message)
+                    if not negated(match.start()))
+        return max(cues)[1] if cues else None
+
+    def _search_ranking(self, run: QueryRun) -> str:
+        explicit = self._explicit_search_ranking(run.request.message)
+        if explicit:
+            return explicit
+        if run.requery_origin.get("action") == "SEARCH":
+            original = self._explicit_search_ranking(run.requery_origin.get("original_message", ""))
+            if original:
+                return original
+        if (SEARCH_CONTINUATION_CUES.search(run.request.message.strip())
+                and (run.state.get("last_plan") or {}).get("action") == "SEARCH"):
+            return run.state.get("search_ranking", "relevance")
+        return "relevance"
+
     def _revisions(self, session):
         corpus = session.get(CorpusState, 1)
         user = session.get(UserRevision, self.user_id)
         return (corpus.current_revision, corpus.task_annotation_revision, user.state_revision if user else 0)
+
+    def _filter_catalog(self):
+        """Expose bounded active metadata values; the model selects semantic scope."""
+        catalog = {"company_aliases": dict(COMPANY_ALIASES)}
+        with self.database.session() as session:
+            for key, column in (("companies", Interview.company_normalized),
+                                ("positions", Interview.position_normalized)):
+                values = list(session.scalars(select(column).select_from(_active_from())
+                    .where(*_conditions(FilterSpec()), column.is_not(None), column != "")
+                    .distinct().order_by(column).limit(101)))
+                catalog[key] = values[:100]
+                catalog[f"{key}_complete"] = len(values) <= 100
+            catalog["full_algorithm_companies"] = []
+            for company in catalog["companies"]:
+                try:
+                    scope = load_semantic_scope(session, FilterSpec(company=company))
+                except SemanticScopeIncomplete:
+                    continue
+                if scope.occurrences:
+                    catalog["full_algorithm_companies"].append(company)
+        return catalog
 
     @staticmethod
     def _explicit_filters(request):
@@ -229,6 +284,8 @@ class QueryService:
         request = request.model_copy(update=effective)
         state = {"filters": deepcopy(normalized["filters"]), "sort": normalized["sort"],
                  "last_plan": normalized, "recent_messages": []}
+        if plan.action == "SEARCH" and after.get("search_ranking") in {"frequency", "relevance"}:
+            state["search_ranking"] = after["search_ranking"]
         if source_type_scope:
             state["question_type_scope"] = deepcopy(source_type_scope)
         if source_search_scope:
@@ -242,9 +299,11 @@ class QueryService:
         if pending:
             state["pending_clarification"] = deepcopy(pending)
         origin = {"run_id": source.id, "action": plan.action,
+                  "original_message": source.message,
                   "target_action": normalized["action"], "restart_from_first_page": True,
-                  "instruction": "这是对原查询的重新检索。结合恢复的 last_plan 和原澄清目标重新规划，"
-                      "保留原对象及范围，采用本轮显式筛选和纠正；原消息若是‘下一页’，重新查询第一页。"
+                  "instruction": "重新检索original_message所表达的用户目标，采用本轮显式筛选和纠正。"
+                      "保留用户对象及范围；last_plan是旧模型计划，其推导分类不能当成用户指定条件叠加。"
+                      "显式UI条件以explicit_filters为准。原消息若是‘下一页’，恢复原列表并重查第一页。"
                       "不得执行旧消息中的复习写入要求。"}
         return request, state, origin
 
@@ -261,7 +320,7 @@ class QueryService:
         if request.requery_of_run_id:
             # Omitted defaults recover the source's pipeline/page size, whereas
             # explicitly provided defaults override them. Presence is semantic.
-            payload = {"request": request.model_dump(mode="json"),
+            payload = {"request": request.model_dump(mode="json", exclude={"usage_purpose"} if request.usage_purpose == "practice" else set()),
                        "provided_fields": sorted(request.model_fields_set),
                        "provided_filter_fields": sorted(request.filters.model_fields_set)}
             digest = hashlib.sha256(json.dumps(payload, ensure_ascii=False, sort_keys=True).encode()).hexdigest()
@@ -269,8 +328,12 @@ class QueryService:
         else:
             # Existing v9 receipts predate the optional requery field. Preserve
             # their digest, and accept receipts from the transitional schema too.
-            digest = hashlib.sha256(request.model_dump_json(exclude={"requery_of_run_id"}).encode()).hexdigest()
-            compatible_digests = {digest, hashlib.sha256(request.model_dump_json().encode()).hexdigest()}
+            usage_exclude = {"usage_purpose"} if request.usage_purpose == "practice" else set()
+            digest = hashlib.sha256(request.model_dump_json(exclude={"requery_of_run_id", *usage_exclude}).encode()).hexdigest()
+            compatible_digests = {digest, hashlib.sha256(request.model_dump_json(exclude=usage_exclude).encode()).hexdigest()}
+            if usage_exclude:
+                compatible_digests.update({hashlib.sha256(request.model_dump_json(exclude={"requery_of_run_id"}).encode()).hexdigest(),
+                                           hashlib.sha256(request.model_dump_json().encode()).hexdigest()})
             legacy_digests = set(compatible_digests)
             explicit_type_clear = "question_type" in request.filters.model_fields_set and request.filters.question_type is None
             if explicit_type_clear:
@@ -369,11 +432,24 @@ class QueryService:
         return run
 
     def model_context(self, run):
-        session_state = {**run.state}
+        session_state = deepcopy(run.state)
+        if run.requery_origin.get("action") == "LIST" and run.tool_calls == 0:
+            # A previous model's SQL list is a reference for replanning, not
+            # another copy of the user's active filter constraints. Keep its
+            # complete last_plan available, without presenting inferred fields
+            # as active filters or inherited SQL capabilities to the model.
+            explicit = self._explicit_filters(run.request)
+            for key in ("filters", "list_request"):
+                if key in session_state:
+                    for name, field in FilterSpec.model_fields.items():
+                        session_state[key][name] = explicit.get(name, field.default)
+            for key in ("question_type_scope", "search_filter_scope"):
+                session_state.pop(key, None)
         focus = self.context_compiler.conversation_focus(run.state)
         if focus:
             session_state["conversation_focus"] = focus
         context = {"message": run.request.message, "today": self.today().isoformat(),
+                "filter_catalog": self._filter_catalog(),
                 "explicit_filters": self._explicit_filters(run.request),
                 "default_page_size":run.request.page_size if "page_size" in run.request.model_fields_set else self.preferences.defaults().get("page_size",run.request.page_size),
                 "requested_pipeline": run.request.pipeline if "pipeline" in run.request.model_fields_set else self.preferences.defaults().get("pipeline",run.request.pipeline),
@@ -386,7 +462,7 @@ class QueryService:
         if self.compact_context:
             context = self.context_compiler.compile(
                 **{k: v for k, v in context.items() if k not in {"session", "completed_tools"}},
-                state=run.state, parts=run.parts, terminal=run.terminal,
+                state=session_state, parts=run.parts, terminal=run.terminal,
                 remaining_tools=8-run.tool_calls)
         elif self.dynamic_tools:
             context["tool_policy"] = self.tool_policy(run).model_dump()
@@ -414,6 +490,13 @@ class QueryService:
         run.result["facts"]["meta"]["harness"] = metadata
 
     def execute(self, run: QueryRun, name: str, plan: QuerySpec) -> dict:
+        try:
+            return self._execute(run,name,plan)
+        except BaseException as error:
+            self.journal.fail_tool(run,name,plan,error)
+            raise
+
+    def _execute(self, run: QueryRun, name: str, plan: QuerySpec) -> dict:
         run.limits.check()
         if run.tool_calls >= 8 or run.terminal:
             raise ValueError("QUERY_TOOL_BUDGET_EXCEEDED")
@@ -464,9 +547,12 @@ class QueryService:
             raise ValueError("EXPLICIT_FILTER_CONFLICT")
         question_type_policy = None
         search_dimension_policy = None
+        search_ranking = self._search_ranking(run) if plan.action == "SEARCH" else None
         if plan.action == "SEARCH":
             plan, question_type_policy = self._search_question_type(run, plan, explicit)
             plan, search_dimension_policy = self._search_semantic_dimensions(run, plan, explicit, automatic_annotation)
+            if search_ranking == "frequency":
+                plan = plan.model_copy(update={"sort": "frequency"})
         invocation_id,previous=self.journal.prepare(run,run.tool_calls,name,plan)
         if previous:
             run.result=previous
@@ -487,9 +573,9 @@ class QueryService:
                     req = (run.request.list_request if isinstance(run.request, StructuredQueryRequest) else
                            (StatsListRequest if run.state["list_request"].get("group_by") else ListRequest).model_validate(run.state["list_request"]) if plan.action == "NEXT" else
                            StatsListRequest(**plan.filters.model_dump(),group_by=plan.group_by,topic_level=plan.topic_level,sort=plan.sort,
-                               top_n=plan.top_n,page_size=plan.page_size,review_statuses=plan.review_statuses,review_order=plan.review_order) if plan.action=="STATS" else
+                               top_n=plan.top_n,page_size=plan.page_size,review_statuses=plan.review_statuses,review_order=plan.review_order,semantic_task=plan.semantic_task) if plan.action=="STATS" else
                            ListRequest(**plan.filters.model_dump(), sort=plan.sort, top_n=plan.top_n, page_size=plan.page_size,
-                                       review_statuses=plan.review_statuses,review_order=plan.review_order))
+                                       review_statuses=plan.review_statuses,review_order=plan.review_order,semantic_task=plan.semantic_task))
                     if isinstance(run.request,StructuredQueryRequest):
                         req=req.model_copy(update={"annotation_status":plan.filters.annotation_status})
                     result = list_questions(session, req, signing_key=self.signing_key, user_id=self.user_id, as_of=self.today())
@@ -500,13 +586,17 @@ class QueryService:
                     plan = plan.model_copy(update={"filters": next_filters, "sort": req.sort,
                                                   "top_n": req.top_n, "page_size": req.page_size,
                                                   "group_by":getattr(req,"group_by","question"),
-                                                  "topic_level":getattr(req,"topic_level","L1")})
+                                                  "topic_level":getattr(req,"topic_level","L1"), "semantic_task":req.semantic_task})
                 elif plan.action == "COUNT":
-                    counts = count_questions(session, plan.filters, user_id=self.user_id, review_statuses=plan.review_statuses)
+                    semantic_scope = load_semantic_scope(session, plan.filters, task=plan.semantic_task) if plan.semantic_task else None
+                    counts = count_questions(session, plan.filters, user_id=self.user_id, review_statuses=plan.review_statuses,
+                        occurrence_ids=semantic_scope.accepted_occurrence_ids if semantic_scope else None)
                     scoped = any(value is not None for key, value in plan.filters.model_dump(mode="json").items()
                                  if key != "date_basis") or bool(plan.review_statuses)
                     result = {"data": [], "meta": {"route": "SQL", "counts": counts,
-                        "count_scope": "filtered_corpus" if scoped else "full_corpus"}}
+                        "count_scope": "filtered_corpus" if scoped or plan.semantic_task else "full_corpus"}}
+                    if semantic_scope:
+                        result["meta"].update(semantic_task=plan.semantic_task, semantic_scope=semantic_scope.metadata())
                 elif plan.action == "ANSWER":
                     rows = [get_question_detail(session, identity, plan.filters) for identity in plan.question_ids]
                     if any(not row.get("occurrence_count") for row in rows):
@@ -525,7 +615,8 @@ class QueryService:
                         run.limits.check()
                         try:
                             result = search_questions(session, self.retriever, plan.search_query, plan.filters,
-                                top_k=plan.page_size, pipeline=executed, relevance_query=plan.relevance_query or
+                                top_k=50 if search_ranking == "frequency" else plan.page_size,
+                                pipeline=executed, relevance_query=plan.relevance_query or
                                 ((run.state.get("pending_clarification") or {}).get("original_message", "") + " " + run.request.message).strip(),
                                 lexical_facets=plan.lexical_facets,
                                 preferred_question_type=(plan.preferred_question_type or (question_type_policy["planned_question_type"]
@@ -545,7 +636,10 @@ class QueryService:
                                and result["meta"].get("candidate_verification_status") == "PARTIAL"
                                and type(result["meta"].get("invalid_candidate_count")) is int
                                and result["meta"]["invalid_candidate_count"] > 0)
-                    verified = executed == "HYBRID_RERANK" and (
+                    empty_scope = result["meta"]["eligible_count"] == 0 and not result["data"]
+                    if empty_scope:
+                        result["meta"]["verification_basis"] = "empty_sql_scope"
+                    verified = executed == "HYBRID_RERANK" and (empty_scope or
                         result["meta"].get("rerank_status") == "COMPLETED"
                         and result["meta"].get("candidate_verification_status") in {None, "COMPLETE"}
                         and result["meta"].get("invalid_candidate_count", 0) == 0
@@ -555,12 +649,33 @@ class QueryService:
                         warnings = ["相关性核验未完成，请重新检索，或明确选择原始混合检索查看候选。"]
                     if partial:
                         warnings.append(f"已排除 {result['meta']['invalid_candidate_count']} 个结构异常候选，结果可能不完整。")
+                    if search_ranking == "frequency":
+                        # The retriever verifies at most 50 candidates. Rank that
+                        # entire verified set before applying the displayed page size.
+                        matches = result["data"]
+                        result["data"] = sorted(matches, key=lambda row: -row["occurrence_count"])[:plan.page_size]
+                        retrieval_selection = result["meta"].get("result_selection_policy")
+                        if retrieval_selection:
+                            result["meta"]["retrieval_selection_policy"] = retrieval_selection
+                        result["meta"]["result_selection_policy"] = "occurrence_count_desc_then_retrieval_order_v1"
+                        visible = {row["canonical_question_id"] for row in result["data"]}
+                        audit = result["meta"].get("rerank_audit")
+                        if isinstance(audit, dict) and isinstance(audit.get("candidates"), list):
+                            result["meta"]["rerank_audit"] = {**audit, "candidates": [
+                                {**item, "decision": "PAGE_CUTOFF"}
+                                if item.get("decision") == "RETURNED" and item.get("canonical_question_id") not in visible
+                                else item for item in audit["candidates"]]}
+                        result["meta"].update({"frequency_ranking": {
+                            "basis": "occurrence_count", "matched_candidates": len(matches),
+                            "candidate_pool_limit": 50,
+                            "scope": "verified_semantic_candidates" if verified else "retrieval_candidates"}})
+                        warnings.append("频次排序仅覆盖本次最多 50 个检索候选，不能据此断言全库最高频算法题。")
                     result["meta"].update({"relevance_status": "VERIFIED" if verified else
                         "UNAVAILABLE" if plan.pipeline == "HYBRID_RERANK" else "UNVERIFIED",
                         "returned_count": len(result["data"])})
                     result["meta"].update({"route": "SEARCH", "requested_pipeline": plan.pipeline,
                         "executed_pipeline": executed, "degraded": executed != plan.pipeline,
-                        "ranking_scope": "semantic_candidates"})
+                        "ranking_scope": "semantic_candidates", "search_ranking": search_ranking})
                 elif plan.action in {"DETAILS", "REVIEW_STATE", "RECORD_REVIEW"}:
                     ids = plan.question_ids if plan.action != "RECORD_REVIEW" else [i.canonical_question_id for i in plan.review_items]
                     if plan.action=="REVIEW_STATE" and plan.scope=="full_scope":
@@ -624,8 +739,16 @@ class QueryService:
                   plan.clarification if plan.action == "CLARIFY" else
                   f"已保存 {len(plan.review_items)} 道题的复习记录。" if plan.action == "RECORD_REVIEW" else
                   "已读取当前题目的复习状态。" if plan.action == "REVIEW_STATE" else
+                  (f"当前已收录的{plan.filters.company or '所选范围'}面经中，共有 "
+                   f"{result['meta']['pagination']['result_total']} 道去重算法题、"
+                   f"{result['meta']['sample_counts']['selected_occurrences']} 次算法提问；"
+                   f"本页显示 {len(rows)} 道，按真实提问频次排序。"
+                   + ("可继续查看下一页。" if result["meta"]["pagination"]["next_cursor"] else "已显示到最后一页。"))
+                  if plan.action in {"LIST", "NEXT"} and plan.semantic_task and plan.sort == "frequency" else
                   f"返回 {len(rows)} 道题，按真实提问频次排序。" if plan.action in {"LIST", "NEXT"} and plan.sort == "frequency" else
                   ("相关性核验未完成，请重试。" if result["meta"].get("relevance_status") == "UNAVAILABLE" else
+                   f"本次语义核验候选中，按当前筛选范围的真实提问频次排序，返回 {len(rows)} 道题。" if plan.action == "SEARCH" and search_ranking == "frequency" and result["meta"].get("relevance_status") == "VERIFIED" else
+                   f"本次检索候选中，按当前筛选范围的真实提问频次排序，返回 {len(rows)} 道题；相关性未核验。" if plan.action == "SEARCH" and search_ranking == "frequency" else
                    f"找到 {len(rows)} 道经语义筛选的题目，按相关度排列。" if plan.action == "SEARCH" and result["meta"].get("relevance_status") == "VERIFIED" else
                    f"返回 {len(rows)} 条结果。"))
         run.result = {"intent": plan.action, "answer": answer, "facts": result,
@@ -648,6 +771,7 @@ class QueryService:
         run.state.pop("pending_clarification", None)
         if plan.action == "COUNT":
             run.state["last_count"] = {"filters": plan.filters.model_dump(mode="json"),
+                "semantic_task": plan.semantic_task,
                 "review_statuses": list(plan.review_statuses), "counts": result["meta"]["counts"],
                 "count_scope": result["meta"]["count_scope"], "message": run.request.message}
         # Reading details or review state must retain the page and scope for later
@@ -663,6 +787,8 @@ class QueryService:
                      "task_annotation_revision": run.revisions[1],
                      "current_page_ids": [r["canonical_question_id"] for r in rows if r.get("canonical_question_id")],
                      "recent_messages": run.state.get("recent_messages", [])}
+        if plan.action == "SEARCH":
+            run.state["search_ranking"] = search_ranking
         run.state["current_page_summary"] = [self.context_compiler.evidence_row(row) for row in rows[:10]]
         if plan.filters.question_type is None:
             run.state.pop("question_type_scope", None)
@@ -725,6 +851,7 @@ class QueryService:
             "filters": plan.filters.model_dump(mode="json"), "sort": plan.sort, "top_n": plan.top_n,
             "review_statuses": list(plan.review_statuses), "review_order": plan.review_order,
             "group_by": plan.group_by, "topic_level": plan.topic_level, "run_id": run.id,
+            "semantic_task": plan.semantic_task,
             **({"answer_kind": plan.answer_kind, "answer_basis": plan.answer_basis,
                 "question_ids": list(plan.question_ids)} if plan.action == "ANSWER" else {})}
 
@@ -732,6 +859,8 @@ class QueryService:
         if not run.result:
             raise ValueError("QUERY_PLAN_MISSING")
         response = run.result
+        if response["facts"]["meta"].get("relevance_status") == "UNAVAILABLE":
+            raise ValueError("QUERY_RELEVANCE_UNAVAILABLE")
         if len(run.parts)>1:
             response["facts"]["components"]=[{"intent":p["intent"],"facts":p["facts"],"answer":p["answer"]}
                 for p in run.parts[:-1]]
@@ -757,6 +886,9 @@ class QueryService:
                                                            AgentTurn.request_id == run.request.request_id))
             turn.status, turn.response = "SUCCEEDED", response
             turn.state_after,turn.finished_at=run.state,now_utc()
+            record_usage(session, user_id=self.user_id, request_key="agent:" + turn.id,
+                parts=run.parts or run.resume.get("parts") or [response],
+                purpose=run.request.usage_purpose, occurred_at=turn.finished_at)
             self.journal.append(session,turn,"completed",{"result":response})
         self.runs.pop(run.id, None)
         return response
@@ -771,5 +903,6 @@ class QueryService:
                 turn.status = "INTERRUPTED" if interrupted else "CANCELLED" if str(error)=="QUERY_CANCELLED" else "FAILED"
                 turn.error_code="QUERY_INTERRUPTED" if interrupted else str(error or "QUERY_FAILED")[:128]
                 turn.finished_at=now_utc()
+                self.journal.close_tools(session,turn,"CANCELLED" if turn.status=="CANCELLED" else "INTERRUPTED",turn.error_code)
                 self.journal.append(session,turn,"interrupted" if interrupted else "failed",{"code":turn.error_code,"partial":bool(turn.response)})
         self.runs.pop(run.id, None)

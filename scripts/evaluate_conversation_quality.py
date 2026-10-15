@@ -72,7 +72,8 @@ def main():
         atomic_write_json(target, result, exclusive=True)
     except FileExistsError:
         raise SystemExit("Refuse to overwrite real receipts") from None
-    with httpx.Client(base_url=args.url, timeout=100, trust_env=False) as client:
+    with httpx.Client(base_url=args.url, timeout=100, trust_env=False,
+                      headers={"X-Usage-Purpose": "evaluation"}) as client:
         result["health"] = client.get("/api/health").json()
         for case in selected:
             saved = {"id": case["id"], "turns": []}

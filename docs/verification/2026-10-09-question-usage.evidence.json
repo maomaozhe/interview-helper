@@ -1,0 +1,447 @@
+{
+  "schema": "question_usage_verification_v1",
+  "captured_at": "2026-10-09T12:44:06.676640+00:00",
+  "scope": "Local localhost:8000 question usage accounting and review entry; not a semantic relevance or recall-quality assessment.",
+  "feature_version": "question_usage_v1",
+  "release": {
+    "image": "sha256:224a16f317e35ba81c3e21d190f0d4a48ab7493d0326c661fa5c175a0f5d08f1",
+    "overlay_version": "v4",
+    "migration": "f047ac821369",
+    "released_files": 13,
+    "protected_files": 106,
+    "all_release_and_protected_hashes_match": true,
+    "all_frozen_source_hashes_match": true,
+    "corpus_revision": 293,
+    "indexed_revision": 293,
+    "tracking_started_at": "2026-10-09T12:13:12.999292+00:00",
+    "old_table_counts": {
+      "canonical_question": 2668,
+      "question_occurrence": 4338,
+      "source_document": 190,
+      "source_revision": 190,
+      "document_build": 293,
+      "interview": 292,
+      "review_event": 16,
+      "user_question_state": 16
+    },
+    "old_table_counts_preserved": true,
+    "old_table_id_hashes_preserved": true,
+    "corpus_state_preserved": true,
+    "index_presence_audit": {
+      "eligible_questions": 2452,
+      "indexed_questions": 2452,
+      "vector_present_questions": 2452,
+      "missing_ids": []
+    }
+  },
+  "tests": {
+    "python_full": {
+      "passed": 868,
+      "skipped": 3,
+      "failures": 0,
+      "errors": 0,
+      "junit_duration_seconds": 136.222,
+      "timestamp": "2026-10-09T20:18:03.583673+08:00",
+      "skipped_cases": [
+        {
+          "name": "test_postgres_cross_instance_quota_admission_is_atomic",
+          "reason": "explicit PostgreSQL test connection required"
+        },
+        {
+          "name": "test_live_es_rebuild_and_all_four_stage_shapes",
+          "reason": "requires local Elasticsearch"
+        },
+        {
+          "name": "test_postgres_usage_migration_and_concurrent_aggregation",
+          "reason": "explicit PostgreSQL test connection required"
+        }
+      ]
+    },
+    "api_targeted": {
+      "passed": 85,
+      "skipped": 0,
+      "failures": 0,
+      "errors": 0,
+      "junit_duration_seconds": 45.639,
+      "timestamp": "2026-10-09T20:15:34.990287+08:00",
+      "skipped_cases": []
+    },
+    "usage_targeted": {
+      "passed": 13,
+      "skipped": 1,
+      "failures": 0,
+      "errors": 0,
+      "junit_duration_seconds": 9.85,
+      "timestamp": "2026-10-09T20:04:22.802259+08:00",
+      "skipped_cases": [
+        {
+          "name": "test_postgres_usage_migration_and_concurrent_aggregation",
+          "reason": "explicit PostgreSQL test connection required"
+        }
+      ]
+    },
+    "postgres_live": {
+      "passed": 1,
+      "skipped": 0,
+      "failures": 0,
+      "errors": 0,
+      "junit_duration_seconds": 1.978,
+      "timestamp": "2026-10-09T20:04:23.350693+08:00",
+      "skipped_cases": [],
+      "isolated_schema": true,
+      "workers": 6,
+      "new_runs": 24,
+      "count_after_replay": 24,
+      "other_user_count": 0
+    },
+    "node_final": {
+      "passed": 77,
+      "failures": 0,
+      "duration_ms": 1782.9312
+    },
+    "note": "Targeted, full, and separately enabled live tests overlap and are not added together. Python code did not change after the full run; app.js and two Node regressions were finalized separately."
+  },
+  "http": {
+    "primary": {
+      "query": "Redis 缓存击穿",
+      "pipeline": "BM25",
+      "purpose": "evaluation",
+      "candidates": 100,
+      "returned": 1,
+      "new_evaluation_runs": 2,
+      "sql_listed": 1,
+      "checks": {
+        "real_candidates_recorded": true,
+        "returned_one": true,
+        "sql_listing_separate": true,
+        "replay_idempotent": true,
+        "evaluation_excluded": true,
+        "detail_counts_correct": true,
+        "model_call_delta": 0
+      },
+      "completed_at": "2026-10-09T12:18:50.696404+00:00"
+    },
+    "additional_summary": {
+      "tested_at": "2026-10-09T12:27:47.437165+00:00",
+      "purpose": "evaluation",
+      "bm25": {
+        "candidate_count": 100,
+        "returned_count": 3,
+        "pipeline": "BM25",
+        "embedding_version": "doubao-embedding-vision:1024:instructions_v2",
+        "index_schema_version": "search_v1_jieba_whitespace"
+      },
+      "listed_count": 3,
+      "personal_summary_unchanged": true,
+      "personal_observation_before": {
+        "completed_runs": 2,
+        "search_runs": 0,
+        "complete_candidate_runs": 0
+      },
+      "personal_observation_after": {
+        "completed_runs": 2,
+        "search_runs": 0,
+        "complete_candidate_runs": 0
+      },
+      "corpus_revision": 293,
+      "indexed_revision": 293
+    },
+    "initial_failed_get": {
+      "status": 400,
+      "reason": "Query-model default practice value mistaken for explicit conflict with evaluation header",
+      "raw": "data/reports/question-usage-20261009/http-smoke-v1-failed.json"
+    }
+  },
+  "ui": {
+    "final_view": {
+      "caption": "匹配 2,452 道 · 1–20 · 索引已同步",
+      "documentWidth": 1265,
+      "filters": {
+        "company": "",
+        "days": "",
+        "review-days": "7",
+        "sort": "least_returned",
+        "state": "NOT_RETURNED",
+        "topic": ""
+      },
+      "innerWidth": 1280,
+      "rendered_question_rows": 20,
+      "summary": {
+        "candidate": "0",
+        "due": "2,452",
+        "unreturned": "2,452",
+        "unreviewed": "0"
+      },
+      "tracking": "统计启用：2026/10/9 20:13:12。当前统计期 2026/10/9 20:13:12 至 2026/10/9 20:41:33；个人检索 0 次，完整候选观测 0 次。复习状态采用全部历史记录。",
+      "url": "http://localhost:8000/#usage"
+    },
+    "console_error_count": 0,
+    "redis_scope_count": 152,
+    "pagination_ranges": [
+      "1–20",
+      "21–40"
+    ],
+    "detail_review_feedback_entries_checked": true,
+    "personal_review_or_feedback_submitted": false,
+    "usage_page_initialization_counts_unchanged": {
+      "runs": 2,
+      "listed_events": 40,
+      "candidate_events": 0,
+      "returned_events": 0
+    },
+    "narrow_screen_scope": "DOM geometry checked; IAB screenshot scaling limits visual conclusions."
+  },
+  "limits": [
+    "No legacy usage backfill; statistics start at migration initialization.",
+    "Zero observed usage does not establish broken vectors or missed semantic recall.",
+    "Candidate pools are bounded by the pipeline, not the entire corpus.",
+    "Unfinished/failed/cancelled runs do not count; incomplete candidate audits are flagged.",
+    "Topic/company filters choose the active question set; per-question counts include all current-user practice queries within the usage window.",
+    "Review state uses lifetime records; evaluation purpose alone does not isolate review or feedback writes.",
+    "Current canonical redirects are mapped one hop; multi-hop redirect consolidation is not implemented.",
+    "No semantic-quality gates rerun; H01 and full V1 gates remain open.",
+    "Remote SSH deployment was not changed."
+  ],
+  "artifacts": {
+    "data/reports/question-usage-20261009/baseline-runtime.json": {
+      "sha256": "5e2137f1e1cb4edb5cd75bb1e56e2cd2e9bff0ee1b51919021e0feb06f75b3a9",
+      "bytes": 13124,
+      "availability": "local_ignored"
+    },
+    "data/reports/question-usage-20261009/release-manifest-v4.json": {
+      "sha256": "5ceef21e685de3e5f400d3366063469c3d045eadfea35e34da1789ff48b7f4ec",
+      "bytes": 1862,
+      "availability": "local_ignored"
+    },
+    "data/reports/question-usage-20261009/image-verification-v4.json": {
+      "sha256": "f7ff0ebd27ee73461e30fffcbe9f3e41f362984857e25692cacaa220fba53c99",
+      "bytes": 16762,
+      "availability": "local_ignored"
+    },
+    "data/reports/question-usage-20261009/deployment-verification-v4-final.json": {
+      "sha256": "c7ed2838e4a7f981788b377303244b7c1aaa933dfda0f8918c2da07eb3a54583",
+      "bytes": 20711,
+      "availability": "local_ignored"
+    },
+    "data/reports/question-usage-20261009/python-tests-v2.xml": {
+      "sha256": "80d13a37b0ca18e37cac965359b8874b99fa51da591b6c4e04662d434f5c1e8b",
+      "bytes": 136913,
+      "availability": "local_ignored"
+    },
+    "data/reports/question-usage-20261009/api-tests-v2.xml": {
+      "sha256": "b83933cf4c15c97cfb953ea9403f004b82a40764938a6e1ab921601023ff83df",
+      "bytes": 12500,
+      "availability": "local_ignored"
+    },
+    "data/reports/question-usage-20261009/usage-tests.xml": {
+      "sha256": "70cd78fba31d0360852622e50ef0b7256f9b38f1c12f39bcad96feb7afc19753",
+      "bytes": 2536,
+      "availability": "local_ignored"
+    },
+    "data/reports/question-usage-20261009/postgres-tests.xml": {
+      "sha256": "fc52037e02fd020b2f2a51b00efb7816617dcc6d1399c83b98b1d9e5b71511fc",
+      "bytes": 393,
+      "availability": "local_ignored"
+    },
+    "data/reports/question-usage-20261009/node-tests-v4.txt": {
+      "sha256": "150bef87c3b6b186dadde793416eb78399e7bfaaed8ebeec5daef1d925edf380",
+      "bytes": 16724,
+      "availability": "local_ignored"
+    },
+    "data/reports/question-usage-20261009/http-smoke.json": {
+      "sha256": "612a996f706ad0618340871454395b4aad45cb63021ae88e0aca7a45d146e997",
+      "bytes": 52529,
+      "availability": "local_ignored"
+    },
+    "data/reports/question-usage-20261009/http-smoke-v1-failed.json": {
+      "sha256": "dab1336b6ba9c9bc699f46ddd39c1496918787ce7bd3268145c105514ee31584",
+      "bytes": 5398,
+      "availability": "local_ignored"
+    },
+    "data/reports/question-usage-20261009/live-evaluation.json": {
+      "sha256": "935d7d4edfa6c7d7e39cecd5206726feb964214b3425db6e482b0f579afb3923",
+      "bytes": 679,
+      "availability": "local_ignored"
+    },
+    "data/reports/question-usage-20261009/final-health.json": {
+      "sha256": "58a5443c21eaf9493510f43c5b9fb53c60e641e7c4f2742cfcd669fdc9517ff7",
+      "bytes": 3360,
+      "availability": "local_ignored"
+    },
+    "data/reports/question-usage-20261009/ui-verification.json": {
+      "sha256": "77963c1285b57f789d74bc6b0d2aad6513acf8f328285861b1aec27a909f4875",
+      "bytes": 1804,
+      "availability": "local_ignored"
+    },
+    "data/reports/question-usage-20261009/ui-verification-v3.json": {
+      "sha256": "c0036fcb68a7d1ca37f7d7eb09ab4a3c06df650801c97a1e417179ab5dd4e938",
+      "bytes": 1218,
+      "availability": "local_ignored"
+    },
+    "data/reports/question-usage-20261009/ui-verification-final.json": {
+      "sha256": "ca7779207655779b6ec268d006f29967c1d2028a4c7d99c2b1635ce89ce8ace1",
+      "bytes": 1042,
+      "availability": "local_ignored"
+    },
+    "data/reports/question-usage-20261009/ui-ledger-before-v3.json": {
+      "sha256": "9607425ce63bd05f3cab7f2f2e27833505936f35d831858fc079d8e7ab883573",
+      "bytes": 41,
+      "availability": "local_ignored"
+    },
+    "data/reports/question-usage-20261009/ui-ledger-after-initialization-v3.json": {
+      "sha256": "dc4fc5a0d049add698d359893b9daf050d3c65078049f5df0608662f728c4b02",
+      "bytes": 92,
+      "availability": "local_ignored"
+    },
+    "data/reports/question-usage-20261009/ui-ledger-final-v3.json": {
+      "sha256": "dc4fc5a0d049add698d359893b9daf050d3c65078049f5df0608662f728c4b02",
+      "bytes": 92,
+      "availability": "local_ignored"
+    },
+    "data/reports/question-usage-20261009/usage-panel-final.jpg": {
+      "sha256": "24a38bf1a6f5a5253f44feda4d007781cf996457bbcdea72957350b4fce18af1",
+      "bytes": 67225,
+      "availability": "local_ignored"
+    },
+    "data/reports/question-usage-20261009/usage-detail.jpg": {
+      "sha256": "dfd87780ab61bb27af26df07cd73317028b427a9c972f51fb94c69f3c7378ea4",
+      "bytes": 38910,
+      "availability": "local_ignored"
+    },
+    "data/reports/question-usage-20261009/workspace-after-freeze.json": {
+      "sha256": "73d8de44d56ee11fdaabe50b9f44baa12cf55dd4e1a768f20b6826c0cdd7e805",
+      "bytes": 1201,
+      "availability": "local_ignored"
+    },
+    "data/reports/question-usage-20261009/report-before-final-audit.md": {
+      "sha256": "53b957379a259179cebd70ebd752a1e504e2ae7bb0621e9803227d863783f69c",
+      "bytes": 3736,
+      "availability": "local_ignored"
+    },
+    "data/reports/question-usage-20261009/http_smoke.py": {
+      "sha256": "954148096b8db428ea80423cfa7b9b7f4d2a89796a9191d7432f582b5e6c5d39",
+      "bytes": 4302,
+      "availability": "local_ignored"
+    },
+    "data/reports/question-usage-20261009/ui_ledger.py": {
+      "sha256": "a5d4a9959b03fbd9729cd6ad725c16412d6343239defcbbd1683b99fd0870a98",
+      "bytes": 1512,
+      "availability": "local_ignored"
+    },
+    "data/reports/question-usage-20261009/verify_final_v4.py": {
+      "sha256": "d75ad65045738937afb86e8a082cca1dc7ae8ae48211e44d891503cea224010d",
+      "bytes": 5056,
+      "availability": "local_ignored"
+    },
+    "src/interview_intelligence/api.py": {
+      "sha256": "6a630d729f79540e0f545e01ea016c29b4ea071afb26c518daf818ed909b84bc",
+      "bytes": 58242,
+      "availability": "repository"
+    },
+    "src/interview_intelligence/domain/models.py": {
+      "sha256": "9899b9ccabcfe780967c9002fd3543ab8bceb2b8a42a56f0fb1bc8e607061f09",
+      "bytes": 32401,
+      "availability": "repository"
+    },
+    "src/interview_intelligence/agent/query_contract.py": {
+      "sha256": "f78f95416b0e3d8b3cf08085d43d14ab11c776bfe75074d66cb7f2055edfcb30",
+      "bytes": 8565,
+      "availability": "repository"
+    },
+    "src/interview_intelligence/agent/query_service.py": {
+      "sha256": "5071a193244bbac6c60cf37459e82c6d81d722eb84736e250361fca318b302bc",
+      "bytes": 53500,
+      "availability": "repository"
+    },
+    "src/interview_intelligence/search/elasticsearch.py": {
+      "sha256": "36fdd56b7bb5e034d59bab755605aa9d8cba9e4259a6a864974be42b1e06927f",
+      "bytes": 27389,
+      "availability": "repository"
+    },
+    "src/interview_intelligence/search/service.py": {
+      "sha256": "2959fb978bd8de8e10b04f1971a86dd41726091c30ef24ce2d7ae657214bbb6f",
+      "bytes": 5280,
+      "availability": "repository"
+    },
+    "src/interview_intelligence/review/service.py": {
+      "sha256": "24936ffca9a1e97f594a1d7df576eef24e9cf7d4fa004efb72d0c82fc96bcf80",
+      "bytes": 9008,
+      "availability": "repository"
+    },
+    "src/interview_intelligence/web.py": {
+      "sha256": "f6e58b190bb975a1ab7f961d2b2b503aec3dc8c5f34980f73a9e4c4df9a2a7e9",
+      "bytes": 14919,
+      "availability": "repository"
+    },
+    "src/interview_intelligence/web/index.html": {
+      "sha256": "6c2dc107f3cbcd39bfefd2349301a340e30af07e630364e3016be36cbabb5eea",
+      "bytes": 28134,
+      "availability": "repository"
+    },
+    "src/interview_intelligence/web/assets/app.js": {
+      "sha256": "f2883c78af8413c9a43abc028e1ab6745ef28bb10c69904cbdb5690ddb85d4d6",
+      "bytes": 85132,
+      "availability": "repository"
+    },
+    "src/interview_intelligence/analytics/usage.py": {
+      "sha256": "dd1099cd8095cbc02c8e28def19b1882807633fd5439a90cdcace254bd26969e",
+      "bytes": 14013,
+      "availability": "repository"
+    },
+    "src/interview_intelligence/web/assets/usage.css": {
+      "sha256": "cfefdfd173ce0f8cda12d5afc10b276cfc2e66a35304469835109e32f88f2d47",
+      "bytes": 1323,
+      "availability": "repository"
+    },
+    "migrations/versions/f047ac821369_question_usage.py": {
+      "sha256": "4602839b62259111a8f30f2664e5868ff215af20066868f23533980215b2a580",
+      "bytes": 2633,
+      "availability": "repository"
+    },
+    "docs/verification/2026-10-09-question-usage.md": {
+      "sha256": "aa85598b8122de602298a109c837ac2982a92e1e100f05985c440d072ece810e",
+      "bytes": 7364,
+      "availability": "repository"
+    },
+    "docs/plans/2026-10-09-question-usage-spec.md": {
+      "sha256": "9a17dd268e1f1c10b487bd25404b0fa3f0e39e6fc6ef8dd07955342a3f35cbf5",
+      "bytes": 4443,
+      "availability": "repository"
+    },
+    "tests/integration/test_question_usage.py": {
+      "sha256": "e65206f3ab40aea538391ff6418f21957ee5e9425ae670202bcfbb84806d90de",
+      "bytes": 17741,
+      "availability": "repository"
+    },
+    "tests/integration/test_question_usage_postgres.py": {
+      "sha256": "b00e08f6f5a75b241ee0392719d53c5cab3b589525d87966ad8e5fee3bd79852",
+      "bytes": 4575,
+      "availability": "repository"
+    },
+    "tests/web/test_api_params.cjs": {
+      "sha256": "fea0708cfe3f523bafe8e7e585a03a01225fc36c323a9fe7754198a589e93110",
+      "bytes": 1471,
+      "availability": "repository"
+    },
+    "eval/collect.py": {
+      "sha256": "d9c123f6a2149d17b86671bfd8e8cabaf855e9431299f0121c4f8fdcc2ed88b5",
+      "bytes": 31514,
+      "availability": "repository"
+    },
+    "scripts/evaluate_conversation_quality.py": {
+      "sha256": "20a59a5b9bbf11819a5c5fb45d36ec7d6c9c8ea151c77c91c8867f750de9ce69",
+      "bytes": 6341,
+      "availability": "repository"
+    },
+    "scripts/evaluate_engineering_design.py": {
+      "sha256": "f2c82324f83a6d1a04c56424be14429831ece90a6248e462b56d96557e08db37",
+      "bytes": 7941,
+      "availability": "repository"
+    },
+    "scripts/evaluate_historical_requery.py": {
+      "sha256": "6d52f69e67b974678f803394c452873684e5dc22281549bb43e9dc82463df81a",
+      "bytes": 7100,
+      "availability": "repository"
+    }
+  }
+}

@@ -66,7 +66,133 @@ test('already completed snapshot does not open another event stream',async()=>{
   assert.equal(result.answer,'已完成');assert.equal(opened,0);
 });
 
-test('timeout closes the stream and cancellation cannot become a success',async()=>{
-  let cancelled=0;const pending=watch({timeoutMs:5,cancel:()=>cancelled++}),source=Source.latest;
-  await assert.rejects(pending,/查询超时/);assert.equal(cancelled,1);assert.equal(source.closed,true);
+test('silent SSE discovers persisted success before the watchdog, despite one transient status error',async()=>{
+  let checks=0,cancelled=0,guard;
+  const result={answer:'事件流未送达，但结果已保存'};
+  const pending=watch({timeoutMs:1000,statusPollMs:5,cancel:()=>cancelled++,readRun:async()=>{
+    if(++checks===1)throw Error('temporary status error');
+    return {status:'SUCCEEDED',last_sequence:1,result,events:[]};
+  }}),source=Source.latest;
+  try{
+    assert.deepEqual(await Promise.race([pending,new Promise((_,reject)=>{
+      guard=setTimeout(()=>reject(Error('status check waited for watchdog')),250);
+    })]),result);
+  }finally{clearTimeout(guard);}
+  assert.equal(checks,2);assert.equal(cancelled,0);assert.equal(source.closed,true);
+});
+
+test('status checks and disconnect recovery do not read the journal concurrently',async()=>{
+  let releaseFirst,startedFirst,active=0,maxActive=0,checks=0;
+  const firstStarted=new Promise(resolve=>{startedFirst=resolve;});
+  const firstRead=new Promise(resolve=>{releaseFirst=resolve;});
+  const result={answer:'recovered'};
+  const pending=watch({timeoutMs:1000,statusPollMs:5,readRun:async()=>{
+    checks++;active++;maxActive=Math.max(maxActive,active);
+    try{
+      if(checks===1){startedFirst();await firstRead;
+        return {status:'RUNNING',last_sequence:1,events:[]};}
+      return {status:'SUCCEEDED',last_sequence:1,result,events:[]};
+    }finally{active--;}
+  }}),source=Source.latest;
+  await firstStarted;
+  source.onerror();releaseFirst();
+  assert.deepEqual(await pending,result);
+  assert.equal(maxActive,1);assert.equal(checks,2);
+});
+
+test('a late status check cannot replay completion after SSE has resolved',async()=>{
+  let releaseRead,startedRead,cancelled=0;
+  const readStarted=new Promise(resolve=>{startedRead=resolve;});
+  const readGate=new Promise(resolve=>{releaseRead=resolve;});
+  const updates=[];const result={answer:'stream result'};
+  const pending=watch({timeoutMs:1000,statusPollMs:5,cancel:()=>cancelled++,
+    onEvent:event=>updates.push(event.type),readRun:async()=>{
+      startedRead();await readGate;
+      return {status:'SUCCEEDED',last_sequence:3,result,events:[
+        {sequence:2,type:'stage',data:{stage:'assembling'}},
+        {sequence:3,type:'completed',data:{result}}]};
+    }}),source=Source.latest;
+  await readStarted;
+  source.emit('completed',{result},2);releaseRead();
+  assert.deepEqual(await pending,result);
+  await Promise.resolve();
+  assert.deepEqual(updates,['accepted']);assert.equal(cancelled,0);
+});
+
+test('watchdog can recover success after an earlier status poll hangs',async()=>{
+  let checks=0,cancelled=0;
+  const result={answer:'persisted after stalled poll'};
+  const pending=watch({timeoutMs:35,statusPollMs:5,statusReadTimeoutMs:10,
+    cancel:()=>cancelled++,readRun:async()=>{
+      if(++checks===1)return new Promise(()=>{});
+      return {status:'SUCCEEDED',last_sequence:1,result,events:[]};
+    }}),source=Source.latest;
+  assert.deepEqual(await pending,result);
+  assert.equal(checks,2);assert.equal(cancelled,0);assert.equal(source.closed,true);
+});
+
+test('hanging status reads cannot leave the watchdog pending forever',async()=>{
+  let checks=0,cancelled=0,guard;
+  const pending=watch({timeoutMs:35,statusPollMs:5,statusReadTimeoutMs:10,
+    cancel:()=>cancelled++,readRun:async()=>{
+      checks++;return new Promise(()=>{});
+    }}),source=Source.latest;
+  try{
+    await assert.rejects(Promise.race([pending,new Promise((_,reject)=>{
+      guard=setTimeout(()=>reject(Error('watchdog remained blocked')),250);
+    })]),error=>error.code==='RUN_STATUS_TIMEOUT');
+  }finally{clearTimeout(guard);}
+  assert.equal(checks,2);assert.equal(cancelled,0);assert.equal(source.closed,true);
+});
+
+test('watchdog reads a persisted success even when SSE completion never arrives',async()=>{
+  let cancelled=0;const cursors=[];
+  const result={answer:'已保存的结果'};
+  const pending=watch({timeoutMs:5,cancel:()=>cancelled++,readRun:async cursor=>{
+    cursors.push(cursor);
+    if(cursor===1)return {status:'SUCCEEDED',last_sequence:3,result,events:[
+      {sequence:2,type:'stage',data:{stage:'assembling'}}]};
+    assert.equal(cursor,2);
+    return {status:'SUCCEEDED',last_sequence:3,result,events:[
+      {sequence:3,type:'completed',data:{result}}]};
+  }}),source=Source.latest;
+  assert.deepEqual(await pending,result);
+  assert.deepEqual(cursors,[1,2]);
+  assert.equal(cancelled,0);assert.equal(source.closed,true);
+});
+
+test('watchdog returns a persisted failure instead of cancelling it',async()=>{
+  let cancelled=0;const partial={answer:'已完成的部分'};
+  const pending=watch({timeoutMs:5,cancel:()=>cancelled++,readRun:async()=>({
+    status:'FAILED',last_sequence:2,error_code:'QUERY_DEADLINE_EXCEEDED',partial_result:partial,
+    events:[{sequence:2,type:'failed',data:{code:'QUERY_DEADLINE_EXCEEDED'}}]
+  })});
+  await assert.rejects(pending,error=>error.message==='QUERY_DEADLINE_EXCEEDED' && error.partial===partial);
+  assert.equal(cancelled,0);
+});
+
+test('watchdog cancels a run that is still running',async()=>{
+  let cancelled=0;const cursors=[];
+  const pending=watch({timeoutMs:5,cancel:()=>cancelled++,readRun:async cursor=>{
+    cursors.push(cursor);return {status:'RUNNING',last_sequence:cursor,events:[]};
+  }}),source=Source.latest;
+  await assert.rejects(pending,/查询超时/);
+  assert.deepEqual(cursors,[1]);assert.equal(cancelled,1);assert.equal(source.closed,true);
+});
+
+test('watchdog does not cancel a run when its final status cannot be read',async()=>{
+  let cancelled=0;
+  const pending=watch({timeoutMs:5,cancel:()=>cancelled++,readRun:async()=>{
+    throw Error('status unavailable');
+  }}),source=Source.latest;
+  await assert.rejects(pending,/status unavailable/);
+  assert.equal(cancelled,0);assert.equal(source.closed,true);
+});
+
+test('failed complete-scope query keeps its code and explains why no complete list is available',async()=>{
+  const pending=watch({timeoutMs:1000,statusPollMs:5,readRun:async()=>({
+    status:'FAILED',last_sequence:1,error_code:'SEMANTIC_SCOPE_INCOMPLETE',events:[]
+  })});
+  await assert.rejects(pending,error=>error.code==='SEMANTIC_SCOPE_INCOMPLETE'
+    && /全量算法核验尚未完成/.test(error.message));
 });

@@ -28,12 +28,31 @@ SOURCE_CONTEXT_INSTRUCTIONS = (
 
 TASK_SHAPE_INSTRUCTIONS = (
     "顶层另含query_task、query_task_evidence，每个rankings元素另含candidate_task、task_evidence。"
-    "query_task=INDEPENDENT_SYSTEM_DESIGN仅用于query明确要求独立系统新建/改造设计，其他范围为OTHER；"
+    "query_task=INDEPENDENT_SYSTEM_DESIGN用于独立系统设计，ALGORITHM_PROBLEM用于独立算法练习，其他为OTHER；"
     "query_task_evidence连续引用原query的任务要求，不从候选或示例倒推。"
-    "candidate_task只能为DESIGN_TASK、PROJECT_REPORT、CODE_TASK、LOCAL_DETAIL、KNOWLEDGE、UNKNOWN。"
+    "candidate_task只能为DESIGN_TASK、PROJECT_REPORT、ALGORITHM_TASK、CODE_TASK、LOCAL_DETAIL、KNOWLEDGE、UNKNOWN。"
     "task_evidence连续引用证明任务形态的当前canonical题干或VERIFIED original_question；"
     "负类还可引用适用于当前题的VERIFIED上下文标记。DESIGN_TASK不能只借邻近题证明当前题的独立建设目标。"
     "query_task_evidence和task_evidence各最多160字符。"
+)
+
+ALGORITHM_PROBLEM_SCOPE_INSTRUCTIONS = (
+    "算法练习题范围先判断当前题是否要求独立算法求解，不以技术名、旧题型或任务标签代替原文。"
+    "ALGORITHM_TASK包括给定输入/输出或目标约束的数组、字符串、链表、树、图、数值及数据结构求解；"
+    "明确力扣题、算法环节的题名及口述算法求解也可属于该任务，不能因没有代码前缀拒绝。"
+    "数据结构求解须有可检验的操作或计算目标，例如栈的push/pop/getMin、双栈实现队列、O(1)的LRU。"
+    "泛设计愿望（结合两种结构的优点、设计更好的组件等）没有指定操作或求解目标时，是开放设计而非算法练习。"
+    "例如‘设计一个综合数组和链表各自优点的数据结构’不能自行补成索引/增删算法实现题，keep=false。"
+    "区分原文明确要求实现与模型猜测可以实现；出现数组、链表、设计或旧ALGORITHM标签均不能补足缺失的任务。"
+    "岛屿DFS、最大正方形、整数二进制拆分等省略题干的求解任务不因旧UNKNOWN标签被排除。"
+    "CODE_TASK表示工程组件、语言功能或SQL实现，不代表都是算法题。"
+    "用户只要算法练习时，原理知识、系统设计追问、海量数据容量/排序方案、智力题、泛组件设计不在范围。"
+    "布隆过滤器原理/容量估算不因涉及算法成为求解题；数据结构名称不证明新的求解任务。"
+    "LRU、队列等须检查本题原问法：明确算法/力扣环节的实现可为ALGORITHM_TASK，"
+    "普通工程缓存、并发任务处理器、JSON路径组件或单例构造仍是CODE_TASK。"
+    "算法原题后的线程安全、线上容量等工程化追问须独立判断，不能借算法标题升级为算法求解。"
+    "只在query要求算法练习时采用这些边界；若当前用户明确要海量数据算法、智力题或工程组件，按其范围判断。"
+    "旧canonical题干和邻近题不能覆盖VERIFIED原题及当前所属环节。"
 )
 
 INDEPENDENT_DESIGN_SCOPE_INSTRUCTIONS = (
@@ -68,6 +87,6 @@ def task_evidence_grounded(candidate, candidate_task, quote):
         if source.get("source_context_status") != "VERIFIED":
             continue
         texts.append(source.get("original_question", ""))
-        if candidate_task != "DESIGN_TASK":
+        if candidate_task not in {"DESIGN_TASK", "ALGORITHM_TASK"}:
             texts.extend(source.get(key, "") for key in ("context_before", "context_after"))
     return any(quote in text for text in texts)

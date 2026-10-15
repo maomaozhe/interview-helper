@@ -30,7 +30,7 @@ function evidenceRow(row) {
 function evidenceMeta(meta) {
   const projected=Object.fromEntries(["route","corpus_revision","task_annotation_revision","user_state_revision",
     "applied_filters","group_by","topic_level","sort","counts","sample_counts","total_groups","count_scope",
-    "review_statuses","review_order","relevance_status","returned_count"]
+    "review_statuses","review_order","relevance_status","returned_count","semantic_task","semantic_scope"]
     .filter(key=>meta[key]!==undefined).map(key=>[key,meta[key]]));
   if(meta.pagination)projected.pagination={...Object.fromEntries(["total","result_total","returned","offset","page_size","top_n"]
     .filter(key=>typeof meta.pagination[key]==="number").map(key=>[key,meta.pagination[key]])),
@@ -61,10 +61,10 @@ export async function runQuery(input, {hostUrl, token, signal, streamFn: injecte
   const makeTools = () => Object.keys(toolsByAction).filter(name => permittedActions(name).length).map(name => {
     const actions = permittedActions(name);
     const parameters = inlineSchema(schema, schema.$defs || {});
-    const fields={list_questions:["final","clarification","clarification_options","review_statuses","review_order"],
-      search_questions:["final","search_query","relevance_query","lexical_facets","preferred_question_type","pipeline"],get_question_stats:["final","group_by","topic_level","review_statuses","review_order"],
+    const fields={list_questions:["semantic_task","final","clarification","clarification_options","review_statuses","review_order"],
+      search_questions:["final","search_query","relevance_query","lexical_facets","preferred_question_type","pipeline"],get_question_stats:["semantic_task","final","group_by","topic_level","review_statuses","review_order"],
       get_question_details:["final","question_ids","scope"],get_review_state:["final","question_ids","scope"],
-      record_review:["final","review_items","scope"],get_question_count:["final","review_statuses"],
+      record_review:["final","review_items","scope"],get_question_count:["semantic_task","final","review_statuses"],
       answer_question:["final","answer_text","answer_kind","answer_basis","question_ids"]};
     const allowed=new Set(["action","filters","sort","top_n","page_size",...fields[name]]);
     parameters.properties=Object.fromEntries(Object.entries(parameters.properties).filter(([key])=>allowed.has(key)));
@@ -85,10 +85,10 @@ export async function runQuery(input, {hostUrl, token, signal, streamFn: injecte
       answer_question:["answer_text","answer_kind","answer_basis","final"]};
     parameters.required=Array.from(new Set([...(parameters.required || []),...(extraRequired[name] || [])
       .filter(key=>Object.hasOwn(parameters.properties,key))]));
-    const countHint = {list_questions:" Use LIST when the user requests a question list. If the current user goal is COUNT and the message only corrects or restates its subject, continue COUNT even if the previous count already used that subject; do not infer a new list request. For LIST without an explicit requested N, set top_n=null and use page_size for one page. Never infer Top 20 from a default page_size of 20; keep the complete scope pageable.",
+    const countHint = {list_questions:" Use LIST when the user requests a question list. If the current user goal is COUNT and the message only corrects or restates its subject, continue COUNT even if the previous count already used that subject; do not infer a new list request. For LIST without an explicit requested N, set top_n=null and use page_size for one page. Never infer Top 20 from a default page_size of 20; keep the complete scope pageable. Broad algorithm lists use semantic_task=ALGORITHM_PROBLEM (LIST); this is a complete evidence-audited SQL collection, not semantic retrieval Top50.",
       search_questions:" SEARCH requires top_n=null; use page_size (1–50) for the requested result count.",
       get_question_stats:" Group authoritative counts by topic, company or round. Use topic_level=L2 for a breakdown within one L1 topic such as Redis; use L1 for broad topic distribution.",
-      get_question_count:" Count the complete current discussion scope within filters, not a result page. A bare total question inherits the current topic; only an explicit whole-corpus request clears it. When the current goal is COUNT, subject corrections or restatements remain COUNT even after an already-correct count. Use final=false when the count is evidence for a subsequent answer.",
+      get_question_count:" Count the complete current discussion scope within filters, not a result page. A bare total question inherits the current topic; only an explicit whole-corpus request clears it. When the current goal is COUNT, subject corrections or restatements remain COUNT even after an already-correct count. One COUNT returns both counts.canonical_questions (distinct questions) and counts.occurrences (appearances). For a direct total question, including asking both numbers, call only this tool once with final=true; do not call STATS for appearances or ANSWER to restate counts. Use final=false only when the user explicitly also requests analysis, advice or an explanation.",
       answer_question:" Finish with a direct explanation, comparison, solution, study plan or conversation response. Set final=true and identify the knowledge basis. Cite only question_ids returned by host tools; corpus sources establish interview questions, not the correctness of a generated answer."}[name] || "";
     return {name,label:name,description:`Execute ${actions.join("/")} using authoritative host data; fill the declared scope fields.${countHint}`,
       parameters:Type.Unsafe(parameters), constrainedSampling:{type:"json_schema",strict:"prefer"},
@@ -131,6 +131,10 @@ export async function runQuery(input, {hostUrl, token, signal, streamFn: injecte
   agent.subscribe(async event => {
     if (["turn_start","message_end","tool_execution_start","tool_execution_end","turn_end","agent_end"].includes(event.type)) {
       const safe={type:event.type,toolName:event.toolName,isError:event.isError};
+      if(event.toolCallId) safe.toolCallId=event.toolCallId;
+      if(event.type==="tool_execution_start") safe.args=event.args;
+      if(event.type==="tool_execution_end" && event.isError)
+        safe.error=String(event.result?.content?.find(item=>item.type==="text")?.text || "QUERY_TOOL_FAILED").slice(0,512);
       if(event.type==="message_end") {
         safe.message={...event.message};
         if(safe.message.usage) {

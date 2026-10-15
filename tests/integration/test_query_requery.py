@@ -200,7 +200,10 @@ def test_requery_original_explicit_ui_filters_remain_host_constraints_but_model_
     service.finish(source, provider="fixture")
     refresh = service.begin(QueryRequest(message="这类题", request_id="preserve-scope", requery_of_run_id=source.id))
     assert service.model_context(refresh)["explicit_filters"] == {"company": "字节"}
-    assert service.model_context(refresh)["session"]["filters"]["topic_l1"] == "Redis"
+    context = service.model_context(refresh)
+    assert context["session"]["filters"]["topic_l1"] is None
+    assert context["session"]["last_plan"]["filters"]["topic_l1"] == "Redis"
+    assert refresh.state["filters"]["topic_l1"] == "Redis"
     with pytest.raises(ValueError, match="EXPLICIT_FILTER_CONFLICT"):
         service.execute(refresh, "list_questions", QuerySpec(action="LIST"))
     with db.session() as session:

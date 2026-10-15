@@ -35,6 +35,20 @@ def test_model_supplied_annotation_policy_is_not_silently_cleared():
     assert run.result["facts"]["meta"]["search_filter_policy"]["automatic_annotation_cleared"] is False
 
 
+def test_empty_sql_eligibility_finishes_and_replays_without_retrieval():
+    _, _, _, service = fixture()
+    request = QueryRequest(message="不存在的公司", request_id="empty-eligibility",
+                           filters={"company": "不存在的公司"})
+    run = search(service, request, company="不存在的公司")
+    facts = run.result["facts"]
+    assert facts["data"] == []
+    assert facts["meta"]["eligible_count"] == facts["meta"]["candidate_count"] == 0
+    assert facts["meta"]["relevance_status"] == "VERIFIED"
+    assert facts["meta"]["verification_basis"] == "empty_sql_scope"
+    assert service.retriever.calls == []
+    assert service.begin(request) == run.result
+
+
 @pytest.mark.parametrize("response_form", ["CODE", "SQL"])
 def test_programming_form_keeps_coding_task_filter_hard(response_form):
     database, project, _, service = fixture()

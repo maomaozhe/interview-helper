@@ -9,7 +9,9 @@ from interview_intelligence.tenant import current_provider
 from interview_intelligence.tenant_models import TenantAccount
 from interview_intelligence.search.elasticsearch import ElasticsearchRetriever
 from interview_intelligence.search.reranker import LLMReranker
+from interview_intelligence.search.retry import RelevanceProviderUnavailable
 from interview_intelligence.providers.tenant_transport import public_sync_transport
+from interview_intelligence.providers.qwen_identity import QwenIdentityClient
 
 
 class PersonalReranker(LLMReranker):
@@ -17,6 +19,11 @@ class PersonalReranker(LLMReranker):
     def rerank(self, query, candidates):
         try:
             return super().rerank(query, candidates)
+        except RelevanceProviderUnavailable as error:
+            safe = RelevanceProviderUnavailable(phase=error.diagnostics["phase"],
+                retry_count=error.diagnostics["transport_retry_count"], error=error)
+            safe.diagnostics = dict(error.diagnostics)
+            raise safe from None
         except Exception as error:
             safe_codes = {"QUERY_MODEL_BUDGET_EXCEEDED", "QUERY_TOKEN_BUDGET_EXCEEDED", "QUERY_CANCELLED",
                 "QUERY_DEADLINE_EXCEEDED", "MODEL_CALL_BUDGET_EXCEEDED", "MODEL_TOKEN_BUDGET_EXCEEDED",
@@ -59,6 +66,8 @@ class TenantRetriever:
                         timeout=settings.model_request_timeout_seconds, max_retries=0,
                         http_client=httpx.Client(trust_env=False, timeout=settings.model_request_timeout_seconds,
                             transport=public_sync_transport() if source == "personal" else None))
+                    if source == "system" and "qwen" in settings.reranker_model.casefold():
+                        client = QwenIdentityClient(client)
                     reranker_class = PersonalReranker if source == "personal" else LLMReranker
                     reranker = reranker_class(model=settings.reranker_model, client=client,
                         base_url=settings.model_base_url, call_gate=self.gate, on_call=self.on_call,

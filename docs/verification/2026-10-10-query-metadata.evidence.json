@@ -1,0 +1,304 @@
+{
+  "date": "2026-10-10",
+  "deployment": {
+    "image": "sha256:709809a7fa3358ebe2ed5e4c33e8041b8330426eb63ff0be635964f1972da8a5",
+    "released_files": 7,
+    "protected_files": 112,
+    "all_hashes_match": true,
+    "data_counts_preserved": true,
+    "original_turns_preserved": 4,
+    "corpus_revision": 293,
+    "indexed_revision": 293,
+    "prompt_sha256": "5d00bd87c9dc29b615a16fef2580620e5310904dc322de6f9d840b06b57da905",
+    "prompt_bytes": 13968,
+    "actual_model_catalogs": [
+      {
+        "companies": 58,
+        "positions": 57,
+        "alias": "字节",
+        "context_bytes": 3519
+      },
+      {
+        "companies": 58,
+        "positions": 57,
+        "alias": "字节",
+        "context_bytes": 3446
+      },
+      {
+        "companies": 58,
+        "positions": 57,
+        "alias": "字节",
+        "context_bytes": 7458
+      },
+      {
+        "companies": 58,
+        "positions": 57,
+        "alias": "字节",
+        "context_bytes": 7382
+      },
+      {
+        "companies": 58,
+        "positions": 57,
+        "alias": "字节",
+        "context_bytes": 3425
+      }
+    ],
+    "health": "ready"
+  },
+  "released_sha256": {
+    "analytics/stats.py": "e33ad2063e066d16481b687e3915c6055154089c3d96c969392251cdc5ed2a74",
+    "contracts/__init__.py": "720e585f1c555af8e9df0630528db3efc885b9c4fa76739b1fdfb817effead4e",
+    "ingestion/pipeline.py": "8248c0c49a2efbf842fbe157711f1e432984e580b2a952516d1616022faf605c",
+    "agent/harness.py": "5e02ea47d6944c4df4dcbad78bc0fc3ea5f6f34e2979a983c2d79c2bc595821c",
+    "agent/query_service.py": "17d566097251360719da0b35cda3100125b01a14e21f805acbde2249f765dfe9",
+    "company.py": "16d5fb170a29b4c1f7008211ff0bc1a6b8d6fde456d7a71990aab9c89d4fe93a",
+    "resources/prompts/query_agent_v13.md": "5d00bd87c9dc29b615a16fef2580620e5310904dc322de6f9d840b06b57da905"
+  },
+  "tests": {
+    "passed": 118,
+    "failed": 0,
+    "seconds": 8.324,
+    "suites": [
+      "tests.integration.test_analytics",
+      "tests.integration.test_harness_policy",
+      "tests.integration.test_query_metadata_scope",
+      "tests.integration.test_query_requery",
+      "tests.integration.test_search",
+      "tests.unit.test_engineering_design_prompt",
+      "tests.unit.test_harness",
+      "tests.unit.test_metadata_normalization",
+      "tests.unit.test_query_filter_contract",
+      "tests.unit.test_query_intents"
+    ]
+  },
+  "live_model_cases": [
+    {
+      "case": "algorithm-1",
+      "message": "字节跳动算法题",
+      "passed": true,
+      "checks": {
+        "intent_is_list": true,
+        "expected_scope": true,
+        "no_extra_scope": true,
+        "matches_structured_total": true,
+        "has_sources": true,
+        "list_executed": true
+      },
+      "filters": {
+        "company": "字节",
+        "position": null,
+        "job_family": null,
+        "language": null,
+        "topic_l1": null,
+        "topic_l2": null,
+        "question_type": null,
+        "response_form": null,
+        "annotation_status": "KNOWN",
+        "coding_focus": "ALGORITHM",
+        "round": null,
+        "start_date": null,
+        "end_date": null,
+        "date_basis": "BEST_AVAILABLE"
+      },
+      "reference_total": 27,
+      "returned": 20,
+      "result_total": 27,
+      "tools": [
+        "list_questions"
+      ],
+      "provider": "pi",
+      "elapsed_seconds": 5.31,
+      "run_id": "9f52a278-ef71-4dca-a54d-3f4f258096c7"
+    },
+    {
+      "case": "algorithm-2",
+      "message": "字节跳动算法题",
+      "passed": true,
+      "checks": {
+        "intent_is_list": true,
+        "expected_scope": true,
+        "no_extra_scope": true,
+        "matches_structured_total": true,
+        "has_sources": true,
+        "list_executed": true
+      },
+      "filters": {
+        "company": "字节",
+        "position": null,
+        "job_family": null,
+        "language": null,
+        "topic_l1": null,
+        "topic_l2": null,
+        "question_type": null,
+        "response_form": null,
+        "annotation_status": "KNOWN",
+        "coding_focus": "ALGORITHM",
+        "round": null,
+        "start_date": null,
+        "end_date": null,
+        "date_basis": "BEST_AVAILABLE"
+      },
+      "reference_total": 27,
+      "returned": 20,
+      "result_total": 27,
+      "tools": [
+        "list_questions"
+      ],
+      "provider": "pi",
+      "elapsed_seconds": 6.95,
+      "run_id": "8421f95c-ab4f-467a-b549-b95fc7745252"
+    },
+    {
+      "case": "algorithm-existence",
+      "message": "？面经里没有字节跳动的算法题吗？",
+      "passed": true,
+      "checks": {
+        "intent_is_list": true,
+        "expected_scope": true,
+        "no_extra_scope": true,
+        "matches_structured_total": true,
+        "has_sources": true,
+        "list_executed": true
+      },
+      "filters": {
+        "company": "字节",
+        "position": null,
+        "job_family": null,
+        "language": null,
+        "topic_l1": null,
+        "topic_l2": null,
+        "question_type": null,
+        "response_form": null,
+        "annotation_status": "KNOWN",
+        "coding_focus": "ALGORITHM",
+        "round": null,
+        "start_date": null,
+        "end_date": null,
+        "date_basis": "BEST_AVAILABLE"
+      },
+      "reference_total": 27,
+      "returned": 20,
+      "result_total": 27,
+      "tools": [
+        "list_questions"
+      ],
+      "provider": "pi",
+      "elapsed_seconds": 6.92,
+      "run_id": "8fbd41c9-129f-45ae-928e-c92e2903d8be"
+    },
+    {
+      "case": "backend-direction",
+      "message": "字节跳动 Java 后端方向的面试题",
+      "passed": true,
+      "checks": {
+        "intent_is_list": true,
+        "expected_scope": true,
+        "no_extra_scope": true,
+        "matches_structured_total": true,
+        "has_sources": true,
+        "list_executed": true
+      },
+      "filters": {
+        "company": "字节",
+        "position": null,
+        "job_family": "BACKEND",
+        "language": "JAVA",
+        "topic_l1": null,
+        "topic_l2": null,
+        "question_type": null,
+        "response_form": null,
+        "annotation_status": null,
+        "coding_focus": null,
+        "round": null,
+        "start_date": null,
+        "end_date": null,
+        "date_basis": "BEST_AVAILABLE"
+      },
+      "reference_total": 0,
+      "returned": 0,
+      "result_total": 0,
+      "tools": [
+        "list_questions"
+      ],
+      "provider": "pi",
+      "elapsed_seconds": 5.42,
+      "run_id": "fc3356d2-dd56-4acd-b6b5-29ffb87738f4"
+    },
+    {
+      "case": "exact-position",
+      "message": "只看岗位名称恰好为「Java后端」的面经题，不额外限制公司、岗位大类、语言或主题。",
+      "passed": true,
+      "checks": {
+        "intent_is_list": true,
+        "expected_scope": true,
+        "no_extra_scope": true,
+        "matches_structured_total": true,
+        "has_sources": true,
+        "list_executed": true
+      },
+      "filters": {
+        "company": null,
+        "position": "Java后端",
+        "job_family": null,
+        "language": null,
+        "topic_l1": null,
+        "topic_l2": null,
+        "question_type": null,
+        "response_form": null,
+        "annotation_status": null,
+        "coding_focus": null,
+        "round": null,
+        "start_date": null,
+        "end_date": null,
+        "date_basis": "BEST_AVAILABLE"
+      },
+      "reference_total": 1,
+      "returned": 1,
+      "result_total": 1,
+      "tools": [
+        "list_questions"
+      ],
+      "provider": "pi",
+      "elapsed_seconds": 5.99,
+      "run_id": "8a3359bf-5377-4634-afc3-350b4edb0e05"
+    }
+  ],
+  "historical_requery": {
+    "passed": true,
+    "checks": {
+      "list_executed": true,
+      "company_alias": true,
+      "algorithm_task": true,
+      "no_inherited_topic_type_or_form": true,
+      "total_matches_sql": true,
+      "new_conversation": true,
+      "sources_present": true
+    },
+    "filters": {
+      "company": "字节",
+      "position": null,
+      "job_family": null,
+      "language": null,
+      "topic_l1": null,
+      "topic_l2": null,
+      "question_type": null,
+      "response_form": null,
+      "annotation_status": "KNOWN",
+      "coding_focus": "ALGORITHM",
+      "round": null,
+      "start_date": null,
+      "end_date": null,
+      "date_basis": "BEST_AVAILABLE"
+    },
+    "result_total": 27,
+    "returned": 20,
+    "run_id": "16c02ed6-4ab4-439c-bf1f-6a720e298c0a"
+  },
+  "local_evidence_sha256": {
+    "targeted-tests-final.xml": "2b32b41c0defa4a800225143912833d5b15c23b0aec65a1bc8ef7f6bd0107623",
+    "live-smoke.private.json": "4dd955fb17b8320b115ab66777b56e41a81f06b67cc2055e3cae5d7526606abf",
+    "history-requery.private.json": "c7d90bd9f98c28604e16ad45a6eb4b6864dd4afdc2328569ba0f41fed307b73f",
+    "verification.json": "c692a56e4d6777371e060f1902f0fb92160b47875ab443800ba8998b579bc20c",
+    "manifest-v5.json": "a87cb8a0c274cd3c1dc08d24c296fed7fe7d0abc28523dfeb77a774c4aa97584"
+  }
+}
