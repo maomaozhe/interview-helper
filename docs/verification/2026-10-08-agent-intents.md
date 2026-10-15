@@ -4,7 +4,7 @@
 
 SSH 现已发布 **query v12（r2 发布包）/ context v4 / tool policy v2 / rerank v10**：独立 `conversation_focus` 保存当前实际目标，范围纠正保留 COUNT（包括上一计数已正确的情况），旧会话兼容投影；当前目标优先于陈旧 `last_count`，默认分页20条不等于用户指定 Top20。本文的 v11 包、结果和 I12 历史记录保持原样，最新修复、首个 v12 候选失败及发布归属见 [会话目标与范围修复](2026-10-08-conversation-focus.md)。**v12-r2 公网扩展12/12检查已通过，全部真实 Pi / SSE；页面连续对话和刷新历史另经SSH隧道验证。完整 V1 / H01 仍开放。**
 
-2026-10-08，按用户“最近的问题不只是检索，需要引入 agent loop 做意图识别，返回对应内容”的要求，扩展已有 Pi Agent Loop，并发布至 [SSH 面经助手](https://interview.101-47-18-72.sslip.io/)。能力说明见 [意图与回答](../agent-intents.md)，持续问题台账见 [issue](../../md/issue.md)。本文记录本轮已定位的问题、修复与验证边界。
+2026-10-08，按用户“最近的问题不只是检索，需要引入 agent loop 做意图识别，返回对应内容”的要求，扩展已有 Pi Agent Loop，并发布至 [SSH 面经助手](https://interview.101-47-18-72.sslip.io/)。能力说明见 [意图与回答](../architecture/query-flow.md)，持续问题台账见 [issue](../../md/issue.md)。本文记录本轮已定位的问题、修复与验证边界。
 
 ## 原始问题与定位
 

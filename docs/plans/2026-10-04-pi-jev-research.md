@@ -198,9 +198,9 @@ src/interview_intelligence/     # 现有 Python 领域服务及 Jev gateway
 | `AgentService.chat("前40个频率最高的算法题")` | 最终返回 5 条 |
 | Agent 调用 stats 的 limit | 20；没有解析用户的 40 |
 
-原因对应：[默认 limit=20](../../src/interview_intelligence/agent/service.py:28)、[算法分支最终切片](../../src/interview_intelligence/agent/service.py:110)、[StatsRequest 支持 1–100](../../src/interview_intelligence/contracts/__init__.py:65)、[频次排序与切片](../../src/interview_intelligence/analytics/stats.py:206)、[旧分类规范](../../prompts/extract_question_v1.md:21)。
+原因对应：[默认 limit=20](../../src/interview_intelligence/agent/service.py)、[算法分支最终切片](../../src/interview_intelligence/agent/service.py)、[StatsRequest 支持 1–100](../../src/interview_intelligence/contracts/__init__.py)、[频次排序与切片](../../src/interview_intelligence/analytics/stats.py)、[旧分类规范](../../prompts/extract_question_v1.md)。
 
-此实验验证现有统计语义和控制流，不验证真实语料标签质量、原文证据质量、模型解析能力或 PostgreSQL 性能。题库自然语言入口当前还走语义 search，不会自动调用该 SQL 排名服务。[前端入口](../../src/interview_intelligence/web/assets/app.js:93)
+此实验验证现有统计语义和控制流，不验证真实语料标签质量、原文证据质量、模型解析能力或 PostgreSQL 性能。题库自然语言入口当前还走语义 search，不会自动调用该 SQL 排名服务。[前端入口](../../src/interview_intelligence/web/assets/app.js)
 
 ### 7.2 新查询计划
 

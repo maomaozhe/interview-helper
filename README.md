@@ -6,11 +6,13 @@
 
 例如，输入“工程系统设计题，类似设计一个排行榜这种”，按工程设计这一宽类别找题；明确“只要排行榜”时限定对象，问“解释如何设计排行榜”时给出参考解答。仅输入“场景设计题”、范围尚不明确时，Agent 提供 **Agent 应用 / 业务系统 / 线上排障 / 全部方向**供选择。
 
-问“Redis 高频题有哪些”时，频次与排名来自数据库中的完整事实，而不是检索到的几个片段。当前 SSH 工程设计检索修复及限制见[验收报告](docs/verification/2026-10-08-engineering-design.md)。
+问“Redis 高频题有哪些”时，SQL 列表与排名来自数据库中的完整事实；语义 SEARCH 的频次排序只覆盖候选池。能力、默认版本、部署证据、质量限制与下一步统一见 [当前状态](docs/status/current.md)。
 
 `Python 3.12` · `FastAPI` · `PostgreSQL` · `Elasticsearch` · `Pi Agent Loop` · `Docker Compose`
 
-[快速体验](#快速体验) · [系统设计](#系统设计) · [评测与结果](#评测与结果) · [代码导览](#代码导览)
+[快速体验](#快速体验) · [系统设计](#系统设计) · [评测与结果](#评测与结果) · [代码导览](#代码导览) · [项目知识库](docs/README.md)
+
+完整运行只推荐普通 Compose（API + Pi + worker + PostgreSQL + Elasticsearch），Windows 经 WSL 启动，见 [快速体验](#快速体验)。开发与 AI 接手从 [AGENTS.md](AGENTS.md) 和 [知识库导航](docs/README.md) 开始；历史实验结果不等于当前部署或完整 V1 质量通过。
 
 ## 效果展示
 <img width="1150" height="809" alt="bde877c7167cecdaed0c39e714db3149" src="https://github.com/user-attachments/assets/4ac0c0c0-73e1-4429-b5c6-5123e660b283" />
@@ -47,6 +49,7 @@
 | 对话与进度 | 必要时先澄清；SSE 展示执行阶段和澄清问句增量；事件持久化，支持取消、断线恢复与历史会话。 |
 | 反馈与记忆 | 反馈绑定原问题、完整结果和版本；支持纠正后重检、明确保存偏好、停用查询记忆和导出回归样本。 |
 | 复习与分类核验 | 保存掌握状态、评分和笔记；机器分类可核对原文、保存草稿并发布人工核验版本。 |
+| 使用覆盖与复习 | 分别记录候选召回、核验通过、检索返回与题库浏览次数；筛选未召回、未返回和待复习题，直接查看原文或保存复习记录。 |
 
 ## 系统设计
 
@@ -72,7 +75,7 @@ flowchart LR
 
 `QuestionOccurrence` 表示某场真实面试中的一次提问，`CanonicalQuestion` 表示归并后的标准题。两者分开，既保留频次，又能合并不同问法。
 
-“字节二面”这样的组合筛选必须命中**同一次 occurrence**，不能把不同场次的公司、轮次拼在一起。SQL 先计算符合条件的题目范围，BM25 与向量检索共用这个范围；完整频次与排名始终由 SQL 计算。
+“字节二面”这样的组合筛选必须命中**同一次 occurrence**，不能把不同场次的公司、轮次拼在一起。SQL 先计算符合条件的题目范围，BM25 与向量检索共用这个范围；完整范围的计数与排名通过 SQL 查询。SEARCH 的频次排序使用真实 SQL 频次，但只覆盖本次最多 50 个检索候选，不能据此断言全库最高频；具体边界见 [查询数据流](docs/architecture/query-flow.md)。
 
 ### 2. 模型负责规划，主机负责约束与执行
 
@@ -95,22 +98,16 @@ flowchart LR
 
 ## 快速体验
 
-### 无凭据体验界面
+### 启动完整服务（推荐）
 
-需要 Python 3.12 和 [uv](https://docs.astral.sh/uv/)。以下服务使用临时数据库和示例数据，不调用真实模型，也不写入个人语料：
+需要 Docker Compose，Windows 使用 WSL 中的 Docker。先取得仓库：
 
 ```bash
 git clone https://github.com/maomaozhe/interview-helper.git
 cd interview-helper
-uv sync --locked --extra dev
-uv run --locked --extra dev python tests/web/smoke_server.py
 ```
 
-打开[示例题库](http://localhost:8011/#library)，可以浏览示例题目、筛选并查看详情。此模式用于体验界面与数据链路；真实 Agent 对话需要下面的模型服务配置。
-
-### 启动完整服务
-
-需要 Docker Compose。复制配置，填写兼容接口的模型 endpoint、API key、各模型名称、embedding 维度，以及正数调用 / token 预算；`APP_SIGNING_KEY` 和 `INTERNAL_AGENT_TOKEN` 请使用独立随机值。
+复制配置，填写兼容接口的模型 endpoint、API key、各模型名称、embedding 维度，以及正数调用 / token 预算；`APP_SIGNING_KEY` 和 `INTERNAL_AGENT_TOKEN` 请使用独立随机值。以下命令在 Linux / WSL 仓库目录执行：
 
 ```bash
 cp .env.example .env
@@ -118,11 +115,14 @@ cp .env.example .env
 docker compose up -d --build --wait
 ```
 
+Windows PowerShell 可使用 `Copy-Item .env.example .env`，配置后执行 `.\scripts\start-local.ps1 -Distribution Ubuntu-22.04 -Build`；它封装同一套 Compose，详情见 [Windows / WSL](docs/development.md#windows--wsl)。
+
 将你有权使用的 Markdown 面经放入 `md/`，打开[完整服务首页](http://localhost:8000/)，在“导入与状态”提交导入。初次导入需要实际模型调用，耗时和用量取决于语料规模。
 
 | 入口 | 地址 / 命令 |
 | --- | --- |
 | 题库与检索 | [题库页面](http://localhost:8000/#library) |
+| 使用次数与复习清单 | [使用与复习](http://localhost:8000/#usage) |
 | 面经问答 | [对话页面](http://localhost:8000/#chat) |
 | OpenAPI 文档 | [API 文档](http://localhost:8000/docs) |
 | 服务状态 | `docker compose exec api ii status` |
@@ -130,13 +130,28 @@ docker compose up -d --build --wait
 
 配置、Windows / WSL 启动和模型调用约束见 [开发与运行说明](docs/development.md)。默认任务标签政策为 `VERIFIED`；新语料的机器分类需要核验发布，开发试验可显式使用 `KNOWN`，两种口径不能混为人工核验。
 
-2026-10-09 本机已更新并通过真实 Pi 六轮问答、源码哈希和数据保留验证；构建故障、COUNT 范围纠正修复及具体限制见 [本地部署记录](docs/verification/2026-10-09-local-deployment.md)。
+使用统计从启用时开始，支持启用以来、近 30 天和近 7 天。零召回表示所选统计期内未观察到，需要结合是否查询过相关主题判断；检索返回不会自动标记已复习。计数口径和本地验收见[使用与复习记录](docs/verification/2026-10-09-question-usage.md)。
 
-需要多人使用时，可启用账号登录、每账号默认 10 次试用及个人 API Key / Base URL 配置，见 [账号与模型配置](docs/tenants.md)。通过 SSH 部署独立私有 Qwen 的步骤见 [Qwen 部署说明](docs/deployment-qwen.md)。
+2026-10-09 的本地构建、真实 Pi 问答和数据保留结果见 [当次部署记录](docs/verification/2026-10-09-local-deployment.md)；该记录不替代今天的服务与版本核验。
+
+需要多人使用时，可启用账号登录、每账号默认 10 次试用及个人 API Key / Base URL 配置，见 [账号与模型配置](docs/tenants.md)。模块直启、隔离评测、SSH / 私有 Qwen 和 legacy 路径的用途统一见 [其他入口](docs/development.md#其他入口的用途)，不作为并列的完整运行方式。
+
+### 无凭据体验界面
+
+只想查看界面时，需要 Python 3.12 和 [uv](https://docs.astral.sh/uv/)。在仓库目录运行：
+
+```bash
+uv sync --locked --extra dev
+uv run --locked --extra dev python tests/web/smoke_server.py
+```
+
+打开[示例题库](http://localhost:8011/#library)，浏览、筛选并查看示例题目。此入口使用临时数据库和合成数据，不调用真实模型、不写入个人语料；真实 Agent 对话使用上面的完整服务。
 
 ## 评测与结果
 
 评测覆盖**抽取、任务分类、语义去重、检索、查询 Agent 和 Exact SQL**六层。协议、数据版本、预测和判断池分别留档，保留失败样本与回归差异。
+
+下表保留各日期的样本结果，便于追溯工程与实验依据；当前质量结论只汇总在 [状态表](docs/status/current.md#能力运行版本与验收状态)。通用评测、候选实验和历史复现的入口统一见 [评测手册](eval/README.md#入口分类通用评测候选实验与历史复现)。
 
 | 检查 | 已记录结果 | 口径与证据 |
 | --- | --- | --- |
@@ -152,10 +167,10 @@ docker compose up -d --build --wait
 
 ### 本地验证
 
-Pi 构建步骤在 Linux / WSL 中验证；Windows 可以先运行 Python 测试和无凭据界面。
+Pi 构建步骤在 Linux / WSL 中验证；Windows 可以先运行使用合成 fixture 的 Python 检查和无凭据界面。
 
 ```bash
-uv run --locked --extra dev pytest -q
+uv run --locked --extra dev python -m pytest -q tests/unit/test_harness.py tests/unit/test_source_gold.py
 
 npm ci --ignore-scripts --legacy-peer-deps
 npm run build:pi
@@ -166,7 +181,7 @@ node --test tests/node/pi-runtime.test.mjs tests/web/test_core.cjs tests/web/tes
 uv run --locked --extra dev python -m eval.demo --output data/reports/evaluation-demo-new
 ```
 
-GitHub Actions 执行离线工程验证和合成报告。合成数据用于验证评分流程；真实质量实验需要自行准备语料、模型服务和冻结参考集，历史本地 `data/reports/` 不随仓库分发。
+完整工作区回归使用 `uv run --locked --extra dev python -m pytest -q`；部分来源复现测试依赖私有快照/gold，缺失时不会自动 skip，新 clone 不能据此保证全套通过，具体边界见 [评测手册](eval/README.md#1-先验证框架)。合成数据只验证工程流程；真实质量实验需要自己的语料、模型服务和冻结参考集，历史本地 `data/reports/` 不随仓库分发。
 
 ## 代码导览
 
@@ -188,6 +203,6 @@ vendor/pi/          # 固定版本的上游 Agent Loop
 
 阅读建议：先看 [QueryService](src/interview_intelligence/agent/query_service.py) 与 [Harness](src/interview_intelligence/agent/harness.py)，再看 [检索服务](src/interview_intelligence/search/service.py)、[事实模型](src/interview_intelligence/domain/models.py) 和 [评测入口](eval/README.md)。
 
-[实现规范](docs/implementation-spec-v1.md) · [Agent 设计](docs/plans/2026-10-04-pi-agent-spec.md) · [设计复盘](docs/retrospectives/2026-10-04-query-agent.md) · [坏案例](docs/bad-cases.md) · [实施状态](docs/implementation-status.md)
+[项目知识库](docs/README.md) · [当前状态](docs/status/current.md) · [踩坑复盘](docs/retrospectives/README.md) · [目标规范](docs/implementation-spec-v1.md)
 
 当前主要改进方向是复杂语义召回、任务分类的人工核验覆盖、相关性核验延迟，以及生产级多实例任务恢复。多人模式提供账号认证、个人数据隔离和默认模型额度；生产容量及多实例恢复仍需按部署环境验证。
