@@ -22,6 +22,12 @@ from interview_intelligence.providers.gate import ModelCallGate
 from interview_intelligence.resources import resource_path
 
 
+SUPPORTED_PROMPT_VERSIONS = frozenset({
+    "task_annotation_v4", "task_annotation_v5", "task_annotation_v6",
+    "task_annotation_v7", "task_annotation_v8", "task_annotation_v9",
+})
+
+
 class TaskLabel(StrictModel):
     occurrence_id: str
     response_form: Literal["VERBAL", "CODE", "SQL", "UNKNOWN"]
@@ -167,7 +173,7 @@ def annotate_tasks(database, settings, *, limit=1000, batch_size=40, max_calls=3
                    prompt_version="task_annotation_v4", source_context=False):
     if not 1 <= limit <= 100_000 or not 1 <= batch_size <= 100:
         raise ValueError("invalid annotation batch bounds")
-    if prompt_version not in {"task_annotation_v4", "task_annotation_v5", "task_annotation_v6", "task_annotation_v7"}:
+    if prompt_version not in SUPPORTED_PROMPT_VERSIONS:
         raise ValueError("ANNOTATION_PROMPT_VERSION_INVALID")
     with database.session() as session:
         rows = list(session.scalars(select(QuestionOccurrence).select_from(_active_from()).where(

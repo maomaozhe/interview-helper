@@ -42,7 +42,7 @@ class Settings(BaseSettings):
     model_request_timeout_seconds: float = Field(default=180, gt=0)
     extraction_stream: bool = True
     extraction_max_tokens: int | None = Field(default=None, gt=0)
-    extraction_prompt_version: Literal["extract_question_v2", "extract_question_v3", "extract_question_v4", "extract_question_v5"] = "extract_question_v2"
+    extraction_prompt_version: Literal["extract_question_v2", "extract_question_v3", "extract_question_v4", "extract_question_v5", "extract_question_v6"] = "extract_question_v2"
     extraction_thinking_mode: Literal["auto", "enabled", "disabled"] = "auto"
     model_lock_path: Path = Path("data/model-call.lock")
     api_root_path: str = ""

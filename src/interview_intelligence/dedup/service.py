@@ -123,7 +123,8 @@ class DedupService:
         if len(same) == 1:
             matching = next(item for item in decisions if item["candidate_id"] == same[0].id)
             return DedupResolution(same[0], "SAME", candidate_ids, related,
-                                   matching["confidence"] or 1.0, evidence={"judgements": decisions,"candidate_search":candidate_search})
+                                   1.0 if matching["confidence"] is None else matching["confidence"],
+                                   evidence={"judgements": decisions,"candidate_search":candidate_search})
         canonical = CanonicalQuestion(
             canonical_text=question, primary_topic_id=topic_id,
             taxonomy_version="v1", question_type=question_type,

@@ -168,8 +168,9 @@ def test_validation_retry_explains_the_actual_grounding_error_and_preserves_sour
     assert "quote not found" in logs[0]["error_detail"]
     messages = completions.calls[1]["messages"]
     assert messages[1]["content"] == source
-    assert "quote not found" in messages[2]["content"]
-    assert "逐字" in messages[2]["content"]
+    assert messages[2]["role"] == "assistant"
+    assert "quote not found" in messages[-1]["content"]
+    assert "逐字" in messages[-1]["content"]
 
 
 def test_candidate_question_heading_cannot_be_published_as_interviewer_question():
@@ -182,7 +183,7 @@ def test_candidate_question_heading_cannot_be_published_as_interviewer_question(
     assert result.interviews[0].questions[0].raw_question == "Redis为什么快？"
     assert len(completions.calls) == 2
     assert "NON_QUESTION_HEADING" in logs[0]["error_detail"]
-    assert "NON_QUESTION_HEADING" in completions.calls[1]["messages"][2]["content"]
+    assert "NON_QUESTION_HEADING" in completions.calls[1]["messages"][-1]["content"]
 
 
 def test_extractor_repairs_a_missing_exclusion_reason_before_acceptance():
@@ -196,7 +197,7 @@ def test_extractor_repairs_a_missing_exclusion_reason_before_acceptance():
     result = extractor.extract(text="我把多场面试题按主题汇总。", revision_id="r1")
     assert result.exclusion_reason == corrected["exclusion_reason"]
     assert [call["status"] for call in logs] == ["FAILED", "SUCCEEDED"]
-    assert "EXCLUSION_REASON_REQUIRED" in completions.calls[1]["messages"][2]["content"]
+    assert "EXCLUSION_REASON_REQUIRED" in completions.calls[1]["messages"][-1]["content"]
 
 
 @pytest.mark.parametrize("wrong_type", ["KNOWLEDGE", "PRINCIPLE"])
@@ -218,7 +219,7 @@ def test_extractor_repairs_ai_knowledge_task_priority_before_acceptance(wrong_ty
     assert actual.question_type.value == "AI"
     assert actual.raw_question == quote
     assert [call["status"] for call in logs] == ["FAILED", "SUCCEEDED"]
-    assert "AI_KNOWLEDGE_TYPE_PRIORITY" in completions.calls[1]["messages"][2]["content"]
+    assert "AI_KNOWLEDGE_TYPE_PRIORITY" in completions.calls[1]["messages"][-1]["content"]
 
 
 @pytest.mark.parametrize("task_type", ["AI", "PROJECT", "SYSTEM_DESIGN", "SCENARIO", "ALGORITHM"])
