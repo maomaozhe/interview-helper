@@ -91,7 +91,7 @@ def test_review_before_and_after_top40_are_different_sets():
     assert [r["key"] for r in pages(db,req.model_copy(update={"review_order":"AFTER_TOP_N"}))]==[i for i,_ in expected[2:40]]
 
 @pytest.mark.parametrize("sort",["importance","gap"])
-def test_sql_score_ranking_and_keysets_equal_independent_legacy_formula(sort):
+def test_sql_score_ranking_and_keysets_equal_legacy_adapter(sort):
     db,_=ranked_corpus()
     with db.session() as s:
         expected=query_question_stats(s,StatsRequest(coding_focus="ALGORITHM",sort=sort,limit=100))["data"]

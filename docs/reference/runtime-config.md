@@ -23,6 +23,8 @@ sources:
     symbols: [OpenAICompatibleJudge.collection_fingerprint]
   - path: eval/collect.py
     symbols: [ProviderCollector]
+  - path: src/interview_intelligence/analytics/ranking.py
+    symbols: [importance_score, gap_score, sql_gap_score]
 tests:
   - tests/unit/test_config.py
   - tests/unit/test_packaged_resources.py
@@ -171,7 +173,7 @@ v2 对应 `dedup_judge_v9_answer_boundary`，v3 对应 `dedup_judge_v10_source_e
 | `config/taxonomy/v1.yaml` | `load_taxonomy` 实际加载，打包进入应用资源 | [taxonomy](../../src/interview_intelligence/taxonomy/__init__.py) |
 | `config/models.yaml` | 未找到运行时加载引用 | `Settings`、服务构造、tenant provider |
 | `config/retrieval.yaml` | 未找到加载引用；其 HYBRID 不是 API/CLI 当前默认 HYBRID_RERANK | [SearchRequest](../../src/interview_intelligence/api.py)、[CLI](../../src/interview_intelligence/cli.py)、[retriever](../../src/interview_intelligence/search/elasticsearch.py) |
-| `config/scoring.yaml` | 未找到加载引用；权重当前直接写在统计实现 | [query_question_stats](../../src/interview_intelligence/analytics/stats.py) |
+| `config/scoring.yaml` | 未找到加载引用；权重与版本由 Python / SQL 共用的 ranking 模块提供 | [ranking](../../src/interview_intelligence/analytics/ranking.py) |
 | `config/pricing.yaml` | 未找到加载引用，内容也声明未验证价格 | 模型 usage 回执不能直接当货币成本 |
 | `config/aliases/*.yaml` | 未找到加载引用 | 当前公司别名为 [COMPANY_ALIASES](../../src/interview_intelligence/company.py) |
 

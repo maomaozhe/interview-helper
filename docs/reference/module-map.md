@@ -10,6 +10,8 @@ sources:
     symbols: [build_worker_services, process_queued_run]
   - path: src/interview_intelligence/agent/query_service.py
     symbols: [QueryService]
+  - path: src/interview_intelligence/analytics/ranking.py
+    symbols: [score_components, sql_score_components, importance_score, gap_score, sql_gap_score]
   - path: services/pi-agent/runtime.mjs
   - path: .github/workflows/evaluation.yml
 tests:
@@ -44,7 +46,8 @@ tests:
 | [extraction/provider](../../src/interview_intelligence/extraction/provider.py) / [validation](../../src/interview_intelligence/extraction/validation.py) | 结构化抽取、重试反馈与原文校验 | 不完整输出和不匹配引文不能进入发布 |
 | [dedup/service](../../src/interview_intelligence/dedup/service.py) / [provider](../../src/interview_intelligence/dedup/provider.py) | `DedupService.resolve`、候选、SAME/RELATED/DIFFERENT 判断 | [source context](../../src/interview_intelligence/dedup/context.py) 是可选能力，核对实际调用入口 |
 | [repository/corpus](../../src/interview_intelligence/repository/corpus.py) | `active_occurrences`、`publish_build`、展示分类刷新 | 有效事实与发布事务的统一口径 |
-| [analytics/listing](../../src/interview_intelligence/analytics/listing.py) / [counts](../../src/interview_intelligence/analytics/counts.py) / [stats](../../src/interview_intelligence/analytics/stats.py) | 完整范围列表、计数、分组、排名和分页 | scope/签名/用户版本；旧 stats 和新 listing 的部分计算分别实现 |
+| [analytics/listing](../../src/interview_intelligence/analytics/listing.py) / [counts](../../src/interview_intelligence/analytics/counts.py) / [stats](../../src/interview_intelligence/analytics/stats.py) | 完整范围列表、计数、分组、排名和分页 | scope/签名/用户版本；stats 与 listing 共用下方排名政策 |
+| [analytics/ranking](../../src/interview_intelligence/analytics/ranking.py) | importance/gap 权重、分段、版本，以及 Python / SQL 归一化适配 | 变更需保留完整范围与排序/游标语义；[固定值和零分母回归](../../tests/integration/test_ranking.py) |
 | [analytics/semantic_scope](../../src/interview_intelligence/analytics/semantic_scope.py) | `load_semantic_scope` 验证完整 ALGORITHM_PROBLEM 范围 | 审计证据缺失或过期时报不完整，不能用 SEARCH 候选替代 |
 | [search/service](../../src/interview_intelligence/search/service.py) | `eligible_canonical_ids`、`search_questions` | SQL 限定范围，检索后用 SQL 补事实 |
 | [search/elasticsearch](../../src/interview_intelligence/search/elasticsearch.py) | 召回、融合、候选、`rebuild_index` | ES 物理索引/alias、embedding cache、语料版本 |

@@ -16,6 +16,8 @@ sources:
     symbols: [publish_build]
   - path: src/interview_intelligence/agent/query_service.py
     symbols: [QueryService]
+  - path: src/interview_intelligence/analytics/ranking.py
+    symbols: [importance_score, gap_score, sql_gap_score]
   - path: src/interview_intelligence/tenant_retriever.py
     symbols: [TenantRetriever.selected]
   - path: services/pi-agent/runtime.mjs
@@ -139,7 +141,7 @@ PG journal 可以保存结果、工具意图和恢复依据，但 Pi 回调仍�
 
 当前维护热点是 `api.py` 的装配/编排集中，以及 `query_service.py` 的状态/规则集中。
 Python 与 JS 各有工具映射及证据投影；改契约时同时检查 `query_contract.py`、`harness.py` 和 Pi runtime。
-旧 stats 与新 listing 仍分别实现排名计算；调整 importance/gap 公式要检查两条入口。
+旧 stats 与新 listing 共用 [ranking](../../src/interview_intelligence/analytics/ranking.py) 的权重、分段和版本，分别使用 Python / SQL 归一化适配；调整 importance/gap 公式仍需验证两条入口及签名分页。
 
 ## 验证入口
 

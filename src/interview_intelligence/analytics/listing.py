@@ -9,6 +9,9 @@ from pydantic import Field, model_validator
 from sqlalchemy import distinct, func, select, case, and_, or_
 
 from interview_intelligence.analytics.scope import sign_scope, verify_scope
+from interview_intelligence.analytics.ranking import (
+    SCORING_VERSIONS, importance_band, importance_score, sql_gap_score, sql_score_components,
+)
 from interview_intelligence.analytics.semantic_scope import (
     SemanticScope, load_semantic_scope, semantic_base_filters,
 )
@@ -73,13 +76,11 @@ def ranked_query(session, request, user_id, as_of, *, semantic_scope: SemanticSc
     ).select_from(_active_from()).where(*conditions).group_by(key).subquery()
     known = session.scalar(select(func.count(distinct(Interview.company_normalized))).select_from(
         _active_from()).where(*conditions)) or 0
-    freq = func.coalesce(func.ln(g.c.occurrence_count+1.0)/func.nullif(func.ln(func.max(g.c.occurrence_count).over()+1.0),0),0.0)
-    recent_score = func.coalesce(g.c.recent_count*1.0/func.nullif(func.max(g.c.recent_count).over(),0),0.0)
-    coverage = g.c.company_count*1.0/max(1,known)
-    importance = .5*freq+.3*coverage+.2*recent_score
+    components = sql_score_components(g, known_companies=known)
+    importance = importance_score(components)
     status = func.coalesce(UserQuestionState.status,"UNSEEN") if grouped_by=="question" else "UNSEEN"
-    base = select(g,importance.label("importance_score"),freq.label("frequency_component"),
-        coverage.label("coverage_component"),recent_score.label("recent_component"))
+    base = select(g,importance.label("importance_score"),components["frequency"].label("frequency_component"),
+        components["company_coverage"].label("coverage_component"),components["recent_frequency"].label("recent_component"))
     if grouped_by=="question":
         base=base.add_columns(status.label("user_status")).outerjoin(UserQuestionState,
             and_(UserQuestionState.canonical_question_id==g.c.key,UserQuestionState.user_id==user_id))
@@ -87,8 +88,7 @@ def ranked_query(session, request, user_id, as_of, *, semantic_scope: SemanticSc
         from sqlalchemy import literal
         base=base.add_columns(literal("UNSEEN").label("user_status"))
     b=base.subquery()
-    gap=b.c.importance_score*case((b.c.user_status=="WEAK",1.0),(b.c.user_status=="UNSEEN",.8),
-        (b.c.user_status=="REVIEWED",.4),else_=0.0)
+    gap=sql_gap_score(b.c.importance_score, b.c.user_status)
     score=b.c.occurrence_count if request.sort=="frequency" else b.c.importance_score if request.sort=="importance" else gap
     scored=select(b,gap.label("gap_score"),score.label("rank_score")).subquery()
     eligible=select(scored)
@@ -170,7 +170,7 @@ def list_questions(session, request: ListRequest, *, signing_key: str,
         witness=witnesses[item.pop("witness_id")]
         item.update(matched_question=witness.raw_question,source_path=witness.original_relative_path,
                     source_summary={"revision_id":witness.source_revision_id,"spans":witness.source_spans})
-        item["importance_band"]="CORE" if item["importance_score"]>=.7 else "COMMON" if item["importance_score"]>=.3 else "LONG_TAIL"
+        item["importance_band"]=importance_band(item["importance_score"])
         item["importance_components"]={"frequency":item.pop("frequency_component"),
             "company_coverage":item.pop("coverage_component"),"recent_frequency":item.pop("recent_component")}
         item.pop("rank_score")
@@ -200,7 +200,7 @@ def list_questions(session, request: ListRequest, *, signing_key: str,
           "user_state_revision":review_revision,"applied_filters":filters.model_dump(mode="json"),
           "route":"SQL","sort":request.sort,"as_of":as_of.isoformat(),"result_set_id":result_set,
           "review_statuses":request.review_statuses,"review_order":request.review_order,
-          "group_by":getattr(request,"group_by","question"),"scoring_versions":{"importance":"importance_v1","gap":"gap_v1"},
+          "group_by":getattr(request,"group_by","question"),"scoring_versions":dict(SCORING_VERSIONS),
           "sample_counts":{"occurrences":int(session.scalar(select(func.count()).select_from(_active_from()).where(*sample_conditions)) or 0),
                            "selected_occurrences":int(session.scalar(select(func.sum(chosen.c.occurrence_count))) or 0)},
           "pagination":{"total":total,"result_total":result_total,"returned":len(data),"offset":offset,

@@ -3,13 +3,15 @@
 from __future__ import annotations
 
 import calendar
-import math
 from collections import Counter, defaultdict
 from datetime import date, timedelta
 
 from sqlalchemy import String, and_, or_, case, cast, distinct, func, select
 from sqlalchemy.orm import Session
 
+from interview_intelligence.analytics.ranking import (
+    SCORING_VERSIONS, gap_score, importance_band, importance_score, score_components,
+)
 from interview_intelligence.contracts import DateBasis, StatsRequest
 from interview_intelligence.domain.models import (
     CanonicalQuestion, CorpusState, DocumentBuild, Interview,
@@ -191,11 +193,9 @@ def query_question_stats(
                               for item in session.scalars(select(CanonicalQuestion).where(CanonicalQuestion.id.in_(ids)))}
     data = []
     for row in raw_rows:
-        frequency = math.log1p(row.occurrence_count) / math.log1p(highest_frequency) if highest_frequency else 0.0
-        coverage = row.company_count / known_companies if known_companies else 0.0
-        recent = (row.recent_count or 0) / highest_recent if highest_recent else 0.0
-        importance = 0.5 * frequency + 0.3 * coverage + 0.2 * recent
-        band = "CORE" if importance >= 0.7 else "COMMON" if importance >= 0.3 else "LONG_TAIL"
+        components = score_components(row.occurrence_count, row.company_count, row.recent_count,
+            max_occurrences=highest_frequency, max_recent=highest_recent, known_companies=known_companies)
+        importance = importance_score(components)
         item = {
             "key": row.group_key,
             "occurrence_count": row.occurrence_count,
@@ -204,8 +204,8 @@ def query_question_stats(
             "company_count": row.company_count,
             "recent_count": row.recent_count or 0,
             "importance_score": importance,
-            "importance_band": band,
-            "importance_components": {"frequency": frequency, "company_coverage": coverage, "recent_frequency": recent},
+            "importance_band": importance_band(importance),
+            "importance_components": components,
         }
         if request.time_bucket:
             item["time_buckets"] = dict(sorted(time_buckets[row.group_key].items()))
@@ -215,9 +215,8 @@ def query_question_stats(
             item.update(canonical_metadata[row.group_key])
             if request.sort == "gap":
                 status = user_states.get(row.group_key, "UNSEEN")
-                weight = {"WEAK": 1.0, "UNSEEN": 0.8, "REVIEWED": 0.4, "MASTERED": 0.0}[status]
                 item["user_status"] = status
-                item["gap_score"] = importance * weight
+                item["gap_score"] = gap_score(importance, status)
         data.append(item)
     sort_key = "occurrence_count" if request.sort == "frequency" else "importance_score" if request.sort == "importance" else "gap_score"
     data.sort(key=lambda item: (-item[sort_key], str(item["key"])))
@@ -231,7 +230,7 @@ def query_question_stats(
             "sample_counts": {"occurrences": total[0] or 0, "interviews": total[1] or 0,
                               "source_documents": total[2] or 0, "known_companies": known_companies},
             "date_coverage": {"unknown_date_count": unknown_dates, "publish_fallback_count": fallback_count},
-            "scoring_versions": {"importance": "importance_v1", "gap": "gap_v1"},
+            "scoring_versions": dict(SCORING_VERSIONS),
             "total_groups": len(data),
         },
     }
