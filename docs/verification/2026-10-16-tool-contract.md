@@ -47,9 +47,35 @@ Linux 验证使用已有 Pi 镜像中的临时容器，禁网、只读挂载相�
 现有 SQL/检索、领域事实、会话状态和展示层有明确边界；目录分层可以继续使用。`presentation.py` 处理未完成模型 JSON 的临时展示，`query_response.py` 处理完成工具的回执，两者职责不同。Pi schema 限制与主机安全/业务校验也需要同时保留。
 
 1. **静态声明的多处维护已收敛。** 后续只改 Python 定义并重新生成；新增工具的菜单快照与独立业务断言需人工核对，不能靠自动刷新基线消除失败。
-2. **SEARCH 存在多余上下文构建。** `QueryService._execute` 为读 requested_pipeline 再调用 model_context，后者会读取偏好/反馈/记忆并构建 filter catalog，最多逐公司核对 100 个语义范围。建议下一次仅提取 pipeline 解析职责；当前未测量性能收益。
+2. **SEARCH 的多余上下文构建已单项处理。** 原 `_execute` 为读 requested_pipeline 再调用 model_context，连带读取偏好/反馈/记忆并构建 filter catalog，最多逐公司核对 100 个语义范围。后续已提取独立解析方法，详见下节；未测量延迟收益。
 3. **证据投影存在两套字段口径。** `harness.evidence_meta` 与 Pi evidenceMeta 分别包含不同的排名、语义范围和核验字段。下一次围绕 host 的版本化证据投影收敛；先保留缺少 host evidence 时的 JS 行投影兼容路径。
 4. **兼容入口仍承担业务规则。** `AgentService._search`、API question_search 和 QueryService SEARCH 分别组织检索与核验，当前契约并不完全相同。先查调用者，再决定退役或共用执行策略。
 5. **核心编排依旧集中。** 本次审查快照中 API 919 行、create_app 约 780 行；QueryService 884 行、_execute 约 308 行。后续按查询所有权提取规划、取消/超时和活跃任务协调，再拆检索执行；仅机械分路由文件不能减少状态恢复的理解成本。
 
 上述结构结论来自当前工作区静态核查，定位入口见 [模块导航](../reference/module-map.md)；本轮只实施静态工具契约收敛。其他未提交功能、分布式接管、真实服务/语义质量和部署不在本轮验证范围。
+
+## 后续单项：SEARCH pipeline 解析
+
+目标：SEARCH 不再为读取 requested_pipeline 重建完整模型上下文，保持显式字段、偏好和默认值的优先级，以及重查继承、降级与回执行为。事实：model_context 内的原解析式只依赖 request 的字段存在性和 PreferenceService.defaults；ContextCompiler 原样投影该值。
+
+方案：在 QueryService 提取同一解析方法，由 model_context 和 SEARCH 分别调用；保留执行时重新读取偏好，不缓存规划时的值。验收：先固定显式/省略/默认及有效/失效偏好的实际检索结果，再守护执行阶段不读 filter catalog / feedback；运行相关查询、重查和核验回归。已有未提交工作独立保留，暂存时只叠加本次方法与两个调用点。未测量延迟收益，不调整模型或预算。
+
+结果：`_requested_pipeline(run)` 原样执行显式字段存在性 → 最新有效偏好 → 请求默认值的选择，规划与执行共用。SEARCH 调用仍在 journal 回放短路之后、数据库快照和模型执行之前；重查继承值仍由原流程进入 model_fields_set。只提取该方法并替换两个调用点，没有修改 scope、权限、预算、降级或回执处理。
+
+边界：执行阶段有意移除完整上下文的重复读取及其读取/编译异常；正常规划入口仍完整核对目录和反馈。不能把“pipeline 选择不变”扩大为所有无关读取故障都与旧实现相同，也不能据此声称具体延迟改善。
+
+- 原实现基线：query_agent、query_requery、query_partial_rerank、query_metadata_scope、harness 共 57 passed，25.21 秒。
+- 新增行为固定：原实现上 16 项通过（3.27 秒），覆盖紧凑/完整上下文、显式默认值、有效/过期/删除偏好、规划后偏好变更、重查继承及覆盖。另两项“不重复读目录/反馈”的守护在原实现失败，明确证实重复工作；修改后 18 项全部通过。
+- 修改后相关回归：95 passed，0 failed / skipped，19.75 秒，仅既有 Starlette/httpx 弃用警告。
+- 首次两次新增 fixture 验证分别因不存在的 corpus_revision 字段、SQL fixture 的 current_revision=0 失败；核对 ORM/SEARCH 就绪契约后初始化匹配的非零版本，保留全部断言和失败日志。生产代码未因此放宽条件。日志集中在 `.tmp/search-pipeline-20261016/`，没有真实模型调用或预算消耗。
+
+实际定向命令：
+
+```powershell
+.venv\Scripts\python.exe -m pytest -q tests/integration/test_query_pipeline.py tests/integration/test_query_agent.py tests/integration/test_query_requery.py tests/integration/test_query_partial_rerank.py tests/integration/test_query_metadata_scope.py tests/integration/test_query_semantic_filter_scope.py tests/integration/test_harness_policy.py tests/unit/test_harness.py
+.venv\Scripts\python.exe scripts/check-docs.py docs/status/current.md docs/verification/2026-10-16-tool-contract.md
+```
+
+独立提交副本（HEAD + 本次四文件增量）93 passed、0 failed / skipped，22.71 秒，仅既有弃用警告；工作区另有未提交测试增量，所以同名文件的用例数不同，18 项新增 pipeline 用例在两个版本均通过。当前文档 2 页、23 链接、14 sources、10 符号通过；独立提交版本 2 页、26 链接、11 sources、7 符号通过。人工核对正文与暂存 diff，确认源码只有 6 行解析方法和两个调用点替换，其他 scope/评测工作不在提交内；独立静态复核未发现实质问题。
+
+本轮未改 Node/Pi、提示词或默认配置，未运行全套工程回归、真实服务评测或部署。原有未提交工作继续保留，下一项为证据投影口径收敛。

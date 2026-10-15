@@ -432,6 +432,12 @@ class QueryService:
             with self.database.session() as s: run.state=dict(s.get(AgentTurn,run.id).state_before)
         return run
 
+    def _requested_pipeline(self, run):
+        """Resolve explicit request presence before the current saved preference."""
+        if "pipeline" in run.request.model_fields_set:
+            return run.request.pipeline
+        return self.preferences.defaults().get("pipeline", run.request.pipeline)
+
     def model_context(self, run):
         session_state = deepcopy(run.state)
         if run.requery_origin.get("action") == "LIST" and run.tool_calls == 0:
@@ -453,7 +459,7 @@ class QueryService:
                 "filter_catalog": self._filter_catalog(),
                 "explicit_filters": self._explicit_filters(run.request),
                 "default_page_size":run.request.page_size if "page_size" in run.request.model_fields_set else self.preferences.defaults().get("page_size",run.request.page_size),
-                "requested_pipeline": run.request.pipeline if "pipeline" in run.request.model_fields_set else self.preferences.defaults().get("pipeline",run.request.pipeline),
+                "requested_pipeline": self._requested_pipeline(run),
                 "preferences":self.preferences.defaults(),"session": session_state,
                 "query_feedback":self.feedback_memory.selected(run.request.feedback_ids),
                 "query_memory":self.feedback_memory.matching(run.request.message),
@@ -562,7 +568,7 @@ class QueryService:
         started = time.perf_counter()
         warnings = []
         if plan.action == "SEARCH":
-            plan = plan.model_copy(update={"pipeline":self.model_context(run)["requested_pipeline"]})
+            plan = plan.model_copy(update={"pipeline":self._requested_pipeline(run)})
         token = current_limits.set(run.limits)
         try:
             with self.database.session() as session:
