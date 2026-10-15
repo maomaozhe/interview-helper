@@ -78,6 +78,10 @@ def write_report(output: Path, manifest, config, metrics, gate, rows):
                f"\n审核策略 {manifest.get('review_policy', 'human')}；Agent 审核 {manifest.get('agent_verified_count', 0)}。",
                "\n[逐样本](per_sample.csv) · [预测](predictions.jsonl) · [指标](metrics.json) · [门槛](gates.json) · [配置](config.json)",
                "\n| 指标 | 值 |\n|---|---|"]
+    if manifest.get("reference_scope"):
+        summary.insert(-1, f"\n参考范围：{manifest['reference_scope']}。锚点命中不能证明全库召回或精确率。")
+    if gate.get("eligibility_issues"):
+        summary.insert(-1, "\n发布资格限制：" + "; ".join(gate["eligibility_issues"]) + "。")
     summary.extend(f"| {key} | {value if value is not None else '未评测'} |" for key, value in _flat(metrics).items())
     bad = [r for r in rows if r["status"] != "PASS"]
     bad_text = ["# 需复核的评测案例\n"]
@@ -100,7 +104,9 @@ def write_report(output: Path, manifest, config, metrics, gate, rows):
     document += "".join(cards) + '<script>document.getElementById("filter").addEventListener("change",e=>document.querySelectorAll("details").forEach(d=>d.hidden=e.target.value!=="ALL"&&d.dataset.status!==e.target.value));</script></html>'
     (output / "summary.html").write_text(document, encoding="utf-8")
     if "pipelines" in metrics:
-        fields = ["pipeline", "recall_at_5", "recall_at_10", "mrr", "ndcg_at_10", "failed_queries"]
+        fields = (["pipeline", "anchor_recall_at_5", "anchor_recall_at_10", "anchor_mrr", "anchor_ndcg_at_10", "failed_queries"]
+                  if metrics.get("reference_scope") == "anchor_only" else
+                  ["pipeline", "recall_at_5", "recall_at_10", "mrr", "ndcg_at_10", "failed_queries"])
         with (output / "ablation.csv").open("w", encoding="utf-8-sig", newline="") as target:
             writer = csv.DictWriter(target, fieldnames=fields)
             writer.writeheader()

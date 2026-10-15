@@ -10,6 +10,7 @@ from eval.common import SECTIONS, digest, provenance, read_jsonl, write_json
 from eval.metrics import efficiency
 from eval.report import gates, write_report
 from eval.scoring import score_dedup, score_extraction, score_labels, score_query, score_retrieval, slices
+from eval.source_gold import qualify_retrieval_metrics, release_eligibility_issues
 from eval.validate_gold import require, validate_gold
 
 
@@ -41,6 +42,7 @@ def run_section(dataset: Path, section: str, predictions: Path, output_root: Pat
         metrics, scored = score_labels(golds, rows)
     elif section == "retrieval":
         metrics, scored = score_retrieval(golds, rows, manifest)
+        qualify_retrieval_metrics(metrics, manifest, scored)
     elif section in {"routing", "sql"}:
         metrics, scored = score_query(golds, rows, sql=section == "sql")
     else:
@@ -53,9 +55,13 @@ def run_section(dataset: Path, section: str, predictions: Path, output_root: Pat
     agent_verified = sum(g.get("agent_verified") is True for g in golds)
     if review_policy == "delegated_agent":
         eligible = split == "test" and agent_verified == len(golds) and manifest.get("kind") != "fixture"
+    eligibility_issues = release_eligibility_issues(manifest, section)
+    eligible = eligible and not eligibility_issues
     gate = gates(section, metrics, eligible=eligible, default_pipeline=default_pipeline,
                  threshold_version=threshold_version)
     gate["review_policy"] = review_policy
+    if eligibility_issues:
+        gate["eligibility_issues"] = eligibility_issues
     run_id = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S%fZ") + "-" + uuid4().hex[:8]
     output = output_root / section / "results" / run_id
     output.mkdir(parents=True, exist_ok=False)
@@ -82,6 +88,11 @@ def run_section(dataset: Path, section: str, predictions: Path, output_root: Pat
                 "dataset_sha256": digest(manifest), "predictions_sha256": digest(predictions.read_bytes()),
                 "alignments_sha256": digest(alignments.read_bytes()) if alignments else None,
                 "snapshot": snapshot, "run_id": run_id}
+    if manifest.get("source_evidence_contract"):
+        metadata.update(source_evidence_contract=manifest["source_evidence_contract"],
+                        release_eligibility_issues=eligibility_issues)
+    if manifest.get("retrieval_evidence_scope"):
+        metadata["reference_scope"] = manifest["retrieval_evidence_scope"]
     write_report(output, metadata, config, metrics, gate, scored)
     return output
 

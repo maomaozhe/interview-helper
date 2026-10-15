@@ -2,14 +2,32 @@
 
 搭建规范见 [spec](../docs/plans/2026-10-05-evaluation-system-spec.md)，标注口径见 [指南](../docs/annotation-guide.md)。所有命令在仓库根目录运行；Windows 可将 `python` 换成 `.venv\Scripts\python.exe`，或用 `uv run --locked --extra dev python`。
 
+## 入口分类：通用评测、候选实验与历史复现
+
+本页是评测与实验的统一入口；完整应用运行使用 [普通 Compose](../docs/development.md#推荐完整运行普通-compose)，当前默认版本、部署和质量结论只汇总到 [状态表](../docs/status/current.md)。评测脚本、候选提示词和历史配方继续保留，存在于目录中不表示已启用或适合直接运行。
+
+| 入口 | 身份与用途 | 从哪里开始 |
+| --- | --- | --- |
+| `eval/` 通用工具 | 快照、准备、采集、校验、评分、比较与门禁；按本次数据和隔离环境显式配置 | 本页第 1–5 节；先用合成数据验证流程 |
+| `compose.evaluation.yaml` | 独立评测 API / Pi，不替代完整运行；沿用指定开发快照、隔离账号及共享 Linux 模型锁 | [第 4 节](#4-隔离queryagent评测)；真实调用遵守预算与写入授权 |
+| `evals/agent_gold/` | 独立来源审核、裁决与冻结配方；带日期的文件绑定特定来源/数据版本 | [第 6 节](#6-已完成的独立标注与审核)、[来源参考集](#9-2026-10-14-真实面经来源参考集)、[历史查询范围](#10-历史用户查询与真实来源范围-gold)；旧批次配方见 [agent_gold](../evals/agent_gold/README.md) |
+| `evals/project_quality/` | 候选对照、封存运行、性能诊断和历史回放；没有独立运行默认的承诺 | 第 7–10 节；`source_iteration.py` 等来源候选结果见 [10-15 报告](../docs/verification/2026-10-15-source-optimization.md)，具体参数以封存协议为准 |
+| `scripts/evaluate_*.py` 与旧提示词 | 对应专项的采集/回放工具，保留旧输入、调用与失败证据 | 从相应日期 [验收记录](../docs/verification/) 或 [复盘索引](../docs/retrospectives/README.md) 找原协议；不要凭文件名或最高版本号推定当前默认 |
+
+第 1–5 节说明通用流程；第 6–10 节保留有日期和数据身份的批次配方。示例中的旧日期、快照和 gold 不是新一轮自动选择；复现须匹配原数据与协议，新实验须先冻结自己的输入、版本、预算和验收条件。私有 `data/gold/`、`data/reports/` 不随仓库分发，缺少原始材料时不能声称复现历史分数。
+
 ## 1 先验证框架
 
+先运行使用合成 fixture 的通用检查，不需要私有语料或服务：
+
 ```powershell
-python -m pytest -q
+python -m pytest -q tests/unit/test_source_gold.py
 python -m eval.demo --output data/reports/evaluation-demo-new
 ```
 
-打开输出的 `index.html`。六个模块报告包含刻意制造的漏题、弃权和错误参数，供检查评分与坏案例定位。所有数据为 SYNTHETIC，门槛为 NOT_ELIGIBLE。输出目录必须不存在；历史结果不会覆盖。CI 运行离线测试及演示，无需 API 凭据或线上服务。
+打开输出的 `index.html`。六个模块报告包含刻意制造的漏题、弃权和错误参数，供检查评分与坏案例定位。所有数据为 SYNTHETIC，门槛为 NOT_ELIGIBLE。输出目录必须不存在；历史结果不会覆盖。
+
+`python -m pytest -q` 是完整工作区回归，不能保证在新 clone 中全部运行：部分来源复现测试直接读取私有快照/gold，缺失时目前不会自动 skip。例如 `test_user_query_source_gold.py` 通过默认 `build()` 依赖历史来源材料，`test_user_query_source_revision_20261015.py` 依赖封存 v1 数据。它们虽不调用模型，仍有私有 fixture 前提；须在报告中列出缺失材料和未覆盖范围，不能把该失败解释为语义质量退步，也不能用通用检查通过代替完整回归。原文与完整历史归档继续留在忽略目录，不为让测试通过复制到公开仓库。
 
 ## 2 导出真实快照及待标注工作包
 
@@ -89,6 +107,8 @@ docker compose -p interview-evaluation -f compose.evaluation.yaml up -d
 
 Pi sidecar回调专用评测API，数据库沿用开发快照，个人状态归属该评测用户。`/api/evaluation/context`只在此专用服务暴露评测账号、版本、事件、状态和真实模型usage。采集前要求账号没有历史会话及复习状态。API绑定本机18002端口；真实用户API不可作为此adapter的目标。
 
+HTTP adapter 及会话质量、工程设计、历史重检脚本默认发送 `X-Usage-Purpose: evaluation`。启用使用统计的新服务保存评测事件，但不计入个人候选、返回和浏览次数；旧服务可忽略该附加请求头。自行编写探针时也要标记此请求头，或显式传 `usage_purpose=evaluation`，并避免与请求体/查询参数中的用途冲突。这个标记只控制使用统计；复习、反馈等写入仍需隔离评测账号或数据库，不能据此放宽下面的 `--allow-writes` 要求。
+
 ```powershell
 python -m eval.collect --dataset data/reports/evaluation-workbench-new --section routing --adapter http --base-url http://127.0.0.1:18002 --max-calls 100 --max-tokens 3000000 --allow-writes --output data/reports/evaluation-workbench-new/routing.predictions.jsonl
 ```
@@ -99,7 +119,7 @@ python -m eval.collect --dataset data/reports/evaluation-workbench-new --section
 docker compose -p interview-evaluation -f compose.evaluation.yaml down
 ```
 
-当前HTTP评测要求as_of等于服务当天日期。历史日期的SQL可直接运行；历史自然语言排序需另行实现服务日期注入后再测，不能伪造版本信息。
+HTTP 评测要求数据集 `as_of` 与服务报告的日期一致。未冻结的评测服务使用当天日期；历史回放通过 `eval.serve --as-of YYYY-MM-DD` 或第 10 节的封存入口固定查询及响应日期，再核对 `/api/evaluation/context` 的快照。普通服务仍使用当天日期，不能通过改写回执冒充历史环境。
 
 ## 5 评分、对齐与比较
 
@@ -173,10 +193,69 @@ python -m evals.project_quality.benchmark_dedup_chain collect \
 
 ## 8 第二轮候选、查询参考契约与原始首测
 
-最新入口为 [质量修整报告](../docs/verification/2026-10-06-quality-refinement.md)。`run_refinement` 使用封存协议校验 Prompt hash，分类及查询均走共享 Linux 锁；查询要求新的 eval actor，其 conversation、state、event 全部为 0，评测时钟固定为 2026-10-05。原 200 条来源留出本轮已归为回归；新 200 条工程挑战只有题目不相交，来源仍共享，不能声称新来源泛化。
+本节保留 2026-10-06 的候选配方，报告为 [当次质量修整](../docs/verification/2026-10-06-quality-refinement.md)，不是今天的默认版本登记。`run_refinement` 使用封存协议校验 Prompt hash，分类及查询均走共享 Linux 锁；查询要求新的 eval actor，其 conversation、state、event 全部为 0，评测时钟固定为 2026-10-05。原 200 条来源留出本轮已归为回归；新 200 条工程挑战只有题目不相交，来源仍共享，不能声称新来源泛化。
 
 候选 v5 抽取可用 `--extraction-thinking-mode disabled` 明确覆盖 Settings。未启用该覆盖的中断采集另存 ABORTED，完成部分保留，未知在途调用不计成 0。规范化回放与模型重新采集分开登记。
 
 `query-generalization-reserved-agent-20261006-v3` 原始首次评分为 46/50。两处 round 使用显示文本而非契约枚举，修订到独立 v5 后，同一预测重评分为 48/50；这是标注修订，零新增模型调用，不是模型提升。`reference_contract=typed_query_plan_v1` 可验证部分 expected_plan、显式清除字段及枚举；旧未声明版本继续按历史协议重放，不能回写原始评分。新备用 50 场景 / 95 轮还没有模型预测。
 
 当前 [v4 bundle](../docs/verification/2026-10-06-quality-bundle-v4.json) 使用原 quality_gate_v3 门槛，旧 211 条、已见 200 条分类、已见查询及备用查询原始首测一起参与验收，退出码仍为 1。存储预测可以重评分；已注册阶段、已有 Gold 输出目录、用过的 actor 均拒绝覆盖。
+
+## 9 2026-10-14 真实面经来源参考集
+
+用户再次授权 Agent 自行阅读真实面经审核。最终版本为 `source-reviewed-extraction-20261014-v3`（30正/1负、538题及任务标签）、`source-reviewed-dedup-20261014-v2`（206对）和 `source-reviewed-retrieval-20261014-v2`（59正查询）。来源绑定历史r293快照；全部human_verified=false，不代表当前线上或未见来源泛化。[报告与阅读入口](../docs/verification/2026-10-14-source-gold.md)保留具体缺陷、首次冻结、后续裁决和已有输出审计。
+
+新数据声明 `source_evidence_contract=raw_source_spans_v1`。严格校验逐字原问、字符/行跨度、去重实际输入及检索映射证据；复制的 `source_facts_path` 另校验真实canonical完整occurrence集合。检索只完成锚点审核，`retrieval_evidence_scope=anchor_only`、`release_eligible=false`，评分和发布汇总强制NOT_ELIGIBLE。锚点指标另命名，不能当全库Recall或负查询认证。
+
+```powershell
+python -m evals.agent_gold.audit_sources --snapshot data/reports/resume-quality-snapshot-20261005-v1 --dataset data/gold/source-reviewed-extraction-20261014-v3 --dataset data/gold/source-reviewed-dedup-20261014-v2 --dataset data/gold/source-reviewed-retrieval-20261014-v2 --output data/reports/source-gold-recheck-new
+```
+
+每次使用新的输出目录。命令逐模块验证冻结gold，将归档字节与真实快照核对，生成可搜索原问/审核理由/来源全文的HTML。它不生成标签、不调用模型、不发布分类；真实gold与来源沿用私有忽略目录。
+
+## 10 历史用户查询与真实来源范围 Gold
+
+本节明确复现 **v1 历史首测**，下面涉及 gold 的命令都显式指定 v1。当前 `user_query_alignment` 的新运行和 `user_query_viewer` 省略数据集时默认 v2；重评分/续跑会读取已有协议。因此不能省略 `--dataset` 来复现 v1，也不能将 v2 当作 v1 原首测。新实验须独立选择、冻结并记录数据版本。
+
+`data/gold/user-query-source-reviewed-20261015-v1` 保存6条历史用户消息中的真实问法及标明派生关系的变体，共24个场景、34轮。重点检查宽工程系统设计、排行榜示例与明确限定、澄清/改方向/翻页、Redis场景、Agent应用、字节算法全量与频次；系统设计范围独立于 `coding_focus=ENGINEERING`。
+
+主范围逐条筛查r293的2771次真实提问，保存21个明确正例、2728个负例和22个未裁边界，并单列2道未被抽取的原文设计题。全部184份原文归档，不声称全部篇章均全文审阅。其他范围为明确列出的来源面板，不能据此认证全库Recall。Gold、指南、历史原句、全部canonical variants与真实source spans均受冻结清单约束，审核标记始终为Agent。
+
+```powershell
+$env:PYTHONPATH='src;.'
+$env:PYTHONIOENCODING='utf-8'
+.venv/Scripts/python.exe -m evals.agent_gold.user_query_source_20261015 --dataset data/gold/user-query-source-reviewed-20261015-v1
+.venv/Scripts/python.exe -m evals.project_quality.user_query_alignment prepare --dataset data/gold/user-query-source-reviewed-20261015-v1 --output data/reports/user-query-replay-new
+```
+
+`prepare` 创建新API/Pi源码封存、独立collector/validator/scorer封存、随机eval账号和 `compose.sealed.json`；不启动服务或调用模型。在WSL仓库目录将 `EVAL_USER_ID` 设为新 `runtime-seal.json` 的actor，再启动隔离服务：
+
+```bash
+docker compose -p user-query-replay -f compose.evaluation.yaml \
+  -f data/reports/user-query-replay-new/compose.sealed.json up -d
+```
+
+然后从Windows采集；每次使用新账号与新输出目录，快照必须与gold一致。模型调用发生在复用共享Linux锁的隔离服务中，collector不把预期标签或参考题单发送给模型。
+
+```powershell
+.venv/Scripts/python.exe -u -m evals.project_quality.user_query_alignment collect --dataset data/gold/user-query-source-reviewed-20261015-v1 --runtime-root data/reports/user-query-replay-new --output data/reports/user-query-replay-new/run --max-calls 160 --max-tokens 5000000
+.venv/Scripts/python.exe -m evals.project_quality.user_query_alignment score --dataset data/gold/user-query-source-reviewed-20261015-v1 --output data/reports/user-query-replay-new/run
+```
+
+结果保留逐轮计划、实际来源witness、调用、失败与预算，分别检查正题覆盖、对象family、误加硬筛、公司、NEXT会话与去重、频次顺序。原文证据不足或面板未审的返回保留待审，不能自动算负例；普通page可以独立对齐，而全量/COUNT的完整性认证必须另外满足。`ANSWER`保护用例只验证回答/找题意图，不认证技术答案质量。输出 `alignment.md/json`，不替代完整V1发布门禁。完成后用同一compose参数执行 `down` 停止本次隔离服务。
+
+可离线生成带范围、审核角色和原文证据的浏览页。原站URL只读取已验证归档的显式链接字段，未联网验证当前可达性：
+
+```powershell
+.venv/Scripts/python.exe -m evals.agent_gold.user_query_viewer --dataset data/gold/user-query-source-reviewed-20261015-v1 --output data/reports/user-query-browser-new
+```
+
+中断结果不得冒充完整首测。`collect --resume-from <旧run>` 仅恢复已完整成功的case前缀，要求同gold、API源码、账号、服务地址和预算；实际服务器的请求、原问、会话、成功状态和调用必须仍与保存证据一致。恢复保留未知usage的整轮预留，不重放已成功case。旧目录和旧evaluator保持原样；若修复采集代码，应新建目录复制同一API runtime/`runtime-seal.json`，再用 `seal-evaluator --runtime-root <新目录>` 封存新的collector。已有会话数量必须与checkpoint严格相等，额外或在途会话不能自动跳过。
+
+来源真实性、范围接受、待审边界和全量认证分别记录。若旧封存scorer的报告字段把这些含义混在一起，可对同一完整预测做独立报告补充，不重写原始评分：
+
+```powershell
+.venv/Scripts/python.exe -m evals.project_quality.user_query_alignment audit-reporting --dataset data/gold/user-query-source-reviewed-20261015-v1 --source-run data/reports/user-query-replay-new/run --output data/reports/user-query-reporting-new
+```
+
+补充审核强制所有逐轮checks及aligned与原始评分完全相同，仅澄清来源和认证字段；不调用模型、不将后见补审回填为冻结gold答案，也不宣称模型提升。

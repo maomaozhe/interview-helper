@@ -4,6 +4,7 @@ from pathlib import Path
 
 from eval.common import SECTIONS, digest, inside, read_json, write_json
 from eval.report import gates
+from eval.source_gold import release_eligibility_issues
 from eval.validate_gold import require, validate_gold
 
 
@@ -35,10 +36,12 @@ def check_bundle(bundle, root):
             threshold_version=config.get("threshold_version","quality_gate_v2")
             require(not bundle.get("threshold_version") or threshold_version==bundle["threshold_version"],
                     "BUNDLE_THRESHOLD_VERSION_MISMATCH")
-            derived=gates(section,read_json(folder/"metrics.json"),eligible=True,
+            eligibility_issues=release_eligibility_issues(gold,section)
+            derived=gates(section,read_json(folder/"metrics.json"),eligible=not eligibility_issues,
                 default_pipeline=config.get("default_pipeline","HYBRID"), threshold_version=threshold_version)
             require(all(stored.get(k)==derived[k] for k in ("status","checks","threshold_version")),"GATE_REPORT_MISMATCH")
             return {"status":derived["status"],"checks":derived["checks"],"samples":len(selected),
+                **({"eligibility_issues":eligibility_issues} if eligibility_issues else {}),
                 "review_policy":policy,"dataset":entry["dataset"],"report":entry["report"],
                 "dataset_sha256":metadata["dataset_sha256"],"predictions_sha256":metadata["predictions_sha256"]}
         except (ValueError,KeyError,TypeError,OSError) as error:

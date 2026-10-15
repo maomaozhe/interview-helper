@@ -1,5 +1,7 @@
 # 独立 Agent 金标与歧义裁决
 
+> **历史批次配方：2026-10-05。** 本页的“当前”“本轮”和 v5 均指该批次，保留复现步骤与原始质量结论；不是整个 `agent_gold/` 目录的最新版本索引。通用评测、后续来源审核与候选实验统一从 [评测手册](../../eval/README.md#入口分类通用评测候选实验与历史复现) 进入，项目现状见 [状态表](../../docs/status/current.md)。
+
 按用户“你自己跑，来打金标，不确定的再给我审核”的授权执行。原文和上下文先独立标注，封存后再比较机器预测。Agent 行始终保留 `human_verified=false`，逐字段人工答复另记，不发布生产分类。
 
 本批数据绑定 `evaluation-snapshot-complete-20261005` 和 `evaluation-workbench-v2` 的不可变 hash。`reviewed_extraction.py` 保存逐题原文行、拆分、主题、题型、场次与追问依据；`build.py` 保存200条随机候选的独立决策及11条工程/SQL边界补充。技术话题解释为 NONE，明确构造任务才按 ENGINEERING，细则见 [标注指南](../../docs/annotation-guide.md)。

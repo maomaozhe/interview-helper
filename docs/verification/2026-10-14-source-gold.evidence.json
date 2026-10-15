@@ -1,0 +1,152 @@
+{
+  "schema": "original_interview_gold_verification_v1",
+  "date": "2026-10-14",
+  "status": "GOLD_AND_FRAMEWORK_VERIFIED_QUALITY_STILL_BLOCKED",
+  "snapshot": {
+    "corpus_revision": 293,
+    "indexed_revision": 293,
+    "task_annotation_revision": 30,
+    "as_of": "2026-10-05",
+    "task_annotation_policy": "KNOWN"
+  },
+  "facts_sha256": "0b8fd1b94127c90f0c0c463295c1dc8045184d73eb8475bb91f6eca88c67501a",
+  "datasets": {
+    "source-reviewed-extraction-20261014-v3": {
+      "path": "data/gold/source-reviewed-extraction-20261014-v3",
+      "dataset_sha256": "08f088debe4322b943e582fadc4f6d734621d19bde4f91768ffb466310084ab7",
+      "manifest_file_sha256": "e7dc64c032f9aa984ccdd2848e82cf8af6c6cfd8a5ff2f8d26cafc7c9b4f045b",
+      "freeze_file_sha256": "2678c18e62588187bec86b989ee56a8defc4692033e7f65f135f0ddbb6a99fa0",
+      "source_count": 31,
+      "source_evidence_contract": "raw_source_spans_v1",
+      "sections": {
+        "extraction": {
+          "samples": 31,
+          "release_eligibility_issues": []
+        },
+        "task_labels": {
+          "samples": 538,
+          "release_eligibility_issues": []
+        }
+      },
+      "extraction": {
+        "positive_documents": 30,
+        "negative_documents": 1,
+        "questions": 538,
+        "sessions": 37,
+        "followups": 14
+      },
+      "task_labels": {
+        "VERBAL/NONE": 489,
+        "VERBAL/ENGINEERING": 14,
+        "CODE/ALGORITHM": 21,
+        "CODE/ENGINEERING": 2,
+        "VERBAL/ALGORITHM": 3,
+        "UNKNOWN/ALGORITHM": 4,
+        "VERBAL/UNKNOWN": 3,
+        "SQL/ENGINEERING": 1,
+        "UNKNOWN/NONE": 1
+      }
+    },
+    "source-reviewed-dedup-20261014-v2": {
+      "path": "data/gold/source-reviewed-dedup-20261014-v2",
+      "dataset_sha256": "50af04a36756fc9af27d973d3c976d356603ffc2e59eb40e6669d42b5f28f4b6",
+      "manifest_file_sha256": "b09dfa20e50959039a84b8752f31d538ff7ea51549fe515ae73822af397d5fa1",
+      "freeze_file_sha256": "08d9582baf72f4ae73a6aa8bb559291a47dc2ba5aacce37e4d68bddf218f12f9",
+      "source_count": 45,
+      "source_evidence_contract": "raw_source_spans_v1",
+      "sections": {
+        "dedup": {
+          "samples": 206,
+          "release_eligibility_issues": []
+        }
+      },
+      "dedup": {
+        "SAME": 43,
+        "RELATED": 112,
+        "DIFFERENT": 51
+      }
+    },
+    "source-reviewed-retrieval-20261014-v2": {
+      "path": "data/gold/source-reviewed-retrieval-20261014-v2",
+      "dataset_sha256": "b7f8bb8f458b2355d2506abd1070c2fb530cba4ac223ee9511fb4dfe8ffc67b2",
+      "manifest_file_sha256": "fbea31b602778310e3ab5c807e32a0f1d047e61af896e5df5665b6c481f1e4b5",
+      "freeze_file_sha256": "49af2b3e14157d125adfca3648d9c8e11e16c6c9a7086fcf61bf725037142968",
+      "source_count": 26,
+      "source_evidence_contract": "raw_source_spans_v1",
+      "sections": {
+        "retrieval": {
+          "samples": 59,
+          "release_eligibility_issues": [
+            "dataset explicitly excludes release certification",
+            "only source-reviewed anchors; corpus relevance is not exhaustive"
+          ]
+        }
+      },
+      "retrieval_scope": "anchor_only",
+      "relevance_judgments": {
+        "2": 59,
+        "0": 10,
+        "1": 34
+      }
+    }
+  },
+  "unique_source_archives": 80,
+  "checked_span_references": 1647,
+  "review_policy": "delegated_agent",
+  "human_verified": false,
+  "external_model_calls": 0,
+  "production_writes": 0,
+  "evaluation_tests": {
+    "tests": 95,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  "historical_complete_gate": {
+    "status": "BLOCKED",
+    "blockers": [
+      "extraction",
+      "task_labels",
+      "dedup",
+      "retrieval",
+      "regression:task-labels-211",
+      "regression:task-labels-seen-source-200"
+    ]
+  },
+  "published_extraction_audit": {
+    "tp": 399,
+    "fp": 55,
+    "fn": 139,
+    "precision": 0.8788546255506607,
+    "recall": 0.741635687732342,
+    "f1": 0.8044354838709677
+  },
+  "source_to_occurrence_to_label_joint_accuracy": 0.5631970260223048,
+  "grouping_audit_path": "data/reports/source-reviewed-dedup-20261014-v2/published-grouping-audit.json",
+  "synthetic_framework_demo": "data/reports/source-gold-20261014-framework-demo/index.html",
+  "viewer": "data/reports/source-gold-20261014-v1/index.html",
+  "code_sha256": {
+    "eval/source_gold.py": "fd26323bb9e0669be765ddfc1c614215841b805de8583d0c30ddae653b21ed85",
+    "eval/run.py": "13ab6e2083c0756d11471e21d252b276e1685b90bf38840de2a261d8a3895a6e",
+    "eval/release.py": "1f50c9e4497386a905508a5c6207c93ac3d7be0991a17dae6f1ea859f8f7261b",
+    "eval/report.py": "c65033a9dcdcc8c5239275945d0c357997471b704d0af117ec69c55fb37c1531",
+    "eval/validate_gold.py": "d4a1de6a0eab616e1cd8d285c295c46109c350ee127d3a320589c5cefd0391ca",
+    "evals/agent_gold/audit_sources.py": "ecbeae058e3154f3cb7dd71813f72118ee49ebef59b5c59227cf71fca771ed1d",
+    "tests/unit/test_source_gold.py": "46b539810b263726845bbe750df574696890e42f72ca0308fcced66073e1a7d4",
+    "tests/unit/test_source_gold_review.py": "896e83a19c64c059c25676f83de38c9c05aef3d37d35f6a2a80afbedec62cbd1",
+    "docs/verification/2026-10-14-source-gold.md": "1e9cda830b224103d3b2cfaaedbbe7db917f13f8d99ab8dbdfa138d716ff67bc"
+  },
+  "receipts_sha256": {
+    "source_audit": "f9ac8cd632418ad3eea7d24c06dbaca2c623879d184493e967fcd75c987ed1c6",
+    "evaluation_tests_xml": "ba4e21d22e3c8f34eb4a08bc955ebf29d563349450daf6d1633773ce8ce10144",
+    "published_run_index": "0c53339c69d34e4cf432c024aebd6a07c136a53555a6944179316756729e7005",
+    "grouping_audit": "05b0458365fe4825adb10efa092562ae4032ff50aa0d475025e64884f1d7d4d1"
+  },
+  "limitations": [
+    "Frozen r293 published-output audit, not current live model quality.",
+    "References are Agent reviewed, not human verified.",
+    "Sources have historical exposure; revised extraction is not an untouched holdout.",
+    "Retrieval is anchor_only and cannot qualify for corpus release gates.",
+    "No new dedup Judge, live retrieval, or QueryAgent inference in this run."
+  ]
+}

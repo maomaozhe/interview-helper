@@ -41,6 +41,18 @@ def test_evaluation_replay_freezes_plan_and_sql_date_and_records_candidate_versi
         assert context["snapshot"]["as_of"] == frozen.isoformat()
         assert context["query_prompt_version"] == "query_agent_v7"
         assert context["as_of_frozen"] is True
+        # The generic HTTP envelope must agree with SQL/model/context clocks.
+        response = client.get("/api/conversations").json()
+        assert response["meta"]["as_of"] == frozen.isoformat()
+
+
+def test_live_api_response_clock_keeps_the_current_date():
+    from datetime import date
+    from interview_intelligence.api import create_app
+    db, _, _ = seed_corpus()
+    settings = Settings(local_user_id="eval-live-clock", model_api_key=None, elasticsearch_url=None)
+    with TestClient(create_app(db, settings)) as client:
+        assert client.get("/api/conversations").json()["meta"]["as_of"] == date.today().isoformat()
 
 
 def test_provider_extraction_runs_ingestion_validation_and_normalization(monkeypatch, tmp_path):
@@ -178,6 +190,7 @@ def test_http_collection_preserves_conversation_version_and_replay_usage():
             return httpx.Response(200, json={"evaluation_host": True, "user_id": "eval-fixture", "snapshot": snapshot,
                 "state_count": 0, "conversation_count": 0, "event_count": event_count, "states": [], "write_events": [],
                 "query_max_model_calls": 3, "query_max_tokens": 65536, "model_gate_shared": True,
+                "run_status": "SUCCEEDED" if request_id in stored else None,
                 "model_calls": [{"id": request_id, "input_tokens": 10, "output_tokens": 20}] if request_id in stored else []})
         import json
         payload = json.loads(request.content)
@@ -220,3 +233,131 @@ def test_failed_http_request_retains_error_trajectory_and_write_evidence():
     assert failed["failed"] and failed["error_code"]=="QUERY_TOOL_NOT_ALLOWED"
     assert failed["result"]["write_event_delta"]==0 and failed["run_status"]=="FAILED"
     assert failed["trajectory"][0]["type"]=="error" and failed["tool_trace"]==[]
+
+
+def test_http_200_does_not_hide_a_failed_persisted_query_run():
+    snapshot = {"corpus_revision": 1, "indexed_revision": 1, "task_annotation_revision": 1,
+                "as_of": "2026-10-05"}
+    posts = []
+    def handle(request):
+        if request.url.path == "/api/evaluation/context":
+            requested = request.url.params.get("request_id")
+            return httpx.Response(200, json={"evaluation_host": True, "user_id": "eval-status",
+                "snapshot": snapshot, "state_count": 0, "event_count": 0, "conversation_count": 0,
+                "states": [], "write_events": [], "model_calls": [], "model_gate_shared": True,
+                "query_max_model_calls": 3, "query_max_tokens": 65536,
+                "run_status": "FAILED" if requested else None})
+        posts.append(request)
+        return httpx.Response(200, json={"data": [], "meta": {"conversation_id": "case",
+            "conversation_version": 1, "planning": {"spec": {"action": "SEARCH"}}}})
+    with httpx.Client(base_url="http://fixture", transport=httpx.MockTransport(handle)) as client:
+        collector = HttpQueryCollector(client, {"snapshot": snapshot}, EvaluationBudget(10, 250000))
+        result = collector({"id": "case", "turns": [{"message": "first"}, {"message": "next"}]}, [])
+    assert result["failed"] and len(posts) == 1
+    assert result["turns"][0]["error_code"] == "QUERY_RUN_NOT_SUCCEEDED"
+    assert result["turns"][1]["error_code"] == "PREVIOUS_TURN_FAILED"
+
+
+def resume_client(context_overrides=None):
+    snapshot = {"corpus_revision": 1, "indexed_revision": 1, "task_annotation_revision": 1,
+                "as_of": "2026-10-05"}
+    context = {"evaluation_host": True, "user_id": "eval-resume", "snapshot": snapshot,
+               "state_count": 0, "event_count": 0, "conversation_count": 2, "model_gate_shared": True}
+    context.update(context_overrides or {})
+    def handle(request):
+        assert request.method == "GET" and request.url.path == "/api/evaluation/context"
+        return httpx.Response(200, json=context)
+    return httpx.Client(base_url="http://fixture", transport=httpx.MockTransport(handle)), {"snapshot": snapshot}
+
+
+def test_default_http_collector_still_rejects_existing_conversations():
+    client, manifest = resume_client()
+    with client, pytest.raises(GoldValidationError, match="FRESH_EVALUATION_ACTOR_REQUIRED"):
+        HttpQueryCollector(client, manifest, EvaluationBudget(10, 250000))
+
+
+def test_explicit_checkpoint_allows_exact_actor_and_conversation_count_with_no_review_state():
+    client, manifest = resume_client()
+    with client:
+        collector = HttpQueryCollector(client, manifest, EvaluationBudget(10, 250000),
+            resume_checkpoint={"actor": "eval-resume", "conversation_count": 2})
+        assert collector.context["conversation_count"] == 2
+        assert collector.context["state_count"] == collector.context["event_count"] == 0
+
+
+@pytest.mark.parametrize("checkpoint,error", [
+    ({"actor": "eval-other", "conversation_count": 2}, "RESUME_ACTOR_MISMATCH"),
+    ({"actor": "eval-resume", "conversation_count": 1}, "RESUME_CONVERSATION_COUNT_MISMATCH"),
+    ({"actor": "eval-resume", "conversation_count": 3}, "RESUME_CONVERSATION_COUNT_MISMATCH"),
+    ({"actor": "eval-resume"}, "INVALID_RESUME_CHECKPOINT"),
+    ({"actor": "eval-resume", "conversation_count": -1}, "INVALID_RESUME_CHECKPOINT"),
+    ({"actor": "eval-resume", "conversation_count": None}, "INVALID_RESUME_CHECKPOINT"),
+    ({"actor": "eval-resume", "conversation_count": True}, "INVALID_RESUME_CHECKPOINT"),
+    ({"actor": "eval-resume", "conversation_count": "2"}, "INVALID_RESUME_CHECKPOINT"),
+])
+def test_resume_cannot_adopt_another_actor_or_an_unknown_or_wrong_count(checkpoint, error):
+    client, manifest = resume_client()
+    with client, pytest.raises(GoldValidationError, match=error):
+        HttpQueryCollector(client, manifest, EvaluationBudget(10, 250000), resume_checkpoint=checkpoint)
+
+
+@pytest.mark.parametrize("field,value,error", [
+    ("conversation_count", None, "RESUME_CONTEXT_COUNTS_INVALID"),
+    ("conversation_count", -1, "RESUME_CONTEXT_COUNTS_INVALID"),
+    ("conversation_count", 2.0, "RESUME_CONTEXT_COUNTS_INVALID"),
+    ("state_count", None, "RESUME_CONTEXT_COUNTS_INVALID"),
+    ("state_count", -1, "RESUME_CONTEXT_COUNTS_INVALID"),
+    ("event_count", None, "RESUME_CONTEXT_COUNTS_INVALID"),
+    ("event_count", -1, "RESUME_CONTEXT_COUNTS_INVALID"),
+    ("event_count", False, "RESUME_CONTEXT_COUNTS_INVALID"),
+    ("state_count", 1, "RESUME_REVIEW_STATE_NOT_EMPTY"),
+    ("event_count", 1, "RESUME_REVIEW_STATE_NOT_EMPTY"),
+])
+def test_resume_refuses_dirty_or_unmeasured_service_state(field, value, error):
+    client, manifest = resume_client({field: value})
+    with client, pytest.raises(GoldValidationError, match=error):
+        HttpQueryCollector(client, manifest, EvaluationBudget(10, 250000),
+            resume_checkpoint={"actor": "eval-resume", "conversation_count": 2})
+
+
+@pytest.mark.parametrize("field", ["state_count", "event_count", "conversation_count"])
+@pytest.mark.parametrize("value", [None, -1, 1, False, 0.0, "0"])
+def test_fresh_actor_requires_three_explicit_integer_zero_counts(field, value):
+    client, manifest = resume_client({"conversation_count": 0, field: value})
+    with client, pytest.raises(GoldValidationError, match="FRESH_EVALUATION_ACTOR_REQUIRED"):
+        HttpQueryCollector(client, manifest, EvaluationBudget(10, 250000))
+
+
+@pytest.mark.parametrize("status,unknown", [
+    ("FAILED", False), ("CANCELLED", False), ("SKIPPED", False), ("SKIPPED_BUDGET", False),
+    ("INTERRUPTED", False), ("RUNNING", True), ("UNKNOWN", True), ("QUEUED", True), (None, True),
+])
+@pytest.mark.parametrize("has_observed_call", [False, True])
+def test_http_200_accepts_only_persisted_success_and_unknown_status_retains_budget(status, unknown, has_observed_call):
+    snapshot = {"corpus_revision": 1, "indexed_revision": 1, "task_annotation_revision": 1,
+                "as_of": "2026-10-05"}
+    posts = []
+    recorded_call = {"id": "paid-call", "operation_type": "QUERY_PLAN", "input_tokens": 7, "output_tokens": 5}
+    def handle(request):
+        if request.url.path == "/api/evaluation/context":
+            requested = request.url.params.get("request_id")
+            return httpx.Response(200, json={"evaluation_host": True, "user_id": "eval-exact-status", "snapshot": snapshot,
+                "state_count": 0, "event_count": 0, "conversation_count": 0, "states": [], "write_events": [],
+                "model_gate_shared": True, "query_max_model_calls": 4, "query_max_tokens": 96000,
+                "run_status": status if requested else None,
+                "model_calls": [recorded_call] if requested and has_observed_call else []})
+        posts.append(request)
+        return httpx.Response(200, json={"data": [], "meta": {"conversation_id": "conversation",
+            "conversation_version": 1, "planning": {"spec": {"action": "SEARCH"}}}})
+    with httpx.Client(base_url="http://fixture", transport=httpx.MockTransport(handle)) as client:
+        budget = EvaluationBudget(10, 250000)
+        collector = HttpQueryCollector(client, {"snapshot": snapshot}, budget)
+        calls = []
+        result = collector({"id": "case", "turns": [{"message": "first"}, {"message": "next"}]}, calls)
+    assert result["failed"] and len(posts) == 1
+    assert result["turns"][0]["error_code"] == ("QUERY_STILL_RUNNING" if status == "RUNNING" else "QUERY_RUN_NOT_SUCCEEDED")
+    assert result["turns"][1]["error_code"] == "PREVIOUS_TURN_FAILED"
+    assert bool(result["telemetry_unavailable"]) is unknown
+    assert calls == ([recorded_call] if has_observed_call else [])
+    assert budget.used_calls == (4 if unknown else int(has_observed_call))
+    assert budget.used_tokens == (96000 if unknown else 12 * int(has_observed_call))

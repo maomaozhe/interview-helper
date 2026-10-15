@@ -20,6 +20,7 @@ def evaluation_app(database, settings, *, as_of=None):
     if as_of is not None:
         # Only the dedicated evaluation host freezes time for reproducible replay.
         app.state.query_service.today = lambda: as_of
+        app.state.response_as_of = lambda: as_of
 
     @app.get("/api/evaluation/context")
     def context(request_id: str | None = None):

@@ -204,6 +204,8 @@ def validate_gold(dataset: str | Path, section: str | None = None, *, split="tes
                 if group:
                     require(split_by_group.setdefault(group, item_split) == item_split, f"dev/test source leakage: {group}")
     formal = split == "test"
+    from eval.source_gold import validate_source_contract
+    validate_source_contract(Path(dataset), manifest, sections, split=split, verify_sources=verify_sources)
     for name in sections:
         rows = manifest[name]
         selected = [r for r in rows if r["split"] == split]

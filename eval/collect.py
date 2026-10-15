@@ -210,13 +210,25 @@ class RetrievalCollector:
 
 
 class ProviderCollector:
-    def __init__(self, section, dataset, settings, gate, budget, *, extraction_prompt_version=None):
+    def __init__(self, section, dataset, settings, gate, budget, *, extraction_prompt_version=None,
+                 dedup_prompt_version=None, dedup_verify_equivalence=None, dedup_source_context=False):
         self.section, self.dataset, self.settings, self.gate, self.budget = section, dataset, settings, gate, budget
         self.extraction_prompt_version = extraction_prompt_version
+        require(dedup_prompt_version is None or dedup_prompt_version in {"dedup_judge_v1", "dedup_judge_v2", "dedup_judge_v3"},
+                "unknown dedup prompt version")
+        require(type(dedup_source_context) is bool, "dedup source context must be boolean")
+        require((dedup_prompt_version is None and dedup_verify_equivalence is None and not dedup_source_context) or section == "dedup",
+                "dedup override requires provider dedup")
+        self.dedup_prompt_version = dedup_prompt_version
+        self.dedup_verify_equivalence = dedup_verify_equivalence
+        self.dedup_source_context = dedup_source_context
         self.client = capped_client(settings) if section != "task_labels" else None
 
     def __call__(self, gold, calls):
         settings = self.settings
+        fingerprint = None
+        source_evidence = None
+        call_start = len(calls)
         common = {"client": self.client, "api_key": settings.model_api_key, "base_url": settings.model_base_url,
                   "call_gate": self.gate, "budget": self.budget, "on_call": calls.append,
                   "timeout_seconds": settings.model_request_timeout_seconds}
@@ -229,7 +241,7 @@ class ProviderCollector:
             provider = OpenAICompatibleExtractor(model=settings.extraction_model, stream=settings.extraction_stream,
                 max_tokens=min(settings.extraction_max_tokens or 16384, 16384),
                 thinking_mode=settings.extraction_thinking_mode,
-                topic_ids=prompt_version in {"extract_question_v4", "extract_question_v5"}, **common)
+                topic_ids=prompt_version in {"extract_question_v4", "extract_question_v5", "extract_question_v6"}, **common)
             raw = inside(self.dataset, gold["source_path"]).read_bytes()
             text = decode_source(raw)
             extracted = provider.extract(text=text, revision_id=gold["source_hash"])
@@ -238,10 +250,28 @@ class ProviderCollector:
             result = extraction_result(extracted)
         elif self.section == "dedup":
             from interview_intelligence.dedup.provider import OpenAICompatibleJudge
+            from interview_intelligence.resources import resource_path
+            if self.dedup_prompt_version is not None:
+                common["prompt_path"] = resource_path(f"prompts/{self.dedup_prompt_version}.md")
+            verify = settings.dedup_verify_equivalence if self.dedup_verify_equivalence is None else self.dedup_verify_equivalence
             provider = OpenAICompatibleJudge(model=settings.judge_model,
-                verify_equivalence=settings.dedup_verify_equivalence, **common)
-            decision = provider.judge(gold["left"]["text"], gold["right"]["text"])
+                verify_equivalence=verify, **common)
+            evidence_options = {}
+            if self.dedup_source_context:
+                from interview_intelligence.dedup.context import VERSION, compile_source_evidence
+                source_evidence = {}
+                for side in ("left", "right"):
+                    endpoint = gold[side]
+                    require(endpoint["text"] == endpoint["raw_question"], "dedup text differs from raw source question")
+                    source_evidence[side] = compile_source_evidence(
+                        inside(self.dataset, endpoint["source_path"]).read_bytes(), endpoint["source_spans"],
+                        raw_question=endpoint["raw_question"], source_hash=endpoint["source_hash"],
+                        source_path=endpoint["source_path"], original_path=endpoint.get("original_path"))
+                evidence_options = {"incoming_evidence": source_evidence["left"], "candidate_evidence": source_evidence["right"]}
+            decision = provider.judge(gold["left"]["text"], gold["right"]["text"], **evidence_options)
             result = {"label": decision.decision, "reason_code": decision.reason_code, "confidence": decision.confidence}
+            fingerprint = provider.collection_fingerprint()
+            fingerprint["source_context_version"] = VERSION if self.dedup_source_context else None
         else:
             from interview_intelligence.agent.task_annotation import model_labels
             from interview_intelligence.resources import resource_path
@@ -263,17 +293,45 @@ class ProviderCollector:
             result = labels.items[0].model_dump(mode="json")
             if result["confidence"] < .7:
                 result.update(response_form="UNKNOWN", coding_focus="UNKNOWN")
-        return {"result": result, "model_calls": calls, "timings": phases(calls), "adapter": "production_provider"}
+        observation = {"result": result, "model_calls": calls, "timings": phases(calls), "adapter": "production_provider"}
+        if fingerprint is not None:
+            observation["provider_fingerprint"] = fingerprint
+            successful = [c for c in calls[call_start:] if c.get("status") == "SUCCEEDED"]
+            observation["dedup_trace"] = {
+                "first_stage": next((c.get("parsed_result") for c in successful
+                                     if c.get("call_stage") == "relation_judgement"), None),
+                "guards": [{"result": c.get("parsed_result"), "comparison_context": c.get("comparison_context", {})}
+                           for c in successful if c.get("call_stage") == "equivalence_verification"],
+                "final": result.copy(),
+            }
+            if source_evidence is not None:
+                observation["source_evidence"] = source_evidence
+        return observation
 
 
 class HttpQueryCollector:
     """Require an isolated eval host with actual per-request telemetry."""
-    def __init__(self, client, manifest, budget, *, allow_writes=False):
+    def __init__(self, client, manifest, budget, *, allow_writes=False, resume_checkpoint=None):
         self.client, self.budget, self.allow_writes = client, budget, allow_writes
         self.context = self.get_context()
         require(self.context["user_id"].startswith("eval-") and self.context.get("evaluation_host") is True,
                 "ISOLATED_EVALUATION_HOST_REQUIRED")
-        require(self.context.get("state_count") == 0 and self.context.get("conversation_count") == 0, "FRESH_EVALUATION_ACTOR_REQUIRED")
+        if resume_checkpoint is None:
+            require(all(type(self.context.get(key)) is int and self.context[key] == 0
+                        for key in ("state_count", "event_count", "conversation_count")),
+                    "FRESH_EVALUATION_ACTOR_REQUIRED")
+        else:
+            require(isinstance(resume_checkpoint, dict)
+                    and type(resume_checkpoint.get("conversation_count")) is int
+                    and resume_checkpoint["conversation_count"] >= 0, "INVALID_RESUME_CHECKPOINT")
+            require(resume_checkpoint.get("actor") == self.context["user_id"], "RESUME_ACTOR_MISMATCH")
+            require(all(type(self.context.get(key)) is int and self.context[key] >= 0
+                        for key in ("conversation_count", "state_count", "event_count")),
+                    "RESUME_CONTEXT_COUNTS_INVALID")
+            require(resume_checkpoint["conversation_count"] == self.context["conversation_count"],
+                    "RESUME_CONVERSATION_COUNT_MISMATCH")
+            require(self.context["state_count"] == self.context["event_count"] == 0,
+                    "RESUME_REVIEW_STATE_NOT_EMPTY")
         require(self.context.get("model_gate_shared") is True, "SHARED_LINUX_MODEL_GATE_REQUIRED")
         assert_snapshot(manifest["snapshot"], self.context["snapshot"])
         self.run_id, self.seen_calls = uuid4().hex, set()
@@ -328,9 +386,12 @@ class HttpQueryCollector:
                     "turn_state": after.get("turn_state"),
                     "write_event_delta": after["event_count"] - before["event_count"]},
                     tool_trace=meta.get("tool_trace", []), model_calls=observed,
-                    tool_invocations=after.get("tool_invocations", []), trajectory=after.get("trajectory", []))
+                    tool_invocations=after.get("tool_invocations", []), trajectory=after.get("trajectory", []),
+                    run_status=after.get("run_status"))
                 if after.get("run_status") == "RUNNING":
                     raise ValueError("QUERY_STILL_RUNNING")
+                if after.get("run_status") != "SUCCEEDED":
+                    raise ValueError("QUERY_RUN_NOT_SUCCEEDED")
                 previous = payload.copy()
             except Exception as error:
                 observation.update(failed=True, error_code=error_code(error))
@@ -339,7 +400,10 @@ class HttpQueryCollector:
                         after = self.get_context(request_id)
                         observed = [c for c in after["model_calls"] if c["id"] not in self.seen_calls]
                         self.seen_calls.update(c["id"] for c in observed)
-                        observation["model_calls"] = observed
+                        # A terminal-state rejection may follow a successful
+                        # telemetry read above. Keep those already-seen calls
+                        # while adding any later calls from the second probe.
+                        observation["model_calls"] = [*observation["model_calls"], *observed]
                         observation.update(tool_invocations=after.get("tool_invocations",[]),
                             trajectory=after.get("trajectory",[]),run_status=after.get("run_status"))
                         observation["tool_trace"]=[{"name":i["name"],"status":i.get("status")} for i in after.get("tool_invocations",[])]
@@ -347,7 +411,8 @@ class HttpQueryCollector:
                             turn_state=after.get("turn_state"))
                         if before is not None:
                             observation["result"]["write_event_delta"]=after["event_count"]-before["event_count"]
-                        if after.get("run_status") == "RUNNING":
+                        if after.get("run_status") not in {"SUCCEEDED", "FAILED", "CANCELLED",
+                                "SKIPPED", "SKIPPED_BUDGET", "INTERRUPTED"}:
                             observation["telemetry_unavailable"] = True
                     except Exception:
                         observation["telemetry_unavailable"] = True
@@ -402,9 +467,16 @@ def main():
     parser.add_argument("--max-calls", type=int)
     parser.add_argument("--max-tokens", type=int)
     parser.add_argument("--allow-writes", action="store_true")
-    parser.add_argument("--extraction-prompt-version", choices=("extract_question_v2", "extract_question_v3", "extract_question_v4", "extract_question_v5"))
+    parser.add_argument("--extraction-prompt-version", choices=("extract_question_v2", "extract_question_v3", "extract_question_v4", "extract_question_v5", "extract_question_v6"))
     parser.add_argument("--extraction-thinking-mode", choices=("auto", "enabled", "disabled"))
+    parser.add_argument("--dedup-prompt-version", choices=("dedup_judge_v1", "dedup_judge_v2", "dedup_judge_v3"))
+    parser.add_argument("--dedup-source-context", action="store_true",
+                        help="Authenticate and supply independent original-source evidence for each dedup endpoint")
+    parser.add_argument("--dedup-verify-equivalence", action=argparse.BooleanOptionalAction, default=None,
+                        help="Explicitly enable/disable SAME verification for provider dedup; otherwise use runtime settings")
     args = parser.parse_args()
+    if args.dedup_prompt_version is not None or args.dedup_verify_equivalence is not None or args.dedup_source_context:
+        require(args.section == "dedup" and args.adapter == "provider", "dedup override requires provider dedup")
     partial = args.output.with_suffix(".partial.jsonl")
     require(not args.output.exists() and not partial.exists(), "PREDICTION_OUTPUT_ALREADY_EXISTS")
     manifest = validate_gold(args.dataset, args.section, split=args.split, require_labels=args.split == "test", review_policy=args.review_policy)
@@ -420,7 +492,8 @@ def main():
     if args.adapter == "http":
         require(args.section == "routing", "http adapter supports routing")
         budget = EvaluationBudget(args.max_calls, args.max_tokens)
-        client = httpx.Client(base_url=args.base_url, timeout=180, trust_env=False)
+        client = httpx.Client(base_url=args.base_url, timeout=180, trust_env=False,
+                             headers={"X-Usage-Purpose": "evaluation"})
         collector = HttpQueryCollector(client, manifest, budget, allow_writes=args.allow_writes)
         observe = lambda: collector.get_context()["snapshot"]
     elif args.adapter == "published":
@@ -452,7 +525,10 @@ def main():
             if args.adapter == "provider":
                 require(args.section in {"extraction", "task_labels", "dedup"}, "unsupported provider task")
                 collector = ProviderCollector(args.section, args.dataset, settings, gate, budget,
-                                              extraction_prompt_version=args.extraction_prompt_version)
+                                              extraction_prompt_version=args.extraction_prompt_version,
+                                              dedup_prompt_version=args.dedup_prompt_version,
+                                              dedup_verify_equivalence=args.dedup_verify_equivalence,
+                                              dedup_source_context=args.dedup_source_context)
             else:
                 require(args.section == "retrieval" and snapshot["indexed_revision"] == snapshot["corpus_revision"], "RETRIEVAL_SNAPSHOT_NOT_READY")
                 from interview_intelligence.dedup.provider import ArkMultimodalEncoder, OpenAICompatibleEncoder
@@ -478,6 +554,8 @@ def main():
         write_json(args.output.with_suffix(".collection.json"), {"adapter": args.adapter, "section": args.section,
             "split": args.split, "review_policy": args.review_policy, "snapshot": snapshot, "samples": len(rows), "failed": sum(r["failed"] for r in rows),
             "budget": budget.summary() if budget else {"model_calls": 0}, "provenance": provenance(),
+            "provider_fingerprints": list({digest(r["provider_fingerprint"]): r["provider_fingerprint"]
+                                           for r in rows if r.get("provider_fingerprint") is not None}.values()),
             "predictions_sha256": digest(args.output.read_bytes())})
     finally:
         if client: client.close()
