@@ -6,6 +6,8 @@ verified_at: 2026-10-15
 sources:
   - path: src/interview_intelligence/api.py
     symbols: [create_app]
+  - path: src/interview_intelligence/api_errors.py
+    symbols: [register_error_handlers]
   - path: src/interview_intelligence/worker.py
     symbols: [build_worker_services, process_queued_run]
   - path: src/interview_intelligence/agent/query_service.py
@@ -31,6 +33,7 @@ tests:
 | 入口 | 职责与关键符号 | 修改时联查 |
 | --- | --- | --- |
 | [api.py](../../src/interview_intelligence/api.py) | `create_app` 装配数据库、模型/provider、用户服务、HTTP；内部 `execute_query` 调度查询 | Settings、QueryService、Pi 回调、tenant、journal |
+| [api_errors.py](../../src/interview_intelligence/api_errors.py) | `register_error_handlers` 注册验证、领域和提供方错误的 HTTP 映射 | API 注入 request_id；账号/管理 422 脱敏与状态码/可重试语义由端点集成测试守护 |
 | [worker.py](../../src/interview_intelligence/worker.py) | `build_worker_services`、`process_queued_run`、`recover_orphaned_runs` | 入库、预算/模型锁、索引、批次恢复 |
 | [cli.py](../../src/interview_intelligence/cli.py) | Typer `ii` 命令，经服务接口/共享能力执行 | API 契约、配置与不同查询路径 |
 | [web.py](../../src/interview_intelligence/web.py) | `register_web`：静态工作台及原文、反馈等接口 | tenant 用户范围、快照路径、反馈回执 |

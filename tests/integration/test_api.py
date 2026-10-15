@@ -9,7 +9,7 @@ from sqlalchemy import select
 import hashlib
 import httpx
 import pytest
-from openai import APITimeoutError, APIConnectionError
+from openai import APITimeoutError, APIConnectionError, APIStatusError
 
 
 def test_stats_detail_and_review_api_share_one_database():
@@ -32,6 +32,13 @@ def test_stats_detail_and_review_api_share_one_database():
     assert client.post("/api/review", json={"idempotency_key": "api-test-1", "items": [
         {"canonical_question_id": fast_id, "status": "WEAK", "score": 2}
     ]}).json()["data"] == recorded.json()["data"]
+    conflict = client.post("/api/review", headers={"x-request-id": "review-conflict"},
+                           json={"idempotency_key": "api-test-1", "items": [
+                               {"canonical_question_id": fast_id, "status": "MASTERED", "score": 5}]})
+    assert conflict.status_code == 409
+    assert conflict.json()["error"]["code"] == "IDEMPOTENCY_CONFLICT"
+    assert conflict.json()["error"]["retryable"] is False
+    assert conflict.json()["request_id"] == "review-conflict"
     state = client.get("/api/review/state", params={"canonical_question_ids": fast_id})
     assert state.json()["data"]["states"][fast_id]["status"] == "WEAK"
 
@@ -39,9 +46,24 @@ def test_stats_detail_and_review_api_share_one_database():
 def test_invalid_filter_is_structured_error():
     db, _, _ = seed_corpus()
     client = TestClient(create_app(db, Settings(database_url="sqlite+pysqlite:///:memory:")))
-    response = client.get("/api/questions/stats", params={"round": "FIFTH"})
+    response = client.get("/api/questions/stats", params={"round": "FIFTH"},
+                          headers={"x-request-id": "invalid-filter"})
     assert response.status_code == 422
     assert response.json()["error"]["code"] == "VALIDATION_ERROR"
+    assert response.json()["error"]["retryable"] is False
+    assert response.json()["request_id"] == "invalid-filter"
+    errors = response.json()["error"]["details"]["errors"]
+    assert any(error["loc"] == ["query", "round"] and error["input"] == "FIFTH" for error in errors)
+
+
+def test_missing_question_is_a_traceable_not_found_response():
+    db, _, _ = seed_corpus()
+    client = TestClient(create_app(db, Settings(database_url="sqlite+pysqlite:///:memory:")))
+    response = client.get("/api/questions/not-a-question", headers={"x-request-id": "missing-question"})
+    assert response.status_code == 404
+    assert response.json()["error"]["code"] == "NOT_FOUND"
+    assert response.json()["error"]["retryable"] is False
+    assert response.json()["request_id"] == "missing-question"
 
 
 def test_topics_are_available_from_installed_app():
@@ -102,9 +124,11 @@ def test_source_snapshot_survives_a_host_path_change_and_normalizes_lines(tmp_pa
     assert response.status_code == 200
     assert response.json()["data"]["markdown"] == "Redis question"
     (tmp_path / f"{digest}.md").write_bytes(b"changed")
-    response = client.get(f"/api/sources/{revision_id}")
+    response = client.get(f"/api/sources/{revision_id}", headers={"x-request-id": "changed-snapshot"})
     assert response.status_code == 400
     assert response.json()["error"]["code"] == "SOURCE_HASH_MISMATCH"
+    assert response.json()["error"]["retryable"] is False
+    assert response.json()["request_id"] == "changed-snapshot"
 
 
 def test_missing_snapshot_is_a_structured_unavailable_response(tmp_path):
@@ -113,13 +137,17 @@ def test_missing_snapshot_is_a_structured_unavailable_response(tmp_path):
         revision_id = session.scalar(select(SourceRevision.id))
     client = TestClient(create_app(db, Settings(database_url="sqlite+pysqlite:///:memory:",
                                                 snapshot_root=tmp_path)))
-    response = client.get(f"/api/sources/{revision_id}")
+    response = client.get(f"/api/sources/{revision_id}", headers={"x-request-id": "missing-snapshot"})
     assert response.status_code == 503
     assert response.json()["error"]["code"] == "SOURCE_SNAPSHOT_MISSING"
+    assert response.json()["error"]["retryable"] is True
+    assert response.json()["request_id"] == "missing-snapshot"
 
 
 @pytest.mark.parametrize("error_type,code", [(APITimeoutError, "MODEL_PROVIDER_TIMEOUT"),
-                                            (APIConnectionError, "MODEL_PROVIDER_UNAVAILABLE")])
+                                            (APIConnectionError, "MODEL_PROVIDER_UNAVAILABLE"),
+                                            (httpx.ReadTimeout, "MODEL_PROVIDER_TIMEOUT"),
+                                            (httpx.ConnectError, "MODEL_PROVIDER_UNAVAILABLE")])
 def test_chat_provider_failure_is_retryable_json_with_request_id(error_type, code):
     db, _, _ = seed_corpus()
     with db.session() as session, session.begin():
@@ -127,7 +155,8 @@ def test_chat_provider_failure_is_retryable_json_with_request_id(error_type, cod
         session.get(CorpusState, 1).indexed_revision = 1
     class Retriever:
         def retrieve(self, *args):
-            raise error_type(request=httpx.Request("POST", "https://model.example/v1"))
+            args = ("provider echoed secret",) if issubclass(error_type, httpx.HTTPError) else ()
+            raise error_type(*args, request=httpx.Request("POST", "https://model.example/v1"))
     client = TestClient(create_app(db, Settings(database_url="sqlite+pysqlite:///:memory:"), Retriever()),
                         raise_server_exceptions=False)
     response = client.post("/api/agent/chat", json={"message": "内存泄漏的类似问法"},
@@ -137,3 +166,28 @@ def test_chat_provider_failure_is_retryable_json_with_request_id(error_type, cod
     assert response.json()["error"]["retryable"] is True
     assert response.json()["request_id"] == "provider-failure-test"
     assert "model.example" not in response.text
+    assert "provider echoed secret" not in response.text
+
+
+@pytest.mark.parametrize("upstream_status,retryable", [(401, False), (429, True), (500, True)])
+def test_chat_provider_status_failure_controls_retry_without_exposing_upstream(upstream_status, retryable):
+    db, _, _ = seed_corpus()
+    with db.session() as session, session.begin():
+        session.get(CorpusState, 1).current_revision = 1
+        session.get(CorpusState, 1).indexed_revision = 1
+
+    class Retriever:
+        def retrieve(self, *args):
+            request = httpx.Request("POST", "https://model.example/v1")
+            raise APIStatusError("provider echoed secret", response=httpx.Response(upstream_status, request=request),
+                                 body={"api_key": "private-provider-secret"})
+
+    client = TestClient(create_app(db, Settings(database_url="sqlite+pysqlite:///:memory:"), Retriever()),
+                        raise_server_exceptions=False)
+    response = client.post("/api/agent/chat", json={"message": "内存泄漏的类似问法"},
+                           headers={"x-request-id": "upstream-status"})
+    assert response.status_code == 503
+    assert response.json()["error"]["code"] == "MODEL_PROVIDER_UNAVAILABLE"
+    assert response.json()["error"]["retryable"] is retryable
+    assert response.json()["request_id"] == "upstream-status"
+    assert "secret" not in response.text and "model.example" not in response.text

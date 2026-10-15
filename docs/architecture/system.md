@@ -6,6 +6,8 @@ verified_at: 2026-10-15
 sources:
   - path: src/interview_intelligence/api.py
     symbols: [create_app, execute_query, agent_chat, internal_run]
+  - path: src/interview_intelligence/api_errors.py
+    symbols: [register_error_handlers]
   - path: src/interview_intelligence/config.py
     symbols: [Settings]
   - path: compose.yaml
@@ -140,6 +142,7 @@ PG journal 可以保存结果、工具意图和恢复依据，但 Pi 回调仍�
 单轮 deadline、模型调用预算、工具调用预算与 provider retry 是不同限制，修改时要分别检查。
 
 当前维护热点是 `api.py` 的装配/编排集中，以及 `query_service.py` 的状态/规则集中。
+HTTP 错误映射已移至 [api_errors](../../src/interview_intelligence/api_errors.py)，查询结果呈现已移至 [query_response](../../src/interview_intelligence/agent/query_response.py)；API 与 QueryService 仍保留执行生命周期和状态职责。
 Python 与 JS 各有工具映射及证据投影；改契约时同时检查 `query_contract.py`、`harness.py` 和 Pi runtime。
 旧 stats 与新 listing 共用 [ranking](../../src/interview_intelligence/analytics/ranking.py) 的权重、分段和版本，分别使用 Python / SQL 归一化适配；调整 importance/gap 公式仍需验证两条入口及签名分页。
 

@@ -75,6 +75,8 @@ def test_auth_session_tamper_revoke_csrf_and_credential_validation(setup):
     malformed = client.patch("/api/account/model", headers=ACTION,
         json={"expected_version": 0, "base_url": "https://public.example/v1", "api_key": "private-key\nsecret", "model": "qwen"})
     assert malformed.status_code == 422 and "private-key" not in malformed.text
+    assert malformed.json() == {"error": {"code": "VALIDATION_ERROR",
+        "message": "invalid credentials or configuration request", "retryable": False}}
     client.cookies.set(TENANT_COOKIE, cookie[:-4] + "aaaa")
     assert client.get("/api/account").json()["data"]["authenticated"] is False
     client.cookies.set(TENANT_COOKIE, cookie)

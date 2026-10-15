@@ -71,6 +71,8 @@ def test_session_cookie_security_tampering_csrf_and_secret_redaction(panel):
         json={"expected_version": 1}).status_code == 403
     malformed = client.post("/api/admin/session", headers=AUTH, json={"token": SECRET * 500})
     assert malformed.status_code == 422 and SECRET not in malformed.text
+    assert malformed.json() == {"error": {"code": "VALIDATION_ERROR",
+        "message": "invalid credentials or configuration request", "retryable": False}}
     value = client.cookies.get(ADMIN_COOKIE)
     client.cookies.clear()
     client.cookies.set(ADMIN_COOKIE, value[:-6] + "abcdef")
