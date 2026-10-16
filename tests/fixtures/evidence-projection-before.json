@@ -1,0 +1,1038 @@
+{
+  "cases": [
+    {
+      "id": "host-evidence-priority",
+      "host_result": {
+        "answer": "Synthetic source result",
+        "planning": {
+          "spec": {
+            "final": false
+          }
+        },
+        "facts": {
+          "data": [
+            {
+              "canonical_question_id": "q0",
+              "key": "redis.persistence",
+              "occurrence_count": 9,
+              "interview_count": 4,
+              "source_document_count": 3,
+              "company_count": 2,
+              "canonical_text": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa😀tail",
+              "sources": [
+                {
+                  "revision_id": "synthetic-r0",
+                  "start_line": 1,
+                  "end_line": 2,
+                  "quote": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb😀tail",
+                  "raw_markdown": "SYNTHETIC_SOURCE_BODY",
+                  "file_path": "SYNTHETIC_SOURCE_PATH"
+                },
+                {
+                  "revision_id": "synthetic-r1",
+                  "start_line": 0,
+                  "end_line": 0,
+                  "quote": ""
+                },
+                {
+                  "revision_id": "synthetic-r2",
+                  "start_line": 3,
+                  "end_line": 4,
+                  "quote": "third source stays only in structuredContent"
+                }
+              ],
+              "raw_markdown": "SYNTHETIC_SOURCE_BODY"
+            },
+            {
+              "canonical_question_id": "q1",
+              "key": "redis.persistence",
+              "occurrence_count": 9,
+              "interview_count": 4,
+              "source_document_count": 3,
+              "company_count": 2,
+              "canonical_text": "",
+              "sources": [],
+              "raw_markdown": "SYNTHETIC_SOURCE_BODY"
+            },
+            {
+              "canonical_question_id": "q2",
+              "key": "redis.persistence",
+              "occurrence_count": 9,
+              "interview_count": 4,
+              "source_document_count": 3,
+              "company_count": 2,
+              "canonical_text": 42,
+              "sources": [
+                {
+                  "revision_id": "r-null",
+                  "quote": null
+                },
+                {
+                  "revision_id": "r-number",
+                  "quote": 17
+                }
+              ],
+              "raw_markdown": "SYNTHETIC_SOURCE_BODY"
+            },
+            {
+              "canonical_question_id": "q3",
+              "key": "redis.persistence",
+              "occurrence_count": 0,
+              "interview_count": 4,
+              "source_document_count": 3,
+              "company_count": -1,
+              "canonical_text": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa😀tail",
+              "sources": null,
+              "raw_markdown": "SYNTHETIC_SOURCE_BODY"
+            },
+            {
+              "canonical_question_id": "q4",
+              "key": "redis.persistence",
+              "occurrence_count": 9,
+              "interview_count": 4,
+              "source_document_count": 3,
+              "company_count": 2,
+              "canonical_text": "汉字🙂é",
+              "sources": [
+                {}
+              ],
+              "raw_markdown": "SYNTHETIC_SOURCE_BODY"
+            },
+            {
+              "canonical_question_id": "q5",
+              "key": "redis.persistence",
+              "occurrence_count": 9,
+              "interview_count": 4,
+              "source_document_count": 3,
+              "company_count": 2,
+              "canonical_text": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa😀tail",
+              "sources": [
+                {
+                  "revision_id": "synthetic-r0",
+                  "start_line": 1,
+                  "end_line": 2,
+                  "quote": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb😀tail",
+                  "raw_markdown": "SYNTHETIC_SOURCE_BODY",
+                  "file_path": "SYNTHETIC_SOURCE_PATH"
+                },
+                {
+                  "revision_id": "synthetic-r1",
+                  "start_line": 0,
+                  "end_line": 0,
+                  "quote": ""
+                },
+                {
+                  "revision_id": "synthetic-r2",
+                  "start_line": 3,
+                  "end_line": 4,
+                  "quote": "third source stays only in structuredContent"
+                }
+              ],
+              "raw_markdown": "SYNTHETIC_SOURCE_BODY"
+            },
+            {
+              "canonical_question_id": "q6",
+              "key": "redis.persistence",
+              "occurrence_count": 9,
+              "interview_count": 4,
+              "source_document_count": 3,
+              "company_count": 2,
+              "canonical_text": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa😀tail",
+              "sources": [
+                {
+                  "revision_id": "synthetic-r0",
+                  "start_line": 1,
+                  "end_line": 2,
+                  "quote": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb😀tail",
+                  "raw_markdown": "SYNTHETIC_SOURCE_BODY",
+                  "file_path": "SYNTHETIC_SOURCE_PATH"
+                },
+                {
+                  "revision_id": "synthetic-r1",
+                  "start_line": 0,
+                  "end_line": 0,
+                  "quote": ""
+                },
+                {
+                  "revision_id": "synthetic-r2",
+                  "start_line": 3,
+                  "end_line": 4,
+                  "quote": "third source stays only in structuredContent"
+                }
+              ],
+              "raw_markdown": "SYNTHETIC_SOURCE_BODY"
+            }
+          ],
+          "meta": {
+            "route": "SQL",
+            "corpus_revision": 12,
+            "task_annotation_revision": 3,
+            "user_state_revision": 0,
+            "applied_filters": {
+              "topic_l1": "Redis",
+              "company": null
+            },
+            "group_by": "topic",
+            "topic_level": "L2",
+            "sort": "frequency",
+            "counts": {
+              "canonical_questions": 99,
+              "occurrences": 100
+            },
+            "sample_counts": {
+              "occurrences": 11
+            },
+            "total_groups": 0,
+            "count_scope": "full_corpus",
+            "review_statuses": [
+              "UNSEEN",
+              "WEAK"
+            ],
+            "review_order": "AFTER_TOP_N",
+            "relevance_status": "COMPLETE",
+            "returned_count": 7,
+            "semantic_task": "ALGORITHM_PROBLEM",
+            "semantic_scope": {
+              "task": "ALGORITHM_PROBLEM",
+              "version": "algorithm_problem_scope_v1",
+              "scope_hash": "0000000000000000000000000000000000000000000000000000000000000000",
+              "occurrences": 11,
+              "accepted": 7,
+              "rejected": 4,
+              "complete": true
+            },
+            "pagination": {
+              "total": 7,
+              "result_total": 7,
+              "returned": 7,
+              "offset": 0,
+              "page_size": 20,
+              "top_n": 7,
+              "next_cursor": "SYNTHETIC_SIGNED_CURSOR",
+              "has_next_page": false
+            },
+            "result_set_id": "SYNTHETIC_RESULT_SET",
+            "harness": {
+              "session": {
+                "current_page_ids": [
+                  "q-host"
+                ],
+                "has_next_page": true
+              },
+              "evidence": [
+                {
+                  "canonical_question_id": "q-host",
+                  "canonical_text": "Host-projected summary",
+                  "occurrence_count": 1
+                }
+              ]
+            }
+          },
+          "counts": {
+            "canonical_questions": 7,
+            "occurrences": 11,
+            "interviews": 4,
+            "source_documents": 3,
+            "known_companies": 2
+          },
+          "states": {
+            "q0": {
+              "status": "WEAK",
+              "review_count": 1,
+              "last_reviewed_at": null,
+              "binding_status": "RESOLVED",
+              "note": "Synthetic review note",
+              "last_score": 2,
+              "version": 1
+            }
+          }
+        }
+      },
+      "expected_content": [
+        {
+          "type": "text",
+          "text": "{\"answer\":\"Synthetic source result\",\"meta\":{\"route\":\"SQL\",\"corpus_revision\":12,\"task_annotation_revision\":3,\"user_state_revision\":0,\"applied_filters\":{\"topic_l1\":\"Redis\",\"company\":null},\"group_by\":\"topic\",\"topic_level\":\"L2\",\"sort\":\"frequency\",\"counts\":{\"canonical_questions\":99,\"occurrences\":100},\"sample_counts\":{\"occurrences\":11},\"total_groups\":0,\"count_scope\":\"full_corpus\",\"review_statuses\":[\"UNSEEN\",\"WEAK\"],\"review_order\":\"AFTER_TOP_N\",\"relevance_status\":\"COMPLETE\",\"returned_count\":7,\"semantic_task\":\"ALGORITHM_PROBLEM\",\"semantic_scope\":{\"task\":\"ALGORITHM_PROBLEM\",\"version\":\"algorithm_problem_scope_v1\",\"scope_hash\":\"0000000000000000000000000000000000000000000000000000000000000000\",\"occurrences\":11,\"accepted\":7,\"rejected\":4,\"complete\":true},\"pagination\":{\"total\":7,\"result_total\":7,\"returned\":7,\"offset\":0,\"page_size\":20,\"top_n\":7,\"has_next_page\":true}},\"session\":{\"current_page_ids\":[\"q-host\"],\"has_next_page\":true},\"current_page_ids\":[\"q-host\"],\"items\":[{\"canonical_question_id\":\"q-host\",\"canonical_text\":\"Host-projected summary\",\"occurrence_count\":1}],\"counts\":{\"canonical_questions\":7,\"occurrences\":11,\"interviews\":4,\"source_documents\":3,\"known_companies\":2},\"states\":{\"q0\":{\"status\":\"WEAK\",\"review_count\":1,\"last_reviewed_at\":null,\"binding_status\":\"RESOLVED\",\"note\":\"Synthetic review note\",\"last_score\":2,\"version\":1}}}"
+        }
+      ]
+    },
+    {
+      "id": "empty-host-evidence-and-page-are-authoritative",
+      "host_result": {
+        "answer": "Synthetic source result",
+        "planning": {
+          "spec": {
+            "final": false
+          }
+        },
+        "facts": {
+          "data": [
+            {
+              "canonical_question_id": "q0",
+              "key": "redis.persistence",
+              "occurrence_count": 9,
+              "interview_count": 4,
+              "source_document_count": 3,
+              "company_count": 2,
+              "canonical_text": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa😀tail",
+              "sources": [
+                {
+                  "revision_id": "synthetic-r0",
+                  "start_line": 1,
+                  "end_line": 2,
+                  "quote": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb😀tail",
+                  "raw_markdown": "SYNTHETIC_SOURCE_BODY",
+                  "file_path": "SYNTHETIC_SOURCE_PATH"
+                },
+                {
+                  "revision_id": "synthetic-r1",
+                  "start_line": 0,
+                  "end_line": 0,
+                  "quote": ""
+                },
+                {
+                  "revision_id": "synthetic-r2",
+                  "start_line": 3,
+                  "end_line": 4,
+                  "quote": "third source stays only in structuredContent"
+                }
+              ],
+              "raw_markdown": "SYNTHETIC_SOURCE_BODY"
+            },
+            {
+              "canonical_question_id": "q1",
+              "key": "redis.persistence",
+              "occurrence_count": 9,
+              "interview_count": 4,
+              "source_document_count": 3,
+              "company_count": 2,
+              "canonical_text": "",
+              "sources": [],
+              "raw_markdown": "SYNTHETIC_SOURCE_BODY"
+            },
+            {
+              "canonical_question_id": "q2",
+              "key": "redis.persistence",
+              "occurrence_count": 9,
+              "interview_count": 4,
+              "source_document_count": 3,
+              "company_count": 2,
+              "canonical_text": 42,
+              "sources": [
+                {
+                  "revision_id": "r-null",
+                  "quote": null
+                },
+                {
+                  "revision_id": "r-number",
+                  "quote": 17
+                }
+              ],
+              "raw_markdown": "SYNTHETIC_SOURCE_BODY"
+            },
+            {
+              "canonical_question_id": "q3",
+              "key": "redis.persistence",
+              "occurrence_count": 0,
+              "interview_count": 4,
+              "source_document_count": 3,
+              "company_count": -1,
+              "canonical_text": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa😀tail",
+              "sources": null,
+              "raw_markdown": "SYNTHETIC_SOURCE_BODY"
+            },
+            {
+              "canonical_question_id": "q4",
+              "key": "redis.persistence",
+              "occurrence_count": 9,
+              "interview_count": 4,
+              "source_document_count": 3,
+              "company_count": 2,
+              "canonical_text": "汉字🙂é",
+              "sources": [
+                {}
+              ],
+              "raw_markdown": "SYNTHETIC_SOURCE_BODY"
+            },
+            {
+              "canonical_question_id": "q5",
+              "key": "redis.persistence",
+              "occurrence_count": 9,
+              "interview_count": 4,
+              "source_document_count": 3,
+              "company_count": 2,
+              "canonical_text": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa😀tail",
+              "sources": [
+                {
+                  "revision_id": "synthetic-r0",
+                  "start_line": 1,
+                  "end_line": 2,
+                  "quote": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb😀tail",
+                  "raw_markdown": "SYNTHETIC_SOURCE_BODY",
+                  "file_path": "SYNTHETIC_SOURCE_PATH"
+                },
+                {
+                  "revision_id": "synthetic-r1",
+                  "start_line": 0,
+                  "end_line": 0,
+                  "quote": ""
+                },
+                {
+                  "revision_id": "synthetic-r2",
+                  "start_line": 3,
+                  "end_line": 4,
+                  "quote": "third source stays only in structuredContent"
+                }
+              ],
+              "raw_markdown": "SYNTHETIC_SOURCE_BODY"
+            },
+            {
+              "canonical_question_id": "q6",
+              "key": "redis.persistence",
+              "occurrence_count": 9,
+              "interview_count": 4,
+              "source_document_count": 3,
+              "company_count": 2,
+              "canonical_text": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa😀tail",
+              "sources": [
+                {
+                  "revision_id": "synthetic-r0",
+                  "start_line": 1,
+                  "end_line": 2,
+                  "quote": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb😀tail",
+                  "raw_markdown": "SYNTHETIC_SOURCE_BODY",
+                  "file_path": "SYNTHETIC_SOURCE_PATH"
+                },
+                {
+                  "revision_id": "synthetic-r1",
+                  "start_line": 0,
+                  "end_line": 0,
+                  "quote": ""
+                },
+                {
+                  "revision_id": "synthetic-r2",
+                  "start_line": 3,
+                  "end_line": 4,
+                  "quote": "third source stays only in structuredContent"
+                }
+              ],
+              "raw_markdown": "SYNTHETIC_SOURCE_BODY"
+            }
+          ],
+          "meta": {
+            "route": "SQL",
+            "corpus_revision": 12,
+            "task_annotation_revision": 3,
+            "user_state_revision": 0,
+            "applied_filters": {
+              "topic_l1": "Redis",
+              "company": null
+            },
+            "group_by": "topic",
+            "topic_level": "L2",
+            "sort": "frequency",
+            "counts": {
+              "canonical_questions": 99,
+              "occurrences": 100
+            },
+            "sample_counts": {
+              "occurrences": 11
+            },
+            "total_groups": 0,
+            "count_scope": "full_corpus",
+            "review_statuses": [
+              "UNSEEN",
+              "WEAK"
+            ],
+            "review_order": "AFTER_TOP_N",
+            "relevance_status": "COMPLETE",
+            "returned_count": 7,
+            "semantic_task": "ALGORITHM_PROBLEM",
+            "semantic_scope": {
+              "task": "ALGORITHM_PROBLEM",
+              "version": "algorithm_problem_scope_v1",
+              "scope_hash": "0000000000000000000000000000000000000000000000000000000000000000",
+              "occurrences": 11,
+              "accepted": 7,
+              "rejected": 4,
+              "complete": true
+            },
+            "pagination": {
+              "total": 7,
+              "result_total": 7,
+              "returned": 7,
+              "offset": 0,
+              "page_size": 20,
+              "top_n": 7,
+              "next_cursor": "SYNTHETIC_SIGNED_CURSOR",
+              "has_next_page": false
+            },
+            "result_set_id": "SYNTHETIC_RESULT_SET",
+            "harness": {
+              "session": {
+                "current_page_ids": [],
+                "has_next_page": false
+              },
+              "evidence": []
+            }
+          },
+          "counts": {},
+          "states": {}
+        }
+      },
+      "expected_content": [
+        {
+          "type": "text",
+          "text": "{\"answer\":\"Synthetic source result\",\"meta\":{\"route\":\"SQL\",\"corpus_revision\":12,\"task_annotation_revision\":3,\"user_state_revision\":0,\"applied_filters\":{\"topic_l1\":\"Redis\",\"company\":null},\"group_by\":\"topic\",\"topic_level\":\"L2\",\"sort\":\"frequency\",\"counts\":{\"canonical_questions\":99,\"occurrences\":100},\"sample_counts\":{\"occurrences\":11},\"total_groups\":0,\"count_scope\":\"full_corpus\",\"review_statuses\":[\"UNSEEN\",\"WEAK\"],\"review_order\":\"AFTER_TOP_N\",\"relevance_status\":\"COMPLETE\",\"returned_count\":7,\"semantic_task\":\"ALGORITHM_PROBLEM\",\"semantic_scope\":{\"task\":\"ALGORITHM_PROBLEM\",\"version\":\"algorithm_problem_scope_v1\",\"scope_hash\":\"0000000000000000000000000000000000000000000000000000000000000000\",\"occurrences\":11,\"accepted\":7,\"rejected\":4,\"complete\":true},\"pagination\":{\"total\":7,\"result_total\":7,\"returned\":7,\"offset\":0,\"page_size\":20,\"top_n\":7,\"has_next_page\":true}},\"session\":{\"current_page_ids\":[],\"has_next_page\":false},\"current_page_ids\":[],\"items\":[],\"counts\":{},\"states\":{}}"
+        }
+      ]
+    },
+    {
+      "id": "missing-harness-fallback-all-fields-and-utf16-limits",
+      "host_result": {
+        "answer": "Synthetic source result",
+        "planning": {
+          "spec": {
+            "final": false
+          }
+        },
+        "facts": {
+          "data": [
+            {
+              "canonical_question_id": "q0",
+              "key": "redis.persistence",
+              "occurrence_count": 9,
+              "interview_count": 4,
+              "source_document_count": 3,
+              "company_count": 2,
+              "canonical_text": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa😀tail",
+              "sources": [
+                {
+                  "revision_id": "synthetic-r0",
+                  "start_line": 1,
+                  "end_line": 2,
+                  "quote": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb😀tail",
+                  "raw_markdown": "SYNTHETIC_SOURCE_BODY",
+                  "file_path": "SYNTHETIC_SOURCE_PATH"
+                },
+                {
+                  "revision_id": "synthetic-r1",
+                  "start_line": 0,
+                  "end_line": 0,
+                  "quote": ""
+                },
+                {
+                  "revision_id": "synthetic-r2",
+                  "start_line": 3,
+                  "end_line": 4,
+                  "quote": "third source stays only in structuredContent"
+                }
+              ],
+              "raw_markdown": "SYNTHETIC_SOURCE_BODY"
+            },
+            {
+              "canonical_question_id": "q1",
+              "key": "redis.persistence",
+              "occurrence_count": 9,
+              "interview_count": 4,
+              "source_document_count": 3,
+              "company_count": 2,
+              "canonical_text": "",
+              "sources": [],
+              "raw_markdown": "SYNTHETIC_SOURCE_BODY"
+            },
+            {
+              "canonical_question_id": "q2",
+              "key": "redis.persistence",
+              "occurrence_count": 9,
+              "interview_count": 4,
+              "source_document_count": 3,
+              "company_count": 2,
+              "canonical_text": 42,
+              "sources": [
+                {
+                  "revision_id": "r-null",
+                  "quote": null
+                },
+                {
+                  "revision_id": "r-number",
+                  "quote": 17
+                }
+              ],
+              "raw_markdown": "SYNTHETIC_SOURCE_BODY"
+            },
+            {
+              "canonical_question_id": "q3",
+              "key": "redis.persistence",
+              "occurrence_count": 0,
+              "interview_count": 4,
+              "source_document_count": 3,
+              "company_count": -1,
+              "canonical_text": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa😀tail",
+              "sources": null,
+              "raw_markdown": "SYNTHETIC_SOURCE_BODY"
+            },
+            {
+              "canonical_question_id": "q4",
+              "key": "redis.persistence",
+              "occurrence_count": 9,
+              "interview_count": 4,
+              "source_document_count": 3,
+              "company_count": 2,
+              "canonical_text": "汉字🙂é",
+              "sources": [
+                {}
+              ],
+              "raw_markdown": "SYNTHETIC_SOURCE_BODY"
+            },
+            {
+              "canonical_question_id": "q5",
+              "key": "redis.persistence",
+              "occurrence_count": 9,
+              "interview_count": 4,
+              "source_document_count": 3,
+              "company_count": 2,
+              "canonical_text": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa😀tail",
+              "sources": [
+                {
+                  "revision_id": "synthetic-r0",
+                  "start_line": 1,
+                  "end_line": 2,
+                  "quote": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb😀tail",
+                  "raw_markdown": "SYNTHETIC_SOURCE_BODY",
+                  "file_path": "SYNTHETIC_SOURCE_PATH"
+                },
+                {
+                  "revision_id": "synthetic-r1",
+                  "start_line": 0,
+                  "end_line": 0,
+                  "quote": ""
+                },
+                {
+                  "revision_id": "synthetic-r2",
+                  "start_line": 3,
+                  "end_line": 4,
+                  "quote": "third source stays only in structuredContent"
+                }
+              ],
+              "raw_markdown": "SYNTHETIC_SOURCE_BODY"
+            },
+            {
+              "canonical_question_id": "q6",
+              "key": "redis.persistence",
+              "occurrence_count": 9,
+              "interview_count": 4,
+              "source_document_count": 3,
+              "company_count": 2,
+              "canonical_text": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa😀tail",
+              "sources": [
+                {
+                  "revision_id": "synthetic-r0",
+                  "start_line": 1,
+                  "end_line": 2,
+                  "quote": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb😀tail",
+                  "raw_markdown": "SYNTHETIC_SOURCE_BODY",
+                  "file_path": "SYNTHETIC_SOURCE_PATH"
+                },
+                {
+                  "revision_id": "synthetic-r1",
+                  "start_line": 0,
+                  "end_line": 0,
+                  "quote": ""
+                },
+                {
+                  "revision_id": "synthetic-r2",
+                  "start_line": 3,
+                  "end_line": 4,
+                  "quote": "third source stays only in structuredContent"
+                }
+              ],
+              "raw_markdown": "SYNTHETIC_SOURCE_BODY"
+            }
+          ],
+          "meta": {
+            "route": "SQL",
+            "corpus_revision": 12,
+            "task_annotation_revision": 3,
+            "user_state_revision": 0,
+            "applied_filters": {
+              "topic_l1": "Redis",
+              "company": null
+            },
+            "group_by": "topic",
+            "topic_level": "L2",
+            "sort": "frequency",
+            "counts": {
+              "canonical_questions": 99,
+              "occurrences": 100
+            },
+            "sample_counts": {
+              "occurrences": 11
+            },
+            "total_groups": 0,
+            "count_scope": "full_corpus",
+            "review_statuses": [
+              "UNSEEN",
+              "WEAK"
+            ],
+            "review_order": "AFTER_TOP_N",
+            "relevance_status": "COMPLETE",
+            "returned_count": 7,
+            "semantic_task": "ALGORITHM_PROBLEM",
+            "semantic_scope": {
+              "task": "ALGORITHM_PROBLEM",
+              "version": "algorithm_problem_scope_v1",
+              "scope_hash": "0000000000000000000000000000000000000000000000000000000000000000",
+              "occurrences": 11,
+              "accepted": 7,
+              "rejected": 4,
+              "complete": true
+            },
+            "pagination": {
+              "total": 7,
+              "result_total": 7,
+              "returned": 7,
+              "offset": 0,
+              "page_size": 20,
+              "top_n": 7,
+              "next_cursor": "SYNTHETIC_SIGNED_CURSOR",
+              "has_next_page": false
+            },
+            "result_set_id": "SYNTHETIC_RESULT_SET"
+          },
+          "counts": {
+            "canonical_questions": 7,
+            "occurrences": 11,
+            "interviews": 4,
+            "source_documents": 3,
+            "known_companies": 2
+          },
+          "states": {
+            "q0": {
+              "status": "WEAK",
+              "review_count": 1,
+              "last_reviewed_at": null,
+              "binding_status": "RESOLVED",
+              "note": "Synthetic review note",
+              "last_score": 2,
+              "version": 1
+            }
+          }
+        }
+      },
+      "expected_content": [
+        {
+          "type": "text",
+          "text": "{\"answer\":\"Synthetic source result\",\"meta\":{\"route\":\"SQL\",\"corpus_revision\":12,\"task_annotation_revision\":3,\"user_state_revision\":0,\"applied_filters\":{\"topic_l1\":\"Redis\",\"company\":null},\"group_by\":\"topic\",\"topic_level\":\"L2\",\"sort\":\"frequency\",\"counts\":{\"canonical_questions\":99,\"occurrences\":100},\"sample_counts\":{\"occurrences\":11},\"total_groups\":0,\"count_scope\":\"full_corpus\",\"review_statuses\":[\"UNSEEN\",\"WEAK\"],\"review_order\":\"AFTER_TOP_N\",\"relevance_status\":\"COMPLETE\",\"returned_count\":7,\"semantic_task\":\"ALGORITHM_PROBLEM\",\"semantic_scope\":{\"task\":\"ALGORITHM_PROBLEM\",\"version\":\"algorithm_problem_scope_v1\",\"scope_hash\":\"0000000000000000000000000000000000000000000000000000000000000000\",\"occurrences\":11,\"accepted\":7,\"rejected\":4,\"complete\":true},\"pagination\":{\"total\":7,\"result_total\":7,\"returned\":7,\"offset\":0,\"page_size\":20,\"top_n\":7,\"has_next_page\":true}},\"current_page_ids\":[\"q0\",\"q1\",\"q2\",\"q3\",\"q4\",\"q5\",\"q6\"],\"items\":[{\"canonical_question_id\":\"q0\",\"key\":\"redis.persistence\",\"occurrence_count\":9,\"interview_count\":4,\"source_document_count\":3,\"company_count\":2,\"canonical_text\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\\ud83d\",\"sources\":[{\"revision_id\":\"synthetic-r0\",\"start_line\":1,\"end_line\":2,\"quote\":\"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\\ud83d\"},{\"revision_id\":\"synthetic-r1\",\"start_line\":0,\"end_line\":0,\"quote\":\"\"}]},{\"canonical_question_id\":\"q1\",\"key\":\"redis.persistence\",\"occurrence_count\":9,\"interview_count\":4,\"source_document_count\":3,\"company_count\":2,\"canonical_text\":\"\",\"sources\":[]},{\"canonical_question_id\":\"q2\",\"key\":\"redis.persistence\",\"occurrence_count\":9,\"interview_count\":4,\"source_document_count\":3,\"company_count\":2,\"sources\":[{\"revision_id\":\"r-null\",\"quote\":\"null\"},{\"revision_id\":\"r-number\",\"quote\":\"17\"}]},{\"canonical_question_id\":\"q3\",\"key\":\"redis.persistence\",\"occurrence_count\":0,\"interview_count\":4,\"source_document_count\":3,\"company_count\":-1,\"canonical_text\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\\ud83d\"},{\"canonical_question_id\":\"q4\",\"key\":\"redis.persistence\",\"occurrence_count\":9,\"interview_count\":4,\"source_document_count\":3,\"company_count\":2,\"canonical_text\":\"汉字🙂é\",\"sources\":[{}]}],\"counts\":{\"canonical_questions\":7,\"occurrences\":11,\"interviews\":4,\"source_documents\":3,\"known_companies\":2},\"states\":{\"q0\":{\"status\":\"WEAK\",\"review_count\":1,\"last_reviewed_at\":null,\"binding_status\":\"RESOLVED\",\"note\":\"Synthetic review note\",\"last_score\":2,\"version\":1}}}"
+        }
+      ]
+    },
+    {
+      "id": "non-array-evidence-fallback-and-pagination-types",
+      "host_result": {
+        "answer": "Synthetic source result",
+        "planning": {
+          "spec": {
+            "final": false
+          }
+        },
+        "facts": {
+          "data": [
+            {
+              "canonical_question_id": "q0",
+              "key": "redis.persistence",
+              "occurrence_count": 9,
+              "interview_count": 4,
+              "source_document_count": 3,
+              "company_count": 2,
+              "canonical_text": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa😀tail",
+              "sources": [
+                {
+                  "revision_id": "synthetic-r0",
+                  "start_line": 1,
+                  "end_line": 2,
+                  "quote": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb😀tail",
+                  "raw_markdown": "SYNTHETIC_SOURCE_BODY",
+                  "file_path": "SYNTHETIC_SOURCE_PATH"
+                },
+                {
+                  "revision_id": "synthetic-r1",
+                  "start_line": 0,
+                  "end_line": 0,
+                  "quote": ""
+                },
+                {
+                  "revision_id": "synthetic-r2",
+                  "start_line": 3,
+                  "end_line": 4,
+                  "quote": "third source stays only in structuredContent"
+                }
+              ],
+              "raw_markdown": "SYNTHETIC_SOURCE_BODY"
+            },
+            {
+              "canonical_question_id": "q1",
+              "key": "redis.persistence",
+              "occurrence_count": 9,
+              "interview_count": 4,
+              "source_document_count": 3,
+              "company_count": 2,
+              "canonical_text": "",
+              "sources": [],
+              "raw_markdown": "SYNTHETIC_SOURCE_BODY"
+            },
+            {
+              "canonical_question_id": "q2",
+              "key": "redis.persistence",
+              "occurrence_count": 9,
+              "interview_count": 4,
+              "source_document_count": 3,
+              "company_count": 2,
+              "canonical_text": 42,
+              "sources": [
+                {
+                  "revision_id": "r-null",
+                  "quote": null
+                },
+                {
+                  "revision_id": "r-number",
+                  "quote": 17
+                }
+              ],
+              "raw_markdown": "SYNTHETIC_SOURCE_BODY"
+            },
+            {
+              "canonical_question_id": "q3",
+              "key": "redis.persistence",
+              "occurrence_count": 0,
+              "interview_count": 4,
+              "source_document_count": 3,
+              "company_count": -1,
+              "canonical_text": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa😀tail",
+              "sources": null,
+              "raw_markdown": "SYNTHETIC_SOURCE_BODY"
+            },
+            {
+              "canonical_question_id": "q4",
+              "key": "redis.persistence",
+              "occurrence_count": 9,
+              "interview_count": 4,
+              "source_document_count": 3,
+              "company_count": 2,
+              "canonical_text": "汉字🙂é",
+              "sources": [
+                {}
+              ],
+              "raw_markdown": "SYNTHETIC_SOURCE_BODY"
+            },
+            {
+              "canonical_question_id": "q5",
+              "key": "redis.persistence",
+              "occurrence_count": 9,
+              "interview_count": 4,
+              "source_document_count": 3,
+              "company_count": 2,
+              "canonical_text": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa😀tail",
+              "sources": [
+                {
+                  "revision_id": "synthetic-r0",
+                  "start_line": 1,
+                  "end_line": 2,
+                  "quote": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb😀tail",
+                  "raw_markdown": "SYNTHETIC_SOURCE_BODY",
+                  "file_path": "SYNTHETIC_SOURCE_PATH"
+                },
+                {
+                  "revision_id": "synthetic-r1",
+                  "start_line": 0,
+                  "end_line": 0,
+                  "quote": ""
+                },
+                {
+                  "revision_id": "synthetic-r2",
+                  "start_line": 3,
+                  "end_line": 4,
+                  "quote": "third source stays only in structuredContent"
+                }
+              ],
+              "raw_markdown": "SYNTHETIC_SOURCE_BODY"
+            },
+            {
+              "canonical_question_id": "q6",
+              "key": "redis.persistence",
+              "occurrence_count": 9,
+              "interview_count": 4,
+              "source_document_count": 3,
+              "company_count": 2,
+              "canonical_text": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa😀tail",
+              "sources": [
+                {
+                  "revision_id": "synthetic-r0",
+                  "start_line": 1,
+                  "end_line": 2,
+                  "quote": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb😀tail",
+                  "raw_markdown": "SYNTHETIC_SOURCE_BODY",
+                  "file_path": "SYNTHETIC_SOURCE_PATH"
+                },
+                {
+                  "revision_id": "synthetic-r1",
+                  "start_line": 0,
+                  "end_line": 0,
+                  "quote": ""
+                },
+                {
+                  "revision_id": "synthetic-r2",
+                  "start_line": 3,
+                  "end_line": 4,
+                  "quote": "third source stays only in structuredContent"
+                }
+              ],
+              "raw_markdown": "SYNTHETIC_SOURCE_BODY"
+            }
+          ],
+          "meta": {
+            "route": "SQL",
+            "corpus_revision": 12,
+            "task_annotation_revision": 3,
+            "user_state_revision": 0,
+            "applied_filters": {
+              "topic_l1": "Redis",
+              "company": null
+            },
+            "group_by": "topic",
+            "topic_level": "L2",
+            "sort": "frequency",
+            "counts": {
+              "canonical_questions": 99,
+              "occurrences": 100
+            },
+            "sample_counts": {
+              "occurrences": 11
+            },
+            "total_groups": 0,
+            "count_scope": "full_corpus",
+            "review_statuses": [
+              "UNSEEN",
+              "WEAK"
+            ],
+            "review_order": "AFTER_TOP_N",
+            "relevance_status": "COMPLETE",
+            "returned_count": 7,
+            "semantic_task": "ALGORITHM_PROBLEM",
+            "semantic_scope": {
+              "task": "ALGORITHM_PROBLEM",
+              "version": "algorithm_problem_scope_v1",
+              "scope_hash": "0000000000000000000000000000000000000000000000000000000000000000",
+              "occurrences": 11,
+              "accepted": 7,
+              "rejected": 4,
+              "complete": true
+            },
+            "pagination": {
+              "total": "7",
+              "result_total": null,
+              "returned": -1,
+              "offset": 0,
+              "page_size": true,
+              "top_n": 1.5,
+              "next_cursor": "",
+              "has_next_page": true
+            },
+            "result_set_id": "SYNTHETIC_RESULT_SET",
+            "harness": {
+              "session": {
+                "current_page_ids": null
+              },
+              "evidence": {}
+            }
+          },
+          "counts": null,
+          "states": null
+        }
+      },
+      "expected_content": [
+        {
+          "type": "text",
+          "text": "{\"answer\":\"Synthetic source result\",\"meta\":{\"route\":\"SQL\",\"corpus_revision\":12,\"task_annotation_revision\":3,\"user_state_revision\":0,\"applied_filters\":{\"topic_l1\":\"Redis\",\"company\":null},\"group_by\":\"topic\",\"topic_level\":\"L2\",\"sort\":\"frequency\",\"counts\":{\"canonical_questions\":99,\"occurrences\":100},\"sample_counts\":{\"occurrences\":11},\"total_groups\":0,\"count_scope\":\"full_corpus\",\"review_statuses\":[\"UNSEEN\",\"WEAK\"],\"review_order\":\"AFTER_TOP_N\",\"relevance_status\":\"COMPLETE\",\"returned_count\":7,\"semantic_task\":\"ALGORITHM_PROBLEM\",\"semantic_scope\":{\"task\":\"ALGORITHM_PROBLEM\",\"version\":\"algorithm_problem_scope_v1\",\"scope_hash\":\"0000000000000000000000000000000000000000000000000000000000000000\",\"occurrences\":11,\"accepted\":7,\"rejected\":4,\"complete\":true},\"pagination\":{\"returned\":-1,\"offset\":0,\"top_n\":1.5,\"has_next_page\":true}},\"session\":{\"current_page_ids\":null},\"current_page_ids\":[\"q0\",\"q1\",\"q2\",\"q3\",\"q4\",\"q5\",\"q6\"],\"items\":[{\"canonical_question_id\":\"q0\",\"key\":\"redis.persistence\",\"occurrence_count\":9,\"interview_count\":4,\"source_document_count\":3,\"company_count\":2,\"canonical_text\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\\ud83d\",\"sources\":[{\"revision_id\":\"synthetic-r0\",\"start_line\":1,\"end_line\":2,\"quote\":\"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\\ud83d\"},{\"revision_id\":\"synthetic-r1\",\"start_line\":0,\"end_line\":0,\"quote\":\"\"}]},{\"canonical_question_id\":\"q1\",\"key\":\"redis.persistence\",\"occurrence_count\":9,\"interview_count\":4,\"source_document_count\":3,\"company_count\":2,\"canonical_text\":\"\",\"sources\":[]},{\"canonical_question_id\":\"q2\",\"key\":\"redis.persistence\",\"occurrence_count\":9,\"interview_count\":4,\"source_document_count\":3,\"company_count\":2,\"sources\":[{\"revision_id\":\"r-null\",\"quote\":\"null\"},{\"revision_id\":\"r-number\",\"quote\":\"17\"}]},{\"canonical_question_id\":\"q3\",\"key\":\"redis.persistence\",\"occurrence_count\":0,\"interview_count\":4,\"source_document_count\":3,\"company_count\":-1,\"canonical_text\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\\ud83d\"},{\"canonical_question_id\":\"q4\",\"key\":\"redis.persistence\",\"occurrence_count\":9,\"interview_count\":4,\"source_document_count\":3,\"company_count\":2,\"canonical_text\":\"汉字🙂é\",\"sources\":[{}]}],\"counts\":{\"canonical_questions\":99,\"occurrences\":100},\"states\":null}"
+        }
+      ]
+    },
+    {
+      "id": "null-evidence-empty-data-and-false-page",
+      "host_result": {
+        "answer": "Synthetic source result",
+        "planning": {
+          "spec": {
+            "final": false
+          }
+        },
+        "facts": {
+          "data": [],
+          "meta": {
+            "route": "SQL",
+            "counts": {
+              "canonical_questions": 7,
+              "occurrences": 11,
+              "interviews": 4,
+              "source_documents": 3,
+              "known_companies": 2
+            },
+            "pagination": {
+              "total": 0,
+              "result_total": 0,
+              "returned": 0,
+              "offset": 0,
+              "page_size": 20,
+              "top_n": null,
+              "next_cursor": "",
+              "has_next_page": false
+            },
+            "harness": {
+              "evidence": null
+            }
+          },
+          "counts": null
+        }
+      },
+      "expected_content": [
+        {
+          "type": "text",
+          "text": "{\"answer\":\"Synthetic source result\",\"meta\":{\"route\":\"SQL\",\"counts\":{\"canonical_questions\":7,\"occurrences\":11,\"interviews\":4,\"source_documents\":3,\"known_companies\":2},\"pagination\":{\"total\":0,\"result_total\":0,\"returned\":0,\"offset\":0,\"page_size\":20,\"has_next_page\":false}},\"current_page_ids\":[],\"items\":[],\"counts\":{\"canonical_questions\":7,\"occurrences\":11,\"interviews\":4,\"source_documents\":3,\"known_companies\":2}}"
+        }
+      ]
+    },
+    {
+      "id": "missing-evidence-sparse-meta-and-empty-answer",
+      "host_result": {
+        "answer": "",
+        "planning": {
+          "spec": {
+            "final": false
+          }
+        },
+        "facts": {
+          "data": [
+            {
+              "key": "redis.persistence",
+              "occurrence_count": 0
+            }
+          ],
+          "meta": {
+            "route": "SQL",
+            "corpus_revision": null,
+            "semantic_task": null,
+            "pagination": {},
+            "harness": {
+              "session": null
+            }
+          }
+        }
+      },
+      "expected_content": [
+        {
+          "type": "text",
+          "text": "{\"answer\":\"\",\"meta\":{\"route\":\"SQL\",\"corpus_revision\":null,\"semantic_task\":null,\"pagination\":{\"has_next_page\":false}},\"session\":null,\"current_page_ids\":[],\"items\":[{\"key\":\"redis.persistence\",\"occurrence_count\":0}]}"
+        }
+      ]
+    }
+  ]
+}

@@ -4,9 +4,11 @@ status: current
 scope: workspace
 verified_at: 2026-10-16
 sources:
+  - path: src/interview_intelligence/agent/evidence_projection.py
+    symbols: [project_row, project_meta]
   - path: src/interview_intelligence/agent/tool_definitions.py
   - path: scripts/sync-tool-contract.py
-    symbols: [generated_section]
+    symbols: [generated_section, generated_evidence_section]
   - path: src/interview_intelligence/api.py
     symbols: [create_app]
   - path: src/interview_intelligence/api_errors.py
@@ -28,6 +30,8 @@ tests:
 ---
 
 # 模块与验证导航
+
+证据投影的字段和限额统一在 [evidence_projection.py](../../src/interview_intelligence/agent/evidence_projection.py)；ContextCompiler 保留委托入口，Pi 使用同一脚本生成声明。host / pi_legacy 的字段、空值、分页与原生字符切片差异显式保留；[主机输出](../../tests/unit/test_evidence_projection.py)和 [Pi 实际摘要](../../tests/node/evidence-projection.test.mjs)固定原有口径，主机 evidence 数组优先、缺失/非数组才有界回退。
 
 静态工具声明统一维护在 [tool_definitions.py](../../src/interview_intelligence/agent/tool_definitions.py)，通过 [生成脚本](../../scripts/sync-tool-contract.py) 更新 Pi runtime 标记区；[Python 一致性](../../tests/unit/test_tool_contract.py) 和 [实际 Pi 菜单快照](../../tests/node/tool-contract.test.mjs) 守护漂移。主机业务校验与动态 ToolPolicy 仍独立执行。
 
@@ -116,7 +120,7 @@ Python 用 `uv run --locked --extra dev python -m pytest -q <文件...>`；Node 
 ## 已知维护热点
 
 - API 与 QueryService 职责较集中；定位时按装配、生命周期、scope、工具执行、呈现划分阅读。
-- 工具声明由 Python 单源生成 Pi 数据；证据投影仍有两侧口径，下一步围绕 host 投影核对和收敛。
+- 工具及证据字段/限额由 Python 单源生成 Pi 声明；证据保留 host / pi_legacy 兼容口径，主机 evidence 优先与有界回退由固定摘要守护。
 - legacy `/api/questions/search`、`AgentService` 和现代查询链路的 fallback 不完全相同；接口相似不代表结果语义相同。
 - 通用 context/schema 有跨层依赖；重构前检查调用关系，不把静态双向包依赖直接判作运行循环导入故障。
 

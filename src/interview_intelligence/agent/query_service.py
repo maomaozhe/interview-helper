@@ -18,6 +18,7 @@ from sqlalchemy.exc import IntegrityError
 
 from interview_intelligence.agent.query_contract import QueryRequest, QuerySpec, StructuredQueryRequest, TOOL_ACTIONS, QUERY_AGENT_VERSION
 from interview_intelligence.agent.harness import ContextCompiler, ToolPolicy, authorized_statuses
+from interview_intelligence.agent.evidence_projection import EVIDENCE_RESULT_ROWS
 from interview_intelligence.analytics.detail import get_question_detail
 from interview_intelligence.analytics.counts import count_questions
 from interview_intelligence.analytics.semantic_scope import load_semantic_scope, SemanticScopeIncomplete
@@ -491,7 +492,7 @@ class QueryService:
             requested_pipeline=run.request.pipeline, terminal=run.terminal,
             remaining_tools=8-run.tool_calls, requery_origin=run.requery_origin)
         metadata = {"context_contract": compiled["context_contract"], "session": compiled["session"]}
-        metadata["evidence"] = [self.context_compiler.evidence_row(row) for row in run.result["facts"].get("data", [])[:5]]
+        metadata["evidence"] = [self.context_compiler.evidence_row(row) for row in run.result["facts"].get("data", [])[:EVIDENCE_RESULT_ROWS]]
         if self.dynamic_tools:
             metadata["tool_policy"] = compiled["tool_policy"]
         run.result["facts"]["meta"]["harness"] = metadata

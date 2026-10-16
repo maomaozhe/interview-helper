@@ -11,6 +11,7 @@ import re
 from dataclasses import dataclass
 
 from interview_intelligence.agent.query_contract import TOOL_ACTIONS
+from interview_intelligence.agent.evidence_projection import EVIDENCE_RESULT_ROWS, project_meta, project_row
 from interview_intelligence.contracts import FilterSpec
 
 CONTEXT_VERSION = "query_context_v4"
@@ -200,7 +201,7 @@ class ContextCompiler:
                    "retrieval_expansions": {"previous_plan": expansion},
                    "query_feedback": list(query_feedback), "query_memory": list(query_memory),
                    "completed_tools": [{"intent": p["intent"], "answer": p["answer"][:1800],
-                       "data": [self.evidence_row(row) for row in p["facts"].get("data", [])[:5]],
+                       "data": [self.evidence_row(row) for row in p["facts"].get("data", [])[:EVIDENCE_RESULT_ROWS]],
                        "meta": self.evidence_meta(p["facts"]["meta"])} for p in parts[-3:]],
                    "tool_policy": policy.model_dump(),
                    "context_contract": {"version": CONTEXT_VERSION,
@@ -239,25 +240,9 @@ class ContextCompiler:
 
     @staticmethod
     def evidence_meta(meta):
-        result = {key: value for key, value in meta.items() if key in {
-            "route", "corpus_revision", "task_annotation_revision", "user_state_revision",
-            "applied_filters", "group_by", "topic_level", "sort", "counts", "sample_counts", "total_groups", "count_scope",
-            "search_ranking", "frequency_ranking"}}
-        if meta.get("pagination"):
-            result["pagination"] = {key: value for key, value in meta["pagination"].items()
-                if key in {"total", "result_total", "returned", "offset", "page_size", "top_n"}}
-            result["pagination"]["has_next_page"] = bool(meta["pagination"].get("next_cursor"))
-        return result
+        return project_meta(meta)
 
     @staticmethod
     def evidence_row(row):
         """Bound model evidence without truncating trusted identities or totals."""
-        result = {key: row[key] for key in ("canonical_question_id", "key", "occurrence_count",
-            "interview_count", "source_document_count", "company_count") if key in row}
-        if row.get("canonical_text"):
-            result["canonical_text"] = row["canonical_text"][:400]
-        if row.get("sources"):
-            result["sources"] = [{key: (value[:160] if key == "quote" else value)
-                for key, value in source.items() if key in {"revision_id", "start_line", "end_line", "quote"}}
-                for source in row["sources"][:2]]
-        return result
+        return project_row(row)

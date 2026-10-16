@@ -48,7 +48,7 @@ Linux 验证使用已有 Pi 镜像中的临时容器，禁网、只读挂载相�
 
 1. **静态声明的多处维护已收敛。** 后续只改 Python 定义并重新生成；新增工具的菜单快照与独立业务断言需人工核对，不能靠自动刷新基线消除失败。
 2. **SEARCH 的多余上下文构建已单项处理。** 原 `_execute` 为读 requested_pipeline 再调用 model_context，连带读取偏好/反馈/记忆并构建 filter catalog，最多逐公司核对 100 个语义范围。后续已提取独立解析方法，详见下节；未测量延迟收益。
-3. **证据投影存在两套字段口径。** `harness.evidence_meta` 与 Pi evidenceMeta 分别包含不同的排名、语义范围和核验字段。下一次围绕 host 的版本化证据投影收敛；先保留缺少 host evidence 时的 JS 行投影兼容路径。
+3. **证据声明已收敛，输出按场景保留兼容口径。** 原 host / Pi 的排名、语义范围及核验字段不同；后续已统一字段与限额来源，并保留两种口径和缺少主机 evidence 时的 JS 回退，详见末节。
 4. **兼容入口仍承担业务规则。** `AgentService._search`、API question_search 和 QueryService SEARCH 分别组织检索与核验，当前契约并不完全相同。先查调用者，再决定退役或共用执行策略。
 5. **核心编排依旧集中。** 本次审查快照中 API 919 行、create_app 约 780 行；QueryService 884 行、_execute 约 308 行。后续按查询所有权提取规划、取消/超时和活跃任务协调，再拆检索执行；仅机械分路由文件不能减少状态恢复的理解成本。
 
@@ -79,3 +79,46 @@ Linux 验证使用已有 Pi 镜像中的临时容器，禁网、只读挂载相�
 独立提交副本（HEAD + 本次四文件增量）93 passed、0 failed / skipped，22.71 秒，仅既有弃用警告；工作区另有未提交测试增量，所以同名文件的用例数不同，18 项新增 pipeline 用例在两个版本均通过。当前文档 2 页、23 链接、14 sources、10 符号通过；独立提交版本 2 页、26 链接、11 sources、7 符号通过。人工核对正文与暂存 diff，确认源码只有 6 行解析方法和两个调用点替换，其他 scope/评测工作不在提交内；独立静态复核未发现实质问题。
 
 本轮未改 Node/Pi、提示词或默认配置，未运行全套工程回归、真实服务评测或部署。原有未提交工作继续保留，下一项为证据投影口径收敛。
+
+## 后续单项：证据投影声明与兼容口径
+
+目标：收敛 Python/JS 重复的证据字段和限额，同时保留当前模型输入、主机完整事实及旧主机回退。事实：行白名单和 400/160 字符、2 个来源、5 行工具摘要限额相同，但 host meta 包含排名，Pi meta 包含核验/语义范围；空值、分页值类型、键顺序及 Unicode 码点/UTF-16 截断也存在差异。
+
+方案：纯 Python 证据投影模块统一字段和限额，显式保留 host / pi_legacy 两种投影口径；沿用生成脚本在 runtime 内生成声明，两端保留各自原生遍历、类型和截断规则。ContextCompiler 的既有方法继续委托调用；Pi 优先原样使用主机 evidence 数组（包括空数组），只有缺失或非数组才回退。不会取两端字段并集、增加回执字段或引入运行资源。
+
+验收：实施前冻结 Python 输出/异常及真实 Pi 第二轮模型摘要，实施后核对所有字段、空值、分页、emoji、来源截断和主机优先分支，验证原 facts 不变、生成漂移检查、相关 Python/Node 回归及 Linux 构建。已有未提交工作独立保留；当前状态、模块导航只叠加本任务增量。
+
+字段口径核对（保持原输出，不取并集）：
+
+| 项目 | host 上下文 | pi_legacy 工具摘要 |
+| --- | --- | --- |
+| 基本白名单/限额 | 两端共用 6 个行字段、4 个引用字段、12 个 meta 基础字段、6 个分页字段；正文 400、引用 160、来源 2 个、工具摘要 5 行 | 同一声明生成至 runtime；完整主机 facts 不受摘要限制 |
+| meta 独有字段 | search_ranking / frequency_ranking | review_statuses / review_order / relevance_status / returned_count / semantic_task / semantic_scope |
+| 空正文/来源与引用类型 | 空值省略；quote 直接切片，非法类型继续报原错误 | 保留空字符串/数组；quote 先转 String 再切片 |
+| 字符与键顺序 | Python Unicode 码点；meta/引用按输入键顺序 | JavaScript UTF-16 单元；按固定白名单顺序 |
+| 分页 | 允许字段保留原类型；空对象省略；has_next_page 只看 next_cursor | 仅保留 number；空对象保留 false 标志；兼容 next_cursor 或已有 has_next_page |
+
+实现由 [evidence_projection.py](../../src/interview_intelligence/agent/evidence_projection.py) 集中声明并提供 host 投影；ContextCompiler 既有静态方法委托调用，工具行数限额由编译器、主机回执和 JS 回退共同引用。生成脚本检查工具、证据两个标记区。Pi 优先原样采用主机 evidence 数组，包括空数组，不二次投影/截断；缺失、null 或非数组才使用前 5 行回退。未增加请求/回执字段或独立运行资源，现有 wheel、Docker 挂载及 runtime 身份哈希继续覆盖。
+
+实际验证：
+
+- 改动前 Python 冻结基线 41 passed（10.21 秒），其中 7 组 host 输出和 5 类原生类型错误；真实 Pi 冻结 6 passed（0.81 秒）。固定预期不由新声明实时生成。
+- 改动后相关 Python 95 passed（15.73 秒，1 条既有 Starlette/httpx 弃用警告），Node 24 passed；Pi 精确比较第二轮模型可见 JSON 原文，并检查原始 structuredContent 等于完整 host 回执。
+- wheel 离线构建，以 --no-deps --no-index 安装临时 target；仓库外 cwd 导入已安装投影模块，7 组 host 冻结输出均相同。
+- Linux 禁网临时 Pi 容器中 build:pi / check 通过，28 项相关 Node 测试通过，0 失败/跳过；没有修改运行容器。CI 和 test:agent 已接入证据摘要回归。
+- 独立提交副本（HEAD + 本次增量）Python 95 passed（29.22 秒，1 条既有弃用警告）、Node 24 passed，均无失败/跳过；不依赖其他未提交功能。当前文档 3 页、157 链接、30 sources、35 符号通过；独立提交版本 3 页、146 链接、23 sources、25 符号通过。人工正文/diff 和独立实现复核通过；14 个暂存路径中，4 个既有修改文件只叠加本次增量，QueryService 仅增加共享限额 import 及一处 cap 替换。原始日志保存在忽略目录 `.tmp/evidence-projection-20261016/`。
+
+实际命令（仓库根；Linux 三条在已有 Pi 镜像内、相关源码归档覆盖后执行）：
+
+```powershell
+.venv\Scripts\python.exe -m pytest -q tests/unit/test_evidence_projection.py tests/unit/test_harness.py tests/unit/test_tool_contract.py tests/integration/test_harness_policy.py tests/integration/test_query_agent.py tests/integration/test_intent_answers.py tests/integration/test_query_requery.py tests/integration/test_query_pipeline.py
+node --test tests/node/evidence-projection.test.mjs tests/node/pi-runtime.test.mjs tests/node/tool-contract.test.mjs
+.venv\Scripts\python.exe scripts/sync-tool-contract.py --check
+uv build --wheel --offline --out-dir .tmp/evidence-projection-20261016/wheel
+npm run build:pi
+npm run check
+node --test tests/node/pi-runtime.test.mjs tests/node/tool-contract.test.mjs tests/node/evidence-projection.test.mjs tests/node/pi-observability.test.mjs tests/node/runtime-identity.test.mjs
+.venv\Scripts\python.exe scripts/check-docs.py docs/status/current.md docs/reference/module-map.md docs/verification/2026-10-16-tool-contract.md
+```
+
+本轮只收敛字段、限额和投影职责，不修改语义筛选、模型默认、动态授权或持久化事实；未执行全套工程回归、真实模型/服务质量评测或部署。后续仍按单一职责核对兼容检索入口和执行生命周期。

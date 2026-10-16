@@ -20,6 +20,16 @@ const toolContract = {
 const toolsByAction = Object.fromEntries(Object.entries(toolContract.tools)
   .sort(([,a],[,b]) => a.pi_order-b.pi_order).map(([name,tool]) => [name,tool.actions]));
 
+// BEGIN GENERATED EVIDENCE PROJECTION (python scripts/sync-tool-contract.py)
+const evidenceProjection = {
+  row_fields: ["canonical_question_id", "key", "occurrence_count", "interview_count", "source_document_count", "company_count"],
+  source_fields: ["revision_id", "start_line", "end_line", "quote"],
+  meta_fields: {"host": ["route", "corpus_revision", "task_annotation_revision", "user_state_revision", "applied_filters", "group_by", "topic_level", "sort", "counts", "sample_counts", "total_groups", "count_scope", "search_ranking", "frequency_ranking"], "pi_legacy": ["route", "corpus_revision", "task_annotation_revision", "user_state_revision", "applied_filters", "group_by", "topic_level", "sort", "counts", "sample_counts", "total_groups", "count_scope", "review_statuses", "review_order", "relevance_status", "returned_count", "semantic_task", "semantic_scope"]},
+  pagination_fields: ["total", "result_total", "returned", "offset", "page_size", "top_n"],
+  limits: {"canonical_text": 400, "quote": 160, "sources": 2, "tool_rows": 5}
+};
+// END GENERATED EVIDENCE PROJECTION
+
 function inlineSchema(value, definitions) {
   if (Array.isArray(value)) return value.map(v => inlineSchema(v, definitions));
   if (value === null || typeof value !== "object") return value;
@@ -29,21 +39,18 @@ function inlineSchema(value, definitions) {
 }
 
 function evidenceRow(row) {
-  const projected=Object.fromEntries(["canonical_question_id","key","occurrence_count","interview_count",
-    "source_document_count","company_count"].filter(key=>row[key]!==undefined).map(key=>[key,row[key]]));
-  if(typeof row.canonical_text==="string")projected.canonical_text=row.canonical_text.slice(0,400);
-  if(Array.isArray(row.sources))projected.sources=row.sources.slice(0,2).map(source=>
-    Object.fromEntries(["revision_id","start_line","end_line","quote"].filter(key=>source[key]!==undefined)
-      .map(key=>[key,key==="quote" ? String(source[key]).slice(0,160) : source[key]])));
+  const projected=Object.fromEntries(evidenceProjection.row_fields.filter(key=>row[key]!==undefined).map(key=>[key,row[key]]));
+  if(typeof row.canonical_text==="string")projected.canonical_text=row.canonical_text.slice(0,evidenceProjection.limits.canonical_text);
+  if(Array.isArray(row.sources))projected.sources=row.sources.slice(0,evidenceProjection.limits.sources).map(source=>
+    Object.fromEntries(evidenceProjection.source_fields.filter(key=>source[key]!==undefined)
+      .map(key=>[key,key==="quote" ? String(source[key]).slice(0,evidenceProjection.limits.quote) : source[key]])));
   return projected;
 }
 
 function evidenceMeta(meta) {
-  const projected=Object.fromEntries(["route","corpus_revision","task_annotation_revision","user_state_revision",
-    "applied_filters","group_by","topic_level","sort","counts","sample_counts","total_groups","count_scope",
-    "review_statuses","review_order","relevance_status","returned_count","semantic_task","semantic_scope"]
+  const projected=Object.fromEntries(evidenceProjection.meta_fields.pi_legacy
     .filter(key=>meta[key]!==undefined).map(key=>[key,meta[key]]));
-  if(meta.pagination)projected.pagination={...Object.fromEntries(["total","result_total","returned","offset","page_size","top_n"]
+  if(meta.pagination)projected.pagination={...Object.fromEntries(evidenceProjection.pagination_fields
     .filter(key=>typeof meta.pagination[key]==="number").map(key=>[key,meta.pagination[key]])),
     has_next_page:Boolean(meta.pagination.next_cursor || meta.pagination.has_next_page)};
   return projected;
@@ -106,7 +113,7 @@ export async function runQuery(input, {hostUrl, token, signal, streamFn: injecte
         return {content:[{type:"text",text:JSON.stringify({answer:result.answer,meta:evidenceMeta(result.facts.meta),
           session:refreshed?.session,
           current_page_ids:refreshed?.session?.current_page_ids || (result.facts.data || []).map(r=>r.canonical_question_id).filter(Boolean),
-          items:Array.isArray(refreshed?.evidence) ? refreshed.evidence : (result.facts.data || []).slice(0,5).map(evidenceRow),
+          items:Array.isArray(refreshed?.evidence) ? refreshed.evidence : (result.facts.data || []).slice(0,evidenceProjection.limits.tool_rows).map(evidenceRow),
           counts:result.facts.counts || result.facts.meta.counts,
           states:result.facts.states})}],
           details:{action:args.action},structuredContent:result,terminate:completed};
