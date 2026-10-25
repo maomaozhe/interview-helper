@@ -146,6 +146,9 @@ def _validate_item(root, section, item, *, formal, labels, sources):
             require(isinstance(turn.get("expected_plan", {}), dict), "expected_plan must be an object")
             if section == "routing":
                 require(turn.get("message"), "query message missing")
+                if "answer_rubric" in turn:
+                    from eval.answer_quality import validate_answer_rubric
+                    validate_answer_rubric(turn["answer_rubric"])
                 require(all(isinstance(turn.get(k, []), list) and all(isinstance(v, str) for v in turn.get(k, []))
                             for k in ("required_tools", "forbidden_tools", "tool_order")), "invalid tool constraints")
                 alternatives = turn.get("allowed_plans", [])
@@ -206,6 +209,9 @@ def validate_gold(dataset: str | Path, section: str | None = None, *, split="tes
     formal = split == "test"
     from eval.source_gold import validate_source_contract
     validate_source_contract(Path(dataset), manifest, sections, split=split, verify_sources=verify_sources)
+    if "routing" in sections and manifest.get("query_result_reference") is not None:
+        from eval.query_results import validate_query_results
+        validate_query_results(Path(dataset), manifest, verify_sources=verify_sources)
     for name in sections:
         rows = manifest[name]
         selected = [r for r in rows if r["split"] == split]

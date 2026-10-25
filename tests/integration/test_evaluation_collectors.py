@@ -178,6 +178,10 @@ def test_evaluation_context_rejects_real_actor_and_reports_only_own_state(tmp_pa
     result = TestClient(app).get("/api/evaluation/context").json()
     assert result["evaluation_host"] and result["state_count"] == result["event_count"] == 0
     assert result["model_calls"] == []
+    assert result["query_planning_max_calls"] == settings.query_max_model_calls
+    assert result["request_max_model_calls"] == settings.query_max_total_model_calls
+    assert result["request_deadline_seconds"] == settings.query_deadline_seconds
+    assert result["request_max_tokens"] == settings.query_max_tokens
 
 
 def test_http_collection_preserves_conversation_version_and_replay_usage():
@@ -189,8 +193,10 @@ def test_http_collection_preserves_conversation_version_and_replay_usage():
             request_id = request.url.params.get("request_id")
             return httpx.Response(200, json={"evaluation_host": True, "user_id": "eval-fixture", "snapshot": snapshot,
                 "state_count": 0, "conversation_count": 0, "event_count": event_count, "states": [], "write_events": [],
-                "query_max_model_calls": 3, "query_max_tokens": 65536, "model_gate_shared": True,
+                "query_max_model_calls": 3, "query_max_tokens": 65536, "query_planning_max_calls": 3,
+                "request_max_model_calls": 6, "request_max_tokens": 65536, "model_gate_shared": True,
                 "run_status": "SUCCEEDED" if request_id in stored else None,
+                "model_attempts": 1 if request_id in stored else None,
                 "model_calls": [{"id": request_id, "input_tokens": 10, "output_tokens": 20}] if request_id in stored else []})
         import json
         payload = json.loads(request.content)
@@ -215,6 +221,59 @@ def test_http_collection_preserves_conversation_version_and_replay_usage():
     assert budget.used_calls == 2 and budget.used_tokens == 60
 
 
+def test_evaluation_context_requires_exact_authenticated_eval_account(tmp_path):
+    from interview_intelligence.tenant import password_hash
+    from interview_intelligence.tenant_models import TenantAccount
+    db, settings = published_fixture(tmp_path)
+    settings = settings.model_copy(update={"multi_tenant_enabled": True, "local_user_id": "eval-owner",
+                                          "app_signing_key": "test-only-signing-key"})
+    app = evaluation_app(db, settings)
+    with db.session() as session, session.begin():
+        for identifier in ("eval-owner", "eval-other"):
+            session.add(TenantAccount(id=identifier, username=identifier, password_hash=password_hash("test-password"),
+                provider_key="encrypted-fixture-no-decryption", provider_base_url="https://fixture.example/v1",
+                provider_model="personal-query", provider_reranker_model="personal-rerank", provider_version=3))
+    with TestClient(app) as client:
+        assert client.get("/api/evaluation/context").status_code == 401
+        for identifier, expected in (("eval-other", 403), ("eval-owner", 200)):
+            response = client.post("/api/account/login", headers={"X-Tenant-Action": "1"},
+                                   json={"username": identifier, "password": "test-password"})
+            assert response.status_code == 200
+            response = client.get("/api/evaluation/context")
+            assert response.status_code == expected
+        profile = response.json()["provider_profile"]
+        assert profile["source"] == "personal" and profile["model"] == "personal-query"
+        assert profile["reranker_model"] == "personal-rerank" and profile["embedding_model"] == settings.embedding_model
+        assert "encrypted-fixture-no-decryption" not in response.text and "fixture.example" not in response.text
+
+
+def test_evaluation_ledger_detects_turn_changes_without_exposing_conversation_text(tmp_path):
+    from interview_intelligence.domain.models import AgentConversation, AgentTurn
+    db, settings = published_fixture(tmp_path)
+    settings = settings.model_copy(update={"local_user_id": "eval-ledger"})
+    private = "private-conversation-text-must-not-appear"
+    with db.session() as session, session.begin():
+        session.add(AgentConversation(id="conversation", user_id="eval-ledger", version=1, state={"text": private}))
+    with TestClient(evaluation_app(db, settings)) as client:
+        first = client.get("/api/evaluation/context").json()
+        with db.session() as session, session.begin():
+            session.add(AgentTurn(id="turn", conversation_id="conversation", user_id="eval-ledger",
+                request_id="external-request", payload_hash=digest(private), message=private, status="RUNNING"))
+        second = client.get("/api/evaluation/context").json()
+        assert first["conversation_count"] == second["conversation_count"] == 1
+        assert first["conversation_ledger_sha256"] != second["conversation_ledger_sha256"]
+        with db.session() as session, session.begin():
+            turn = session.get(AgentTurn, "turn")
+            turn.status = "SUCCEEDED"
+            turn.response = {"facts": {"meta": {"timings": {"model_attempts": 3}}}}
+        third = client.get("/api/evaluation/context")
+        assert third.json()["conversation_ledger_sha256"] != second["conversation_ledger_sha256"]
+        assert third.json()["conversation_ledger_sha256"] == client.get("/api/evaluation/context").json()["conversation_ledger_sha256"]
+        assert private not in third.text and "external-request" not in third.text
+        receipt = client.get("/api/evaluation/context", params={"request_id": "external-request"}).json()
+        assert receipt["model_attempts"] == 3 and receipt["model_calls"] == []
+
+
 def test_failed_http_request_retains_error_trajectory_and_write_evidence():
     snapshot={"corpus_revision":1,"indexed_revision":1,"task_annotation_revision":1,"as_of":"2026-10-05"}
     def handle(request):
@@ -222,7 +281,8 @@ def test_failed_http_request_retains_error_trajectory_and_write_evidence():
             requested=request.url.params.get("request_id")
             return httpx.Response(200,json={"evaluation_host":True,"user_id":"eval-failed","snapshot":snapshot,
                 "state_count":0,"conversation_count":0,"event_count":0,"states":[],"write_events":[],"model_calls":[],
-                "query_max_model_calls":3,"query_max_tokens":65536,"model_gate_shared":True,
+                "query_max_model_calls":3,"query_max_tokens":65536,"query_planning_max_calls":3,
+                "request_max_model_calls":6,"request_max_tokens":65536,"model_gate_shared":True,
                 "run_status":"FAILED" if requested else None,"tool_invocations":[],
                 "trajectory":[{"type":"error","data":{"error_code":"QUERY_TOOL_NOT_ALLOWED"}}] if requested else []})
         return httpx.Response(400,json={"error":{"code":"QUERY_TOOL_NOT_ALLOWED","message":"unsafe proposal"}})
@@ -245,7 +305,8 @@ def test_http_200_does_not_hide_a_failed_persisted_query_run():
             return httpx.Response(200, json={"evaluation_host": True, "user_id": "eval-status",
                 "snapshot": snapshot, "state_count": 0, "event_count": 0, "conversation_count": 0,
                 "states": [], "write_events": [], "model_calls": [], "model_gate_shared": True,
-                "query_max_model_calls": 3, "query_max_tokens": 65536,
+                "query_max_model_calls": 3, "query_max_tokens": 65536, "query_planning_max_calls": 3,
+                "request_max_model_calls": 6, "request_max_tokens": 65536,
                 "run_status": "FAILED" if requested else None})
         posts.append(request)
         return httpx.Response(200, json={"data": [], "meta": {"conversation_id": "case",
@@ -262,7 +323,8 @@ def resume_client(context_overrides=None):
     snapshot = {"corpus_revision": 1, "indexed_revision": 1, "task_annotation_revision": 1,
                 "as_of": "2026-10-05"}
     context = {"evaluation_host": True, "user_id": "eval-resume", "snapshot": snapshot,
-               "state_count": 0, "event_count": 0, "conversation_count": 2, "model_gate_shared": True}
+               "state_count": 0, "event_count": 0, "conversation_count": 2, "model_gate_shared": True,
+               "query_planning_max_calls": 4, "request_max_model_calls": 6, "request_max_tokens": 96000}
     context.update(context_overrides or {})
     def handle(request):
         assert request.method == "GET" and request.url.path == "/api/evaluation/context"
@@ -329,11 +391,11 @@ def test_fresh_actor_requires_three_explicit_integer_zero_counts(field, value):
 
 
 @pytest.mark.parametrize("status,unknown", [
-    ("FAILED", False), ("CANCELLED", False), ("SKIPPED", False), ("SKIPPED_BUDGET", False),
-    ("INTERRUPTED", False), ("RUNNING", True), ("UNKNOWN", True), ("QUEUED", True), (None, True),
+    ("FAILED", True), ("CANCELLED", True), ("SKIPPED", True), ("SKIPPED_BUDGET", True),
+    ("INTERRUPTED", True), ("RUNNING", True), ("UNKNOWN", True), ("QUEUED", True), (None, True),
 ])
 @pytest.mark.parametrize("has_observed_call", [False, True])
-def test_http_200_accepts_only_persisted_success_and_unknown_status_retains_budget(status, unknown, has_observed_call):
+def test_failed_or_incomplete_http_receipt_cannot_prove_call_ledger_complete(status, unknown, has_observed_call):
     snapshot = {"corpus_revision": 1, "indexed_revision": 1, "task_annotation_revision": 1,
                 "as_of": "2026-10-05"}
     posts = []
@@ -343,7 +405,8 @@ def test_http_200_accepts_only_persisted_success_and_unknown_status_retains_budg
             requested = request.url.params.get("request_id")
             return httpx.Response(200, json={"evaluation_host": True, "user_id": "eval-exact-status", "snapshot": snapshot,
                 "state_count": 0, "event_count": 0, "conversation_count": 0, "states": [], "write_events": [],
-                "model_gate_shared": True, "query_max_model_calls": 4, "query_max_tokens": 96000,
+                "model_gate_shared": True, "query_max_model_calls": 4, "query_max_tokens": 96000, "query_planning_max_calls": 4,
+                "request_max_model_calls": 6, "request_max_tokens": 96000,
                 "run_status": status if requested else None,
                 "model_calls": [recorded_call] if requested and has_observed_call else []})
         posts.append(request)
@@ -359,5 +422,5 @@ def test_http_200_accepts_only_persisted_success_and_unknown_status_retains_budg
     assert result["turns"][1]["error_code"] == "PREVIOUS_TURN_FAILED"
     assert bool(result["telemetry_unavailable"]) is unknown
     assert calls == ([recorded_call] if has_observed_call else [])
-    assert budget.used_calls == (4 if unknown else int(has_observed_call))
+    assert budget.used_calls == (6 if unknown else int(has_observed_call))
     assert budget.used_tokens == (96000 if unknown else 12 * int(has_observed_call))

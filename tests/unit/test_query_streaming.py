@@ -61,6 +61,46 @@ def test_token_budget_rejects_before_entering_provider(tmp_path):
         asyncio.run(gateway.complete(run,{"messages":[]}))
 
 
+def test_invalid_model_plan_is_preserved_privately_and_cannot_reach_execution(monkeypatch, tmp_path):
+    from interview_intelligence.agent.query_contract import QuerySpec, QUERY_MODEL_SCHEMA_VERSION
+    async def scenario():
+        events = []
+        raw = QuerySpec(action="SEARCH", search_query="设计任务").model_dump(mode="json")
+        raw["semantic_task"] = "ENGINEERING_DESIGN"
+        async def complete(self, run, payload, emit=None):
+            assert payload["response_format"]["json_schema"]["name"] == QUERY_MODEL_SCHEMA_VERSION
+            assert payload["response_format"]["json_schema"]["schema"]["allOf"]
+            run.model_calls += 1
+            return {"choices": [{"message": {"content": json.dumps(raw, ensure_ascii=False)}}]}
+        monkeypatch.setattr(ModelGateway, "complete", complete)
+        gateway = ModelGateway(SimpleNamespace(), None, on_event=lambda *event: events.append(event))
+        run = SimpleNamespace(id="run", model_calls=0)
+        with pytest.raises(ValueError, match="^QUERY_MODEL_PLAN_INVALID$"):
+            await gateway.plan(run, {"message": "设计任务"})
+        assert run.model_calls == 1  # No hidden retry, normalization or execution.
+        assert [event[1] for event in events] == ["model_response", "model_plan_validation_failed"]
+        assert json.loads(events[0][2]["content"]) == raw
+        assert "content" not in events[1][2] and "input_value" not in str(events[1][2])
+    asyncio.run(scenario())
+
+
+@pytest.mark.parametrize("content", [None, {}, [], "", "{invalid JSON"])
+def test_non_json_model_plan_content_has_the_same_stable_failure(monkeypatch, content):
+    async def scenario():
+        events = []
+        async def complete(self, run, payload, emit=None):
+            run.model_calls += 1
+            return {"choices": [{"message": {"content": content}}]}
+        monkeypatch.setattr(ModelGateway, "complete", complete)
+        gateway = ModelGateway(SimpleNamespace(), None, on_event=lambda *event: events.append(event))
+        run = SimpleNamespace(id="run", model_calls=0)
+        with pytest.raises(ValueError, match="^QUERY_MODEL_PLAN_INVALID$"):
+            await gateway.plan(run, {"message": "设计任务"})
+        assert events[0][2]["content"] == content
+        assert events[-1][1] == "model_plan_validation_failed" and run.model_calls == 1
+    asyncio.run(scenario())
+
+
 @pytest.mark.parametrize("terminal", ["complete", "incomplete"])
 def test_json_fallback_emits_answer_before_upstream_finishes(monkeypatch, tmp_path, terminal):
     from interview_intelligence.contracts import FilterSpec
@@ -69,7 +109,8 @@ def test_json_fallback_emits_answer_before_upstream_finishes(monkeypatch, tmp_pa
         events, audit = [], []
         fragments = ['{"action":"ANSWER","answer_text":"## Redis\\n\\n内存',
             '访问**很快**","answer_kind":"EXPLAIN","answer_basis":"GENERAL_KNOWLEDGE",'
-            '"final":true,"sort":"frequency","top_n":null,"page_size":20,"filters":' +
+            '"final":true,"sort":"frequency","top_n":null,"page_size":20,'
+            '"user_goal":{"objective":"解释Redis","response_mode":"SYNTHESIS"},"filters":' +
             json.dumps(FilterSpec().model_dump(mode="json")) + '}']
 
         class CheckedStream(httpx.AsyncByteStream):

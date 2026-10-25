@@ -1,6 +1,16 @@
 const test=require('node:test');
 const assert=require('node:assert/strict');
-const {watchQueryRun}=require('../../src/interview_intelligence/web/assets/query-stream.js');
+const {watchQueryRun,queryWatchdogMs}=require('../../src/interview_intelligence/web/assets/query-stream.js');
+
+test('query watchdog follows the durable run lease and preserves elapsed time on reload',()=>{
+  const now=Date.parse('2026-10-25T00:00:00Z');
+  const run={lease_until:new Date(now+610000).toISOString()};
+  assert.equal(queryWatchdogMs(run,now),630000);
+  assert.equal(queryWatchdogMs(run,now+300000),330000);
+  assert.equal(queryWatchdogMs(run,now+900000),20000);
+  assert.equal(queryWatchdogMs({},now),630000);
+  assert.equal(queryWatchdogMs({lease_until:'invalid'},now),630000);
+});
 
 class Source {
   static latest;

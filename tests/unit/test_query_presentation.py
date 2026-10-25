@@ -104,3 +104,29 @@ def test_json_fallback_projects_answer_text_and_keeps_calls_separate():
     assert event["delta"] == "**正文" and event["call_index"] == 0
     assert stream.update({"choices":[{"index":0,"delta":{"content":'**"}'}}]})[0]["delta"] == "**"
     assert AnswerStream(content_json=True).update({"choices":[{"delta":{"content":"private reasoning"}}]}) == []
+
+
+def test_compact_tool_stream_requires_the_trusted_wire_and_explicit_answer_action():
+    first = chunk('{"answer_text":"先准备正文')
+    first["choices"][0]["delta"]["tool_calls"][0]["function"]["name"] = "query_step"
+    stream = AnswerStream(query_step=True)
+    assert stream.update(first) == []
+    assert stream.update(chunk('","action":"ANSWER"}'))[0]["text"] == "先准备正文"
+    whole = chunk('{"action":"ANSWER","answer_text":"正文"}')
+    whole["choices"][0]["delta"]["tool_calls"][0]["function"]["name"] = "query_step"
+    assert AnswerStream().update(whole) == []
+    for action in ("SEARCH", "COUNT", "RECORD_REVIEW"):
+        other = chunk(json.dumps({"action": action, "answer_text": "非回答工具不得投影"}))
+        other["choices"][0]["delta"]["tool_calls"][0]["function"]["name"] = "query_step"
+        assert AnswerStream(query_step=True).update(other) == []
+
+
+def test_compact_tool_stream_preserves_split_names_markdown_and_unicode():
+    stream = AnswerStream(query_step=True)
+    first = chunk('{"action":"ANSWER","answer_text":"**正文')
+    first["choices"][0]["delta"]["tool_calls"][0]["function"]["name"] = "query_"
+    assert stream.update(first) == []
+    second = chunk(r'**\n\ud83d')
+    second["choices"][0]["delta"]["tool_calls"][0]["function"]["name"] = "step"
+    assert stream.update(second)[0]["text"] == "**正文**\n"
+    assert stream.update(chunk(r'\ude00"}'))[0]["delta"] == "😀"

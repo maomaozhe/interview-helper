@@ -1,0 +1,27 @@
+{
+  "schema_version": "evaluation_suite_v1",
+  "id": "user-scope-five-v2-baseline-replay",
+  "candidate": {
+    "id": "recorded-query-v13-rerank-v15-new-reference-v2",
+    "components": {
+      "routing": {
+        "version": "actual-v13-v15-r295-stored-replay",
+        "prompt_version": "query_agent_v13",
+        "model": "ark-code-latest",
+        "model_revision": "auto"
+      }
+    }
+  },
+  "modules": [
+    {
+      "id": "five-source-questions",
+      "section": "routing",
+      "dataset": "../../data/gold/user-scope-five-20261016-v2",
+      "split": "dev",
+      "review_policy": "delegated_agent",
+      "threshold_version": "quality_gate_v2",
+      "default_pipeline": "HYBRID_RERANK",
+      "predictions": "../../data/reports/user-scope-five-v2-20261016/inputs/baseline.predictions.jsonl"
+    }
+  ]
+}

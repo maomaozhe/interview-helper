@@ -58,3 +58,41 @@ def test_nonexistent_next_page_is_clarified_and_never_replayed_as_a_new_list():
     result = service.execute(run, "list_questions", QuerySpec(action="NEXT"))
     assert result["intent"] == "CLARIFY" and result["facts"]["data"] == []
     service.finish(run, provider="fixture")
+
+
+@pytest.mark.parametrize("first_empty", [False, True])
+def test_compound_write_authority_binds_first_result_even_when_empty(first_empty):
+    db, _, _ = seed_corpus()
+    service = QueryService(db, signing_key="test")
+    run = service.begin(QueryRequest(message="列出三题并标记为已掌握", request_id=f"compound-frozen-{first_empty}"))
+    first = service.execute(run, "list_questions", QuerySpec(action="LIST", page_size=1,
+        filters={"company": "不存在"} if first_empty else {}, final=False))
+    first_ids = [row["canonical_question_id"] for row in first["facts"]["data"]]
+    assert tuple(first_ids) == run.write_question_ids and run.write_target_bound
+    if first_empty:
+        service.execute(run, "list_questions", QuerySpec(action="LIST", page_size=1, final=False))
+    else:
+        service.execute(run, "list_questions", QuerySpec(action="NEXT", final=False))
+    assert run.state["current_page_ids"] and run.state["current_page_ids"] != first_ids
+    with pytest.raises(ValueError, match="QUERY_WRITE_SCOPE_CONFLICT"):
+        service.execute(run, "record_review", QuerySpec(action="RECORD_REVIEW", review_items=[{
+            "canonical_question_id": run.state["current_page_ids"][0], "status": "MASTERED"}]))
+    with db.session() as session:
+        assert session.scalar(select(func.count()).select_from(ReviewEvent)) == 0
+
+
+def test_compound_write_recovers_the_original_first_result_authorization():
+    db, _, _ = seed_corpus()
+    service = QueryService(db, signing_key="test")
+    request = QueryRequest(message="列出三题并标记为已掌握", request_id="compound-recover")
+    run = service.begin(request)
+    service.execute(run, "list_questions", QuerySpec(action="LIST", page_size=1, final=False))
+    bound = run.write_question_ids
+    service.fail(run, ValueError("QUERY_INTERRUPTED"))
+    restarted = QueryService(db, signing_key="test")
+    restored = restarted.begin(request)
+    assert restored.write_target_bound and restored.write_question_ids == bound
+    restarted.execute(restored, "record_review", QuerySpec(action="RECORD_REVIEW", review_items=[{
+        "canonical_question_id": bound[0], "status": "MASTERED", "expected_version": 0}]))
+    result = restarted.finish(restored, provider="fixture")
+    assert result["facts"]["meta"]["completion"]["status"] == "WRITE_COMMITTED"

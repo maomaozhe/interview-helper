@@ -23,7 +23,13 @@ TOOL_DEFINITIONS = {'list_questions': {'actions': ['LIST', 'NEXT', 'CLARIFY'],
                             'without an explicit requested N, set top_n=null and use page_size for one page. '
                             'Never infer Top 20 from a default page_size of 20; keep the complete scope pageable. '
                             'Broad algorithm lists use semantic_task=ALGORITHM_PROBLEM (LIST); this is a complete '
-                            'evidence-audited SQL collection, not semantic retrieval Top50.'},
+                            'evidence-audited SQL collection, not semantic retrieval Top50. '
+                            'All engineering/system-design questions use semantic_task=ENGINEERING_DESIGN '
+                            'with LIST and top_n=null unless an N is explicit; preserve original user scope, including AI/Agent '
+                            'engineering tasks. NEXT preserves the current scope and pages either the audited SQL '
+                            'collection or the host-stored bounded semantic candidate result; semantic candidates '
+                            'are never a corpus-complete set. Missing or unresolved '
+                            'source audits cannot be presented as a complete set.'},
  'search_questions': {'actions': ['SEARCH'],
                       'pi_order': 1,
                       'fields': ['final',
@@ -59,8 +65,9 @@ TOOL_DEFINITIONS = {'list_questions': {'actions': ['LIST', 'NEXT', 'CLARIFY'],
                                 'both counts.canonical_questions (distinct questions) and counts.occurrences '
                                 '(appearances). For a direct total question, including asking both numbers, call '
                                 'only this tool once with final=true; do not call STATS for appearances or ANSWER '
-                                'to restate counts. Use final=false only when the user explicitly also requests '
-                                'analysis, advice or an explanation.',
+                                'to restate counts for a DIRECT_RESULT goal. For a SYNTHESIS user_goal, this is '
+                                'evidence only: continue with further authorized reads as needed, then ANSWER. '
+                                'Interpret the conversational objective independently of the tool action.',
                         'replace_properties': {'top_n': {'type': 'null'}}},
  'get_question_details': {'actions': ['DETAILS'],
                           'pi_order': 3,
@@ -69,7 +76,7 @@ TOOL_DEFINITIONS = {'list_questions': {'actions': ['LIST', 'NEXT', 'CLARIFY'],
                           'hint': ''},
  'answer_question': {'actions': ['ANSWER'],
                      'pi_order': 5,
-                     'fields': ['final', 'answer_text', 'answer_kind', 'answer_basis', 'question_ids'],
+                     'fields': ['final', 'answer_text', 'answer_kind', 'answer_basis', 'question_ids', 'evidence_tool_ordinals'],
                      'required': ['answer_text'],
                      'hint': ' Finish with a direct explanation, comparison, solution, study plan or conversation '
                              'response. Set final=true and identify the knowledge basis. Cite only question_ids '
@@ -88,6 +95,9 @@ TOOL_DEFINITIONS = {'list_questions': {'actions': ['LIST', 'NEXT', 'CLARIFY'],
                    'fields': ['final', 'review_items', 'scope'],
                    'required': ['review_items'],
                    'hint': ''}}
+
+for _definition in TOOL_DEFINITIONS.values():
+    _definition["fields"].append("user_goal")
 
 TOOL_ACTIONS = {name: set(tool["actions"]) for name, tool in TOOL_DEFINITIONS.items()}
 ACTION_REQUIRED_FIELDS = {action: tuple(tool["required"])

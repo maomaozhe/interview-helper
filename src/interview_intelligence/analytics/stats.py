@@ -78,11 +78,13 @@ def _conditions(request: StatsRequest, *, include_time: bool = True):
     if request.response_form:
         conditions.append(select(OccurrenceTaskAnnotation.occurrence_id).where(
             OccurrenceTaskAnnotation.occurrence_id == QuestionOccurrence.id,
-            OccurrenceTaskAnnotation.response_form == request.response_form).exists())
+            OccurrenceTaskAnnotation.response_form == request.response_form)
+            .correlate(QuestionOccurrence).exists())
     if request.coding_focus:
         conditions.append(select(OccurrenceTaskAnnotation.occurrence_id).where(
             OccurrenceTaskAnnotation.occurrence_id == QuestionOccurrence.id,
-            OccurrenceTaskAnnotation.coding_focus.in_([request.coding_focus, "MIXED"] if request.coding_focus in {"ENGINEERING","ALGORITHM"} else [request.coding_focus])).exists())
+            OccurrenceTaskAnnotation.coding_focus.in_([request.coding_focus, "MIXED"] if request.coding_focus in {"ENGINEERING","ALGORITHM"} else [request.coding_focus]))
+            .correlate(QuestionOccurrence).exists())
     if request.annotation_status:
         terms=[OccurrenceTaskAnnotation.occurrence_id==QuestionOccurrence.id]
         if request.annotation_status=="KNOWN":
@@ -91,10 +93,10 @@ def _conditions(request: StatsRequest, *, include_time: bool = True):
             terms.append(or_(OccurrenceTaskAnnotation.classification_status=="UNKNOWN",
                 OccurrenceTaskAnnotation.response_form=="UNKNOWN",OccurrenceTaskAnnotation.coding_focus=="UNKNOWN"))
         else: terms.append(OccurrenceTaskAnnotation.classification_status==request.annotation_status)
-        annotated=select(OccurrenceTaskAnnotation.occurrence_id).where(*terms).exists()
+        annotated=select(OccurrenceTaskAnnotation.occurrence_id).where(*terms).correlate(QuestionOccurrence).exists()
         if request.annotation_status=="UNKNOWN":
             annotated=or_(annotated,~select(OccurrenceTaskAnnotation.occurrence_id).where(
-                OccurrenceTaskAnnotation.occurrence_id==QuestionOccurrence.id).exists())
+                OccurrenceTaskAnnotation.occurrence_id==QuestionOccurrence.id).correlate(QuestionOccurrence).exists())
         conditions.append(annotated)
     if request.round:
         conditions.append(Interview.round == request.round)

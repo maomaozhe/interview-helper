@@ -230,7 +230,8 @@ def test_search_model_call_uses_query_receipt_trace_and_contributes_phase_timing
     run = app.state.query_service.begin(QueryRequest(message="Redis", request_id="same-pi-tool-trace", pipeline="DENSE"))
     tool = client.post(f"/internal/agent/runs/{run.id}/tools/search_questions",
         headers={"Authorization":"Bearer test-internal-token"},
-        json=QuerySpec(action="SEARCH", search_query="Redis", page_size=10, pipeline="DENSE").model_dump(mode="json"))
+        json=QuerySpec(action="SEARCH", search_query="Redis", page_size=10, pipeline="DENSE",
+            user_goal={"objective": "查找 Redis 题目", "response_mode": "DIRECT_RESULT"}).model_dump(mode="json"))
     assert tool.status_code == 200, tool.text
     with db.session() as session:
         call = session.scalar(select(ModelCall).where(ModelCall.request_id == "same-pi-tool-trace"))

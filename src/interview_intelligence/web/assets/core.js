@@ -40,14 +40,41 @@
     return {message,conversation_id:conversation?.id || null,expected_version:conversation?.version ?? null,
       feedback_ids:feedbackIds,...(origin?.context?.run_id ? {requery_of_run_id:origin.context.run_id} : {})};
   }
+  function collectionSelectionFor(result) {
+    const selection=(result?.facts?.meta || result?.meta || {}).collection_selection;
+    if(selection?.version!=="collection_selection_v1" || !["scope","categories","selected"].includes(selection.stage))return null;
+    const choices=Array.isArray(selection.choices) ? selection.choices : [];
+    if(choices.some(choice=>!choice || typeof choice.message!=="string" || !choice.message.trim() ||
+      typeof choice.label!=="string" || !choice.label.trim() ||
+      !["all","category","uncategorized","pending"].includes(choice.kind)))return null;
+    return selection;
+  }
+  function listRequestFor(result) {
+    const meta=result?.facts?.meta || result?.meta || {};
+    const plan=result?.planning?.spec || meta.planning?.spec || {};
+    if(plan.action && !["LIST","NEXT","STATS"].includes(plan.action))return null;
+    // The host request contains the exact collection bucket as well as typed
+    // filters. A model plan cannot reconstruct that canonical-question scope.
+    if(meta.list_request && typeof meta.list_request==="object" && !Array.isArray(meta.list_request))
+      return {...meta.list_request,cursor:null};
+    if(!["LIST","NEXT","STATS"].includes(plan.action))return null;
+    return {...pickFilters(plan.filters),semantic_task:plan.semantic_task || null,sort:plan.sort,
+      top_n:plan.top_n,page_size:plan.page_size,review_statuses:plan.review_statuses || [],
+      review_order:plan.review_order || "BEFORE_TOP_N",
+      ...(plan.action==="STATS" ? {group_by:plan.group_by,topic_level:plan.topic_level || "L1"} : {})};
+  }
   function clarificationFor(result) {
     const meta=result?.facts?.meta || result?.meta || {};
     const plan=result?.planning?.spec || meta.planning?.spec || {};
     const clarification=meta.clarification || {};
     if(!clarification.question && plan.action!=="CLARIFY")return null;
-    const choices=Array.isArray(clarification.options) && clarification.options.length ? clarification.options : plan.clarification_options;
+    const selection=collectionSelectionFor(result);
+    const collection=selection && ["scope","categories"].includes(selection.stage) ? selection : null;
+    const choices=collection ? collection.choices.map(choice=>choice.message) :
+      Array.isArray(clarification.options) && clarification.options.length ? clarification.options : plan.clarification_options;
     return {question:clarification.question || plan.clarification || result.answer || "请补充你的需求。",
-      options:[...new Set((Array.isArray(choices) ? choices : []).filter(x=>typeof x==="string" && x.trim()).map(x=>x.trim()))].slice(0,4)};
+      options:collection ? choices : [...new Set((Array.isArray(choices) ? choices : []).filter(x=>typeof x==="string" && x.trim()).map(x=>x.trim()))].slice(0,4),
+      ...(collection ? {collection_selection:collection} : {})};
   }
   function queryStage(event) {
     if(event.type==="tool_result")return {key:"presenting",label:"正在呈现结果"};
@@ -99,7 +126,7 @@
       conversation?.id===continuation.conversation_id && conversation.version===continuation.version;
   }
   const api = {pickFilters, selectHealthSnapshot, shouldRefreshWorkspace, matchesDocumentStatus, feedbackOrigin,
-    requeryBody,clarificationFor,queryStage,answerNotice,answerContinuation,historyContinuation,canContinueAnswer};
+    requeryBody,collectionSelectionFor,listRequestFor,clarificationFor,queryStage,answerNotice,answerContinuation,historyContinuation,canContinueAnswer};
   if (typeof module !== "undefined" && module.exports) module.exports = api;
   else root.InterviewWorkspace = api;
 })(typeof window !== "undefined" ? window : this);

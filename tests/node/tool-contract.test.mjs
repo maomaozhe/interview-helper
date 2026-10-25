@@ -44,7 +44,17 @@ test("the pinned Pi exposes the complete frozen tool menu without contract drift
   assert.equal(menus[0].length,8);
   // Pi's declaration includes description, complete parameters and sampling policy;
   // display-only label and executable callbacks are intentionally absent here.
-  assert.deepEqual(menus[0].map(tool=>({name:tool.name,
+  const legacyMenu=structuredClone(menus[0]);
+  const list=legacyMenu.find(tool=>tool.name==="list_questions");
+  assert.ok(list.description.includes("semantic_task=ENGINEERING_DESIGN"));
+  // The historical fixture remains immutable. Only the explicitly added
+  // audited-collection and goal-aware completion hints differ for this old schema.
+  list.description=list.description.replace(/ All engineering\/system-design questions use semantic_task=ENGINEERING_DESIGN.*$/,"");
+  const count=legacyMenu.find(tool=>tool.name==="get_question_count");
+  assert.ok(count.description.includes("For a SYNTHESIS user_goal, this is evidence only"));
+  count.description=count.description.replace(/ to restate counts for a DIRECT_RESULT goal\..*$/,
+    " to restate counts. Use final=false only when the user explicitly also requests analysis, advice or an explanation.");
+  assert.deepEqual(legacyMenu.map(tool=>({name:tool.name,
     sha256:createHash("sha256").update(JSON.stringify(tool)).digest("hex")})),before.tools);
   assert.deepEqual(requests,[{url:"/internal/agent/runs/contract-before/tools/list_questions",
     authorization:"Bearer contract-fixture-token",plan}]);

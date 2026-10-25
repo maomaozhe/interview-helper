@@ -133,3 +133,144 @@ def test_finish_rejects_unavailable_result_before_creating_success_receipt(tmp_p
     service.fail(run, failure.value)
     with db.session() as session:
         assert session.get(AgentTurn, run.id).status == "FAILED"
+
+
+@pytest.mark.parametrize("has_results", [True, False])
+def test_evidence_failures_are_visible_and_persisted_without_claiming_full_coverage(tmp_path, has_results):
+    class Retriever:
+        calls = 0
+        supports_relevance_scope = True
+
+        def retrieve(self, query, eligible, pipeline, top_k, *, relevance_scope):
+            self.calls += 1
+            assert relevance_scope["target_unit"] == "BUSINESS_APPLICATION"
+            assert relevance_scope["excluded_domains"] == []
+            return {"data": [{"canonical_question_id": eligible[0]}] if has_results else [],
+                    "meta": {"pipeline": pipeline, "rerank_status": "COMPLETED_PARTIAL",
+                             "relevance_scope_hash": relevance_scope["scope_hash"],
+                             "relevance_scope_applied": True,
+                             "candidate_count": 50, "candidate_verification_status": "PARTIAL",
+                             "invalid_candidate_count": 2, "rerank_audit": {
+                                 "invalid_evidence_count": 2, "invalid_schema_count": 0,
+                                 "candidates": [{"canonical_question_id": "parking", "decision": "INVALID_TASK_EVIDENCE"},
+                                                {"canonical_question_id": "cache", "decision": "INVALID_EVIDENCE"}]}}}
+
+    class Planner:
+        def plan(self, run, context):
+            return QuerySpec(action="SEARCH", search_query="业务系统设计")
+
+    retriever = Retriever()
+    client, db, _, _ = app_fixture(tmp_path, Planner(), retriever)
+    body = {"message": "业务系统设计", "request_id": "partial-evidence-result"}
+    response = client.post("/api/query", json=body)
+    assert response.status_code == (200 if has_results else 503), response.text
+    with db.session() as session:
+        turn = session.scalar(select(AgentTurn).where(AgentTurn.request_id == body["request_id"]))
+        assert turn.status == ("SUCCEEDED" if has_results else "FAILED")
+        result = turn.response
+        completeness = result["facts"]["meta"]["result_completeness"]
+        assert completeness["scope"] == "retrieval_candidates"
+        assert completeness["corpus_complete"] is False
+        assert completeness["verification_complete"] is False
+        assert completeness["candidate_count"] == 50
+        assert completeness["invalid_evidence_count"] == completeness["invalid_candidate_count"] == 2
+        assert completeness["invalid_schema_count"] == 0
+        assert any("2 个证据异常候选" in warning and "可能不完整" in warning for warning in result["warnings"])
+        assert not any("结构异常" in warning for warning in result["warnings"])
+        if has_results:
+            assert result["facts"]["meta"]["pagination"]["kind"] == "semantic_candidates"
+            assert "范围待核验" in result["answer"]
+            assert "不代表全库全部匹配题" in result["answer"]
+        else:
+            assert result["facts"]["data"] == []
+            assert turn.error_code == "QUERY_RELEVANCE_UNAVAILABLE"
+    repeated = client.post("/api/query", json=body)
+    assert repeated.status_code == response.status_code
+    assert retriever.calls == 1
+
+
+@pytest.mark.parametrize("has_results", [True, False])
+@pytest.mark.parametrize("repair_mode", ["short-time", "child-timeout", "parent-expiry"])
+def test_optional_repair_time_policy_reaches_durable_partial_receipt(tmp_path, monkeypatch, has_results, repair_mode):
+    """Exercise the real repair controller through QueryService, with no provider."""
+    import time
+    from types import SimpleNamespace
+    from interview_intelligence.providers import runtime
+    from interview_intelligence.search import reranker as ranker_module
+    from interview_intelligence.search.reranker import LLMReranker, RerankedCandidates
+
+    clock = SimpleNamespace(now=time.monotonic())
+    clock.monotonic = lambda: clock.now
+    monkeypatch.setattr(runtime, "time", clock)
+    monkeypatch.setattr(ranker_module, "time", clock)
+
+    class ControlledRepair(LLMReranker):
+        attempts = 0
+
+        def _verify_scope(self, query, candidates, *, operation="RERANK_SCOPE_VERIFY", relevance_scope=None):
+            self.attempts += 1
+            assert relevance_scope is None
+            assert operation == "RERANK_EVIDENCE_REPAIR"
+            assert runtime.current_model_call_deadline.get() is not None
+            clock.now += 32
+            if repair_mode == "parent-expiry":
+                runtime.current_limits.get().deadline = clock.now - 1
+            runtime.check_model_call_deadline()
+            raise AssertionError("late repair must not become accepted evidence")
+
+    ranker = ControlledRepair(client=object(), model="fixture")
+
+    class Retriever:
+        def retrieve(self, query, eligible, pipeline, top_k):
+            limits = runtime.current_limits.get()
+            assert limits is not None
+            limits.deadline = clock.now + (14 if repair_mode == "short-time" else 180)
+            accepted = {"canonical_question_id": eligible[0], "canonical_text": "设计一套通知服务。"}
+            invalid = {"canonical_question_id": "unresolved", "canonical_text": "设计服务并保证高并发和幂等。"}
+            primary = RerankedCandidates([accepted, invalid], {"query_task": "INDEPENDENT_SYSTEM_DESIGN"})
+            diagnostics = [{"canonical_question_id": invalid["canonical_question_id"],
+                "decision": "INVALID_DESIGN_EVIDENCE", "scope_verification_rank": 2,
+                "scope_verification_status": "INVALID_DESIGN_EVIDENCE",
+                "scope_verification_keep": False, "model_scope_verification_keep": True}]
+            if has_results:
+                diagnostics.insert(0, {"canonical_question_id": eligible[0], "decision": "ACCEPTED",
+                    "relevance_grade": 3, "quote_grounded": True, "scope_verification_keep": True})
+            partial = RerankedCandidates([accepted] if has_results else [], {
+                "scope_verification_status": "PARTIAL", "candidate_verification_status": "PARTIAL",
+                "invalid_candidate_count": 1, "invalid_evidence_count": 1, "invalid_schema_count": 0,
+                "candidate_count": 2, "candidates": diagnostics})
+            repaired = ranker.repair_scope_evidence("工程设计题", primary, partial)
+            assert runtime.current_model_call_deadline.get() is None
+            return {"data": list(repaired), "meta": {"pipeline": pipeline,
+                "rerank_status": "COMPLETED_PARTIAL", "candidate_count": 2,
+                "candidate_verification_status": "PARTIAL", "invalid_candidate_count": 1,
+                "rerank_audit": repaired.audit}}
+
+    class Planner:
+        def plan(self, run, context):
+            return QuerySpec(action="SEARCH", search_query="工程设计题")
+
+    client, db, _, _ = app_fixture(tmp_path, Planner(), Retriever())
+    request_id = f"repair-time-{repair_mode}-{has_results}"
+    response = client.post("/api/query", json={"message": "工程设计题", "request_id": request_id})
+    successful = has_results and repair_mode != "parent-expiry"
+    assert response.status_code == (200 if successful else 503), response.text
+    with db.session() as session:
+        receipt = session.scalar(select(AgentTurn).where(AgentTurn.request_id == request_id))
+        assert receipt.status == ("SUCCEEDED" if successful else "FAILED")
+        if repair_mode == "parent-expiry":
+            assert receipt.error_code == "QUERY_DEADLINE_EXCEEDED"
+        else:
+            meta = receipt.response["facts"]["meta"]
+            assert meta["relevance_status"] == ("VERIFIED" if has_results else "UNAVAILABLE")
+            assert meta["result_completeness"]["verification_complete"] is False
+            assert meta["rerank_audit"]["evidence_repair"]["status"] == (
+                "SKIPPED_TIME" if repair_mode == "short-time" else "TIMED_OUT")
+            assert meta["invalid_candidate_count"] == 1
+            assert len(receipt.response["facts"]["data"]) == int(has_results)
+            assert session.get(AgentConversation, receipt.conversation_id).version == int(has_results)
+        run_id = receipt.id
+    durable = client.get(f"/api/runs/{run_id}").json()["data"]
+    assert durable["status"] == ("SUCCEEDED" if successful else "FAILED")
+    assert durable["events"][-1]["type"] == ("completed" if successful else "failed")
+    assert ranker.attempts == (0 if repair_mode == "short-time" else 1)

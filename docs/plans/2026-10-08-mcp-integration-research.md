@@ -1,5 +1,7 @@
 # 面经研习接入 Claude Code / Codex / OpenClaw 的 MCP 调研
 
+> 进展（2026-10-24）：本地只读 stdio 原型已实现，当前配置与边界见[接入说明](../mcp.md)，实际验证见[第 12 节](#12-2026-10-24-只读工具实验记录)。下文第 1–11 节保留当日研究；HTTP `/mcp` 和三客户端完整验收仍未完成。
+
 > 阅读提示（2026-10-15）：本提案仍未实施。第 9 节的身份前提属于当日研究基线，后续已有 [账号与个人模型配置](../tenants.md)；实施前必须重新核对租户身份、授权与隔离，不能直接沿用固定本地用户方案。
 
 - 日期：2026-10-08（北京时间）。
@@ -245,3 +247,31 @@ HTTP 接口应校验认证、Host / Origin 和允许的工具；绑定本机的�
 - 三个客户端分别记录实际版本、执行位置、协议协商、认证方式、工具调用与超时结果；资源/提示增强项单独登记。
 
 首版收益是更广的使用入口、可组合的知识能力和复习状态复用。现有召回与分类质量边界、模型调用延迟、生产级任务恢复仍需按各自问题继续改进，MCP 接入不改变原质量门禁结论。
+
+## 12. 2026-10-24 只读工具实验记录
+
+目标/范围：用户选择由外部 agent 自己调用检索、统计和详情工具。先提供可运行的本地 stdio 适配，再验证协议、真实 API 事实和外部 agent 的调用；不包含复习写入和公网 MCP 部署。
+
+已知事实与证据：当前仍无 MCP 实现；公开 GET 列表/统计/详情可复用。`api.py:question_search` 是 legacy 检索，有候选、降级及核验元数据，但没有现代 QueryService 的会话范围守护与完整工程工集；内部工具回调依赖进程内 run 和内部凭据，不能直接开放。工作区存在大量既有未提交改动，本次仅增适配和必要的检索请求预算保护。PyPI 当前稳定 SDK 为 `mcp==2.3.0`，选定后锁定依赖，不沿用旧 FastMCP 示例。
+
+假设及待区分点：外部 agent 能自行组合类型化工具，但“协议连通”“事实契约正确”“真实语义效果更好”须分别取证。包装 legacy REST 的结果不能作为与现代 QueryService 工具完全相同条件的编排对照。
+
+选择方案与简要理由：首版 stdio → 固定 HTTP 后端；复用已登录租户的会话身份和后端共享模型锁，不在 Windows 新建模型客户端。默认 BM25 且标记 evaluation，先做零模型烟测；调用方可显式选择其他检索管线，服务端沿用正常期限、调用和 token 上限。响应保留核验/降级/版本/分页，不截断证据后宣称完整；工具不暴露写入口和任意 URL。HTTP `/mcp`、独立外部 token/OAuth 和现代 scope/workset 等价适配继续列为后续工作。
+
+下一步检查与验收：SDK 初始化/列工具/调用闭环；SQL 组合筛选、频次与分页；详情引用；索引落后、部分核验与错误传播；租户身份不可由模型参数更换；检索预算上下文建立和清理。若已有可用开发服务，先只读核对状态，再用小批固定问法运行外部 agent，保存工具轨迹、版本、结果和耗时；缺少真实服务或冻结参考时只报告工程验证，不推断语义质量提升。失败和结果追加在本节。
+
+首次工程验证：SDK 协议/边界测试 34 通过；公开检索预算及既有 API 测试 19 通过。新增 API 贯通测试首次为 2 通过、1 失败：`interview_get_occurrences` 请求真实 FastAPI 路由被拒绝（适配器已正确转成错误，没有返回空成功）。环境为 Windows/Python 3.12、内存 SQLite，0 模型调用；下一步先检查原始 API 错误与查询参数契约，不放宽断言。
+
+真实体验计划：本机开发服务 `127.0.0.1:8000` 健康，语料/索引 revision 均为 400，多租户关闭；隔离评测 API 18002 未运行。只使用 GET 和 evaluation 用途，不调用当前用户的自然语言会话/复习入口。通过临时配置启动已登录 Claude Code 默认模型，关闭内置工具、只加载本 MCP、服务端强制 BM25。至多两次会话，每次最多 8 个 agent turn、预算上限 USD 1（合计至多 USD 2），不自动重放失败。固定体验任务为 SQL 组合筛选/Top3/分页/统计/来源，以及线程安全缓存相关题的候选检索/原问核对；先存确定性 API 结果再运行 agent，保留原始轨迹与实测费用/耗时。此处只验证真实调用能力；未有冻结独立语义参考、未对齐现代执行契约和隔离账号，不能宣称优于 Pi。
+
+失败区分及修复：贯通失败的原始响应为 HTTP 422、缺少 `query.filters`，确认是 FastAPI 多个 Query 参数使 FilterSpec 不再展开；将 offset/limit 合入同一 OccurrenceRequest，保持公开的平面参数契约。独立审查还确认旧统计接口忽略 cursor；MCP 改为只接受 null，明确只返回前 N 分组，避免伪分页。首次真实 stdio 烟测已完成握手，但本地采集脚本把 SDK `ListToolsResult` 当 list 遍历导致 AttributeError；尚未启动外部模型，0 模型调用。修正为读取 `.tools` 后继续，原错误保留；后端原问/来源结果仅保存在 `.tmp/mcp-pilot-20261024/`。
+
+首次外部会话：Claude Code 已成功连接 MCP，实际完成两次列表分页、统计和详情调用；旧运行服务的 occurrence 路由返回 422，agent 随后改用详情读取来源。该会话在 240 秒客户端上限内尚未输出最终回答，父进程被停止；Windows 中子进程仍占用临时 cwd，使临时目录自动清理又触发 WinError 32，采集脚本未能写入最后状态。原始 JSONL 保留，usage 未完整回报，第一会话按 USD 1 上限保留未知占用，不重放/不延长。先补失败回执并仅清理本次子进程，再运行原计划中独立的第二任务（仍 USD 1/8 turns/240秒）；不降低来源和语义要求。
+
+后续证据更正：前条根据缺少 CLI `result` 回执误判为“未输出回答”。检查 assistant 的公开文本（不读取 thinking）后确认，两轮均已给出任务回答；真正未完成的是客户端收尾。用户级 Stop hook 因转录文件不存在而循环注入错误，agent 反复回复该错误；原 max-turns/max-budget 参数没有形成可核验的完整 usage 结算。第二轮在确认同一循环后于约 199 秒主动停止进程树，不继续模型调用；没有改全局 hook，也没有重跑两任务。CLI 费用保持 UNKNOWN，USD 1/轮只是原申请上限，不能当作已验证实际花费；总进程时长也不能算纯检索耗时。
+
+实际结果：真实 stdio 发现 6 工具，capabilities/列表/统计/检索/详情五条路径调用成功；旧部署的 occurrence 错误与工作区修复分开。SQL 任务 2+1 分页得到 3 标准题/3 次提问，ID/顺序/次数与事先保存的 API 结果一致，三处 hash/行号内引用核对通过。外部 agent 没显式传 top_n=3，因该范围恰有3题而掩盖，不能据此认证一般 Top N 参数选择。第二任务一次 BM25 返回5候选，外部 agent 读3题详情后推荐3题；独立原问核查仅“手写线程安全 LRU”直接满足，两道 ConcurrentHashMap 原理题不构成缓存实现要求，属于语义扩展过度。该轮三条引用均与原文行区间和hash一致，说明合法引用仍不证明相关性；agent正确声明未语义核验/未覆盖全库。这是开发小样本，不是冻结gold，也未与Pi做公平A/B。
+
+工程收口：36项基础协议/边界检查加1项旧后端模型预算声明检查、4项真实API贯通、2项公开检索预算和17项既有API回归，累计60通过（0跳过，内存SQLite/替身retriever；真实模型0）。公开检索同时补充 `relevance_status` 与保守 `request_budget`，health声明 `public_search_limits_v1`；MCP对未声明请求预算的旧后端拒绝模型管线，但允许BM25。wheel构建及包内模块/console入口检查通过，`ii-mcp.exe`真实stdio握手与capabilities通过。Windows/Python3.12对非ASCII路径的editable .pth未正确加载，重新sync仍未解决；已用进程显式PYTHONPATH验证入口并写入配置说明，不修改全局环境。
+
+命令与证据：`.venv/Scripts/python.exe -m pytest -q tests/unit/test_mcp_server.py tests/integration/test_mcp_api.py tests/integration/test_search_request_limits.py tests/integration/test_api.py` 的末次组合回归为59通过；随后新增跨账号cookie/游标验证，单独运行 `tests/integration/test_mcp_api.py` 为4通过，合计60项。`uv build --wheel --out-dir .tmp/mcp-wheel`；`uv sync --locked --extra dev --extra mcp --reinstall-package interview-intelligence`；文档检查覆盖 `docs/mcp.md`、development、module-map、runtime-config和本记录。真实回执、预先API结果、只含公开回答的 `answer-1.md/answer-2.md`、独立核对和摘要保存于私有忽略目录 `.tmp/mcp-pilot-20261024/`（`assessment.json`、`RESULTS.md`）。未改生产部署、客户端全局配置和个人复习状态；未跑Node、完整Python回归、embedding/重排质量及Pi模型A/B。下一步先隔离本轮已证实的客户端Stop hook故障，再设计现代scope/核验等价接入和固定参考/隔离账号对照；本轮不追加未知成本的模型调用。

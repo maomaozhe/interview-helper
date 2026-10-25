@@ -185,14 +185,68 @@ async function refreshWorkspaceForResult(meta) {
     await refreshWorkspace();
 }
 
+function semanticReviewHTML(row) {
+  const pendingCount=row.pending_occurrence_count || 0;
+  const badge=row.semantic_verification ? `<span class="pill ${row.semantic_verification === "PENDING" ? "orange" : "green"}">${row.semantic_verification === "PENDING" ? "待核验工程设计归属" : "已确认工程设计"}</span>${pendingCount ? `<span class="pill orange">另有 ${escapeHTML(pendingCount)} 次提问待核验</span>` : ""}` : "";
+  const evidence=pendingCount ? `<details class="match-evidence"><summary>待核验原问与原因</summary>${(row.pending_sources || []).map(source=>`<blockquote>${escapeHTML(source.raw_question || source.matched_question || "原问暂不可用")}</blockquote><p>${escapeHTML(source.reason || source.verification_reason || "核验未完成")}</p>`).join("")}</details>` : "";
+  return {badge,evidence};
+}
+
+function relevanceScopeHTML(row) {
+  const status=row.relevance_scope_status || row.retrieval?.relevance_scope_status;
+  if(!["CONFIRMED","PENDING"].includes(status))return {badge:"",evidence:""};
+  const pending=status==="PENDING",reason=row.relevance_scope_reason || row.retrieval?.relevance_scope_reason;
+  return {badge:`<span class="pill ${pending ? "orange" : "green"}">${pending ? "业务范围待核验" : "已确认业务范围"}</span>`,
+    evidence:pending ? `<p class="notice scope-verification-reason">${escapeHTML(typeof reason==="string" && reason ? reason : "当前证据不足以确认是否符合本次业务应用范围，题目暂时保留待核验。")}</p>` : ""};
+}
+
+function scopeWorksetProgress(meta) {
+  const value=meta.candidate_workset_progress,
+    counts=["candidate_total","processed","unprocessed","confirmed","pending","excluded","visible","batch_size","last_batch_count"];
+  if(!value || value.version!=="candidate_workset_progress_v1" ||
+    !counts.every(key=>Number.isSafeInteger(value[key]) && value[key]>=0) ||
+    typeof value.processing_complete!=="boolean" || typeof value.next_requires_processing!=="boolean" ||
+    value.processed+value.unprocessed!==value.candidate_total ||
+    value.confirmed+value.pending+value.excluded!==value.processed || value.confirmed+value.pending!==value.visible ||
+    value.batch_size<1 || value.batch_size>50 || value.last_batch_count>value.batch_size ||
+    value.processing_complete!==(value.unprocessed===0) || value.next_requires_processing && value.processing_complete)return null;
+  return value;
+}
+
+function scopeWorksetEmptyHTML(meta) {
+  const progress=scopeWorksetProgress(meta);
+  if(!progress || progress.processing_complete)return "";
+  return `<p class="notice workset-progress">本批没有新增可展示的题目，还有 ${escapeHTML(progress.unprocessed)} 道候选未核验。${meta.pagination?.next_cursor ? "可继续核验当前范围并翻页。" : "可重新检索，继续查看当前范围。"}</p>`;
+}
+
+function scopeNextLabel(meta) {
+  return scopeWorksetProgress(meta)?.next_requires_processing ? "继续核验并翻页 →" : "下一页 →";
+}
+
+function scopeCandidateSummary(meta) {
+  const progress=scopeWorksetProgress(meta);
+  if(progress)return `工程候选范围 ${progress.candidate_total} 道 · 已处理 ${progress.processed} 道：业务范围已确认 ${progress.confirmed} 道 · 待核验 ${progress.pending} 道 · 已排除 ${progress.excluded} 道 · ${progress.processing_complete ? "候选已处理完" : `还有 ${progress.unprocessed} 道未处理`}`;
+  const counts=meta.scope_candidate_counts;
+  if(!counts || ![counts.confirmed,counts.pending,counts.visible].every(value=>Number.isInteger(value) && value>=0))return "";
+  const limit=Number.isInteger(meta.candidate_pool_limit) ? `；候选池上限 ${meta.candidate_pool_limit} 道` : "";
+  return `当前候选 ${counts.visible} 道：业务范围已确认 ${counts.confirmed} 道 · 待核验 ${counts.pending} 道${limit}`;
+}
+
+function sourceIssuesHTML(issues) {
+  if(!issues?.length)return "";
+  return `<div class="detail-section"><h3>来源待核验</h3><p class="muted">以下原问仍保留，来源位置异常，暂不能作为已核验引用。</p>${issues.map(issue=>`<div class="source-card"><blockquote>${escapeHTML(issue.raw_question || "原问暂不可用")}</blockquote><p class="notice">${escapeHTML(issue.reason || "来源位置需要重新核验")}</p></div>`).join("")}</div>`;
+}
+
 function rowHTML(row,index) {
   const id = escapeHTML(row.canonical_question_id || "");
   const topic = state.topicLabels[row.topic_id];
   const taskLabel = row.coding_focus && row.coding_focus !== "NONE" ? labels[row.coding_focus] || row.coding_focus : labels[row.question_type] || row.question_type;
   const matched=row.retrieval?.relevance_evidence;
   const evidence=matched ? `<details class="match-evidence"><summary>匹配到的原文</summary>${[...new Set([matched.object,matched.focus].filter(Boolean))].map(quote=>`<blockquote>${escapeHTML(quote)}</blockquote>`).join("")}</details>` : "";
+  const review=semanticReviewHTML(row);
+  const scopeReview=relevanceScopeHTML(row);
   const meta = [row.importance_band ? `<span class="pill ${row.importance_band === "CORE" ? "green" : ""}">${escapeHTML(labels[row.importance_band])}</span>` : "", topic ? `<span class="pill">${escapeHTML(topic)}</span>` : "", taskLabel ? `<span class="pill">${escapeHTML(taskLabel)}</span>` : "", row.response_form ? `<span class="pill">${escapeHTML(row.response_form === "SQL" ? "SQL 实现" : labels[row.response_form] || row.response_form)}</span>` : "", row.user_status ? `<span class="pill ${row.user_status === "WEAK" ? "orange" : ""}">${escapeHTML(labels[row.user_status])}</span>` : "", row.interview_count != null ? `${row.interview_count} 场面试` : "", row.variants?.length ? `${row.variants.length} 种原始问法` : ""].filter(Boolean).join("");
-  return `<article class="question-row"><span class="question-number">${String(index+1).padStart(2,"0")}</span><div class="question-main"><button class="question-title" data-detail="${id}">${escapeHTML(row.canonical_text || row.key || "题目")}</button><div class="question-meta">${meta || '<span>点开详情，查看标签与原文</span>'}</div>${evidence}${row.candidate_count!=null ? usageRowHTML(row) : ""}</div><div class="frequency"><strong>${escapeHTML(row.occurrence_count ?? "—")}</strong><small>真实提问</small></div><div class="row-actions"><button class="button secondary small" data-detail="${id}">${row.candidate_count!=null ? "查看 / 复习 ↗" : "查看详情 ↗"}</button><button class="icon-button" data-issue="${id}" aria-label="记录这道题的问题" title="记录问题">⚑</button></div></article>`;
+  return `<article class="question-row"><span class="question-number">${String(index+1).padStart(2,"0")}</span><div class="question-main"><button class="question-title" data-detail="${id}">${escapeHTML(row.canonical_text || row.key || "题目")}</button><div class="question-meta">${review.badge}${scopeReview.badge}${meta || '<span>点开详情，查看标签与原文</span>'}</div>${evidence}${review.evidence}${scopeReview.evidence}${row.candidate_count!=null ? usageRowHTML(row) : ""}</div><div class="frequency"><strong>${escapeHTML(row.frequency_basis==="engineering_qualified_occurrences" ? (row.occurrence_count ?? "—") : (row.confirmed_occurrence_count ?? row.occurrence_count ?? "—"))}</strong><small>${row.frequency_basis==="engineering_qualified_occurrences" ? "工程范围提问" : row.semantic_verification ? "已确认提问" : "真实提问"}</small></div><div class="row-actions"><button class="button secondary small" data-detail="${id}">${row.candidate_count!=null ? "查看 / 复习 ↗" : "查看详情 ↗"}</button><button class="icon-button" data-issue="${id}" aria-label="记录这道题的问题" title="记录问题">⚑</button></div></article>`;
 }
 
 function usageFilters(){return pickFilters({topic_l1:$("usage-topic").value,company:$("usage-company").value});}
@@ -232,7 +286,8 @@ $("usage-prev").addEventListener("click",()=>loadUsage(Math.max(0,usageOffset-20
 $("usage-next").addEventListener("click",()=>loadUsage(usageSnapshot?.pagination?.next_offset || 0));
 function resultRow(row,index){
   if(row.canonical_question_id)return rowHTML(row,index);
-  return `<article class="question-row"><span class="question-number">${index+1}</span><div class="question-main"><strong>${escapeHTML(state.topicLabels[row.key] || row.key)}</strong><p class="muted">统计分组</p></div><div class="frequency"><strong>${row.occurrence_count ?? 0}</strong><small>真实提问</small></div></article>`;
+  const review=semanticReviewHTML(row);
+  return `<article class="question-row"><span class="question-number">${index+1}</span><div class="question-main"><strong>${escapeHTML(state.topicLabels[row.key] || row.key)}</strong><p class="muted">统计分组</p><div class="question-meta">${review.badge}</div>${review.evidence}</div><div class="frequency"><strong>${escapeHTML(row.frequency_basis==="engineering_qualified_occurrences" ? (row.occurrence_count ?? 0) : (row.confirmed_occurrence_count ?? row.occurrence_count ?? 0))}</strong><small>${row.frequency_basis==="engineering_qualified_occurrences" ? "工程范围提问" : row.semantic_verification ? "已确认提问" : "真实提问"}</small></div></article>`;
 }
 
 let searchController,chatController,libraryProgress;
@@ -271,6 +326,20 @@ $("annotations-publish").addEventListener("click",async()=>{
     notice("annotations-notice",`已发布 ${response.data.published} 条核验分类。`,"info");await loadAnnotations();
   }catch(error){notice("annotations-notice",error.message,"error");$("annotations-publish").disabled=false;}
 });
+function semanticLibraryRequest({isCandidatePage,cursor,structured,query,filters,pageSize,pipeline,origin,routerEnabled=true}) {
+  if(!isCandidatePage || !(cursor || structured && query))return null;
+  if(!routerEnabled)throw new Error("当前候选分页需要查询服务，请恢复查询服务后重试。");
+  if(!state.libraryConversation?.id || !Number.isInteger(state.libraryConversation.version))
+    throw new Error("当前候选页的会话身份缺失，请重新检索。");
+  if(cursor)return {message:"下一页",request_id:crypto.randomUUID(),
+    conversation_id:state.libraryConversation.id,expected_version:state.libraryConversation.version};
+  if(!origin)throw new Error("当前候选页的查询身份缺失，请重新检索。");
+  const sort={frequency:"按频次排序",importance:"按重要性排序",gap:"按薄弱排序"}[$("browse-sort").value];
+  return {message:["重新检索",sort].filter(Boolean).join("，"),filters,page_size:pageSize,pipeline,
+    request_id:crypto.randomUUID(),conversation_id:state.libraryConversation.id,
+    expected_version:state.libraryConversation.version,requery_of_run_id:origin};
+}
+
 async function search(cursor=null, structured=false, changedField=null,retryBody=null,restored=null) {
   libraryInitialized=true;
   if(window.InterviewTenant && !window.InterviewTenant.requireAccount())return;
@@ -278,6 +347,7 @@ async function search(cursor=null, structured=false, changedField=null,retryBody
   libraryProgress?.finish("superseded");
   searchController?.abort(); searchController = new AbortController();
   const query = $("query").value.trim(), params = filters(), limit = Number($("result-limit").value), pipeline = $("search-pipeline").value;
+  const candidatePage=state.libraryCandidatePage,originRunId=state.diagnostic?.meta?.run_id;
   const agentRun=!restored && query && !cursor && !(structured && state.listRequest) && healthSnapshot?.query_router_enabled;
   const progressHost=$("library-progress");progressHost.replaceChildren();progressHost.hidden=!agentRun;
   let progress=null,progressReply=null,outcome="failed";
@@ -293,6 +363,13 @@ async function search(cursor=null, structured=false, changedField=null,retryBody
       response={data:restored.facts.data || [],meta:{...restored.facts.meta,planning:restored.planning,run_id:restored.run_id,
         answer:restored.answer,conversation_id:restored.conversation_id,conversation_version:restored.conversation_version},
         warnings:restored.warnings || [],elapsed_ms:null};
+      state.listRequest=window.InterviewWorkspace.listRequestFor(response);
+    } else if(candidatePage && (cursor || structured && query)) {
+      const body=semanticLibraryRequest({isCandidatePage:candidatePage,cursor,structured,query,
+        filters:params,pageSize:limit,pipeline,origin:originRunId,routerEnabled:Boolean(healthSnapshot?.query_router_enabled)});
+      response=await agentQuery(body,searchController.signal,"library",phase=>progress?.update(phase));
+      if(sequence!==state.searchSequence)return;
+      state.listRequest=null;
     } else if(cursor || (!query) || (structured && state.listRequest)) {
       const changed = changedField ? {[changedField]:params[changedField] ?? null} : {};
       if(changedField === "topic_l1") changed.topic_l2 = null;
@@ -313,8 +390,7 @@ async function search(cursor=null, structured=false, changedField=null,retryBody
       });
       if (sequence !== state.searchSequence) return;
       state.libraryConversation = {id:response.meta.conversation_id,version:response.meta.conversation_version};
-      const plan=response.meta.planning?.spec;
-      state.listRequest=plan && ["LIST","NEXT","STATS"].includes(plan.action) ? {...pickFilters(plan.filters),sort:plan.sort,top_n:plan.top_n,page_size:plan.page_size,review_statuses:plan.review_statuses || [],review_order:plan.review_order || "BEFORE_TOP_N",...(plan.action==="STATS" ? {group_by:plan.group_by} : {})} : null;
+      state.listRequest=window.InterviewWorkspace.listRequestFor(response);
     } else {
       response = await api("api/questions/search",{params:{...params,query,pipeline,top_k:Math.min(50,limit)},signal:searchController.signal});
       if (sequence !== state.searchSequence) return;
@@ -325,8 +401,9 @@ async function search(cursor=null, structured=false, changedField=null,retryBody
     if (sequence !== state.searchSequence) return;
     if(response.meta.conversation_id) state.libraryConversation={id:response.meta.conversation_id,version:response.meta.conversation_version};
     if(state.libraryConversation)sessionStorage.setItem("libraryConversation",JSON.stringify(state.libraryConversation));
+    state.libraryCandidatePage=response.meta.pagination?.kind==="semantic_candidates";
     state.nextCursor=response.meta.pagination?.next_cursor || null;
-    $("results-next").hidden=!state.nextCursor;
+    $("results-next").hidden=!state.nextCursor;$("results-next").textContent=scopeNextLabel(response.meta);
     if(response.meta.pagination?.page_size) {
       const size=String(response.meta.pagination.page_size), selector=$("result-limit");
       if(!Array.from(selector.options).some(option=>option.value===size)) selector.add(new Option(`${size} 条`,size));
@@ -342,13 +419,13 @@ async function search(cursor=null, structured=false, changedField=null,retryBody
     const answerAction=response.meta.planning?.spec?.action,
       directAnswer=["COUNT","ANSWER"].includes(answerAction),
       answerIntro=directAnswer ? `<div class="library-answer">${answerIntroHTML({answer:response.meta.answer,intent:answerAction,meta:response.meta})}</div>` : "";
-    $("results").innerHTML = directAnswer ? answerIntro+(answerAction==="ANSWER" ? response.data.map(resultRow).join("") : "") : response.meta.route==="CLARIFY" ? `<div class="library-clarification">${clarificationHTML(clarification)}</div>` : response.data.length ? response.data.map(resultRow).join("") : empty("没有找到符合条件的题目", query ? "可以补充你的具体场景，或调整范围后重新检索。" : "当前筛选范围没有真实提问。可以放宽条件，或导入面经。");
+    $("results").innerHTML = directAnswer ? answerIntro+(answerAction==="ANSWER" ? response.data.map(resultRow).join("") : "") : response.meta.route==="CLARIFY" ? `<div class="library-clarification">${clarificationHTML(clarification)}</div>` : response.data.length ? response.data.map(resultRow).join("") : scopeWorksetEmptyHTML(response.meta) || empty("没有找到符合条件的题目", query ? "可以补充你的具体场景，或调整范围后重新检索。" : "当前筛选范围没有真实提问。可以放宽条件，或导入面经。");
     $("results").querySelectorAll("[data-clarification]").forEach(button=>button.addEventListener("click",()=>{$("query").value=button.dataset.clarification;search();}));
     const total = response.meta.sample_counts?.occurrences, pagination=response.meta.pagination;
     $("results-title").textContent=answerAction==="COUNT" ? "题库数量" : answerAction==="ANSWER" ? "参考回答" : response.meta.route==="CLARIFY" ? "需要补充查询条件" : response.meta.group_by && response.meta.group_by!=="question" ? "统计结果" : response.meta.route==="SQL" ? "题目列表" : "检索结果";
     const unit=response.meta.group_by && response.meta.group_by!=="question" ? "组" : "道题";
     const timing=restored ? "已恢复上次结果" : `${response.elapsed_ms} ms`;
-    $("results-caption").textContent = pagination ? `${response.data.length} ${unit} · 范围 ${pagination.total} ${unit}${pagination.result_total!==pagination.total ? ` · 本集合 ${pagination.result_total} ${unit}` : ""}${pagination.top_n ? ` · 前 ${pagination.top_n} ${unit}` : ""} · ${labels.SQL} · ${timing}` : `${response.data.length} 条结果 · ${labels[response.meta.executed_pipeline || pipeline]} · ${timing}`;
+    $("results-caption").textContent = pagination?.kind==="semantic_candidates" ? `${response.data.length} ${unit} · ${scopeCandidateSummary(response.meta)} · ${timing}` : pagination ? `${response.data.length} ${unit} · 范围 ${pagination.total} ${unit}${pagination.result_total!==pagination.total ? ` · 本集合 ${pagination.result_total} ${unit}` : ""}${pagination.top_n ? ` · 前 ${pagination.top_n} ${unit}` : ""} · ${labels.SQL} · ${timing}` : `${response.data.length} 条结果 · ${labels[response.meta.executed_pipeline || pipeline]} · ${timing}`;
     if(response.meta.route==="CLARIFY") $("results-caption").textContent=restored ? "选择一个方向，继续上次查询" : "选择一个方向继续，也可以补充具体场景";
     if(directAnswer)$("results-caption").textContent=timing;
     if (response.warnings?.length) notice("results-notice",`本次执行有提示：${response.warnings.join("；")}`);
@@ -399,6 +476,7 @@ async function showDetail(id, scope=state.diagnostic?.filters || filters(), orig
     const sourceHTML=(data.sources || []).map((source,index)=>{ const link=safeLink(source.source_url); return `<div class="source-card"><blockquote>${escapeHTML(source.quote)}</blockquote><div class="source-actions"><span>第 ${source.start_line}–${source.end_line} 行</span><button class="text-button" data-source-index="${index}">查看完整原文 ↗</button>${link ? `<a href="${escapeHTML(link)}" target="_blank" rel="noopener noreferrer">打开原帖 ↗</a>` : ""}</div></div>`; }).join("");
     const relations=(data.observed_followups || []).map(item=>`<li><button class="text-button" data-detail="${escapeHTML(item.canonical_question_id)}">${escapeHTML(item.canonical_text)}</button> · ${item.supporting_interview_count} 场面试有原文证据</li>`).join("");
     $("detail-content").innerHTML=`<h2 class="detail-title">${escapeHTML(data.canonical_text)}</h2><div class="question-meta"><span class="pill green">${escapeHTML(state.topicLabels[data.topic_id] || data.topic_id)}</span><span class="pill">${escapeHTML(labels[scope.coding_focus || data.question_type] || scope.coding_focus || data.question_type)}</span><span class="pill">${escapeHTML(labels[current])}</span></div><div class="detail-stats"><div><b>${data.occurrence_count}</b>真实提问</div><div><b>${data.interview_count}</b>面试场次</div><div><b>${data.source_document_count}</b>来源面经</div></div><div class="detail-section"><h3>原始问法 <span class="muted">${data.variants.length} 种</span></h3><ul class="variant-list">${data.variants.map(item=>`<li>${escapeHTML(item)}</li>`).join("") || "当前范围没有问法"}</ul></div><div class="detail-section"><h3>来源证据</h3>${sourceHTML || '<p class="muted">当前筛选范围没有来源。</p>'}${data.sources_total>data.sources.length ? `<p class="muted">先展示 ${data.sources.length} 条引用，共 ${data.sources_total} 条。</p>` : ""}</div>${relations ? `<div class="detail-section"><h3>真实追问</h3><ul class="variant-list">${relations}</ul></div>` : ""}<div class="detail-section"><h3>我的复习记录</h3><form id="review-form" class="review-form"><div class="review-fields"><label>复习状态<select id="review-status">${["UNSEEN","WEAK","REVIEWED","MASTERED"].map(status=>`<option value="${status}" ${current===status ? "selected" : ""}>${labels[status]}</option>`).join("")}</select></label><label>自评得分<select id="review-score"><option value="">不评分</option>${[0,1,2,3,4,5].map(score=>`<option value="${score}">${score} / 5</option>`).join("")}</select></label></div><label>笔记<textarea id="review-note" rows="2" maxlength="2000" placeholder="记录答题思路、遗漏点或下一步要补的内容"></textarea></label><div id="review-notice" class="notice" role="status" hidden></div><button class="button primary" id="review-button" type="submit">保存复习记录</button></form></div><div class="detail-foot"><span>题目编号 ${escapeHTML(id)}</span><button class="text-button" data-issue="${escapeHTML(id)}">⚑ 记录这道题的问题</button></div>`;
+    $("detail-content").querySelector(".variant-list").closest(".detail-section").insertAdjacentHTML("afterend",sourceIssuesHTML(data.source_issues));
     $("review-form").addEventListener("submit",saveReview);
     const usageSection=document.createElement("section");usageSection.className="detail-section";usageSection.id="detail-usage";
     usageSection.innerHTML=detailUsageHTML(data.usage,reviewState);$("detail-content").querySelector(".detail-stats").after(usageSection);
@@ -435,8 +513,16 @@ async function showSource({revision_id,path,start_line=1,end_line=1}) {
 
 function clarificationHTML(clarification,showQuestion=true) {
   if(!clarification)return "";
-  const choices=clarification.options || [];
-  return `<div class="clarification">${showQuestion ? `<p>${escapeHTML(clarification.question)}</p>` : ""}${choices.length ? `<div class="clarification-label">选择一个方向继续</div><div class="clarification-choices" role="group" aria-label="澄清选项">${choices.map((option,index)=>`<button type="button" class="button secondary" data-clarification="${escapeHTML(option)}"><span class="choice-number" aria-hidden="true">${index+1}</span><span>${escapeHTML(option)}</span><span class="choice-arrow" aria-hidden="true">↗</span></button>`).join("")}</div>` : ""}<small>也可以直接补充你的具体场景。</small></div>`;
+  const collection=clarification.collection_selection,
+    choices=collection ? collection.choices : (clarification.options || []).map(option=>({message:option,label:option})),
+    label=collection ? collection.stage==="categories" ? "选择一个分类，也可以查看全量" : "选择浏览方式" : "选择一个方向继续";
+  const countHTML=choice=>{
+    const counts=choice.counts;
+    if(!counts || !Number.isInteger(counts.visible) || counts.visible<0)return "";
+    const pending=Number.isInteger(counts.pending) && counts.pending>0 ? ` · ${counts.pending} 道含待核验来源` : "";
+    return `<small class="choice-count">可浏览 ${escapeHTML(counts.visible)} 道${escapeHTML(pending)}</small>`;
+  };
+  return `<div class="clarification">${showQuestion ? `<p>${escapeHTML(clarification.question)}</p>` : ""}${collection?.classification_notice ? `<p class="collection-classification-notice">${escapeHTML(collection.classification_notice)}</p>` : ""}${choices.length ? `<div class="clarification-label">${label}</div><div class="clarification-choices${collection ? " collection-choices" : ""}" role="group" aria-label="澄清选项">${choices.map((choice,index)=>`<button type="button" class="button secondary" data-clarification="${escapeHTML(choice.message)}"><span class="choice-number" aria-hidden="true">${index+1}</span><span class="choice-copy"><span>${escapeHTML(choice.label)}</span>${countHTML(choice)}</span><span class="choice-arrow" aria-hidden="true">↗</span></button>`).join("")}</div>` : ""}<small class="clarification-hint">也可以直接补充${collection ? "筛选条件" : "你的具体场景"}。</small></div>`;
 }
 
 function canRequery(origin){
@@ -452,9 +538,9 @@ function syncContinuationActions(){
       const active=window.InterviewWorkspace.canContinueAnswer(origin,state.chatConversation,state.chatContinuation,action,state.chatBusy);
       button.disabled=!active;
       button.title=active ? (action==="next" ? "继续当前列表" : "补充当前待澄清的需求") : state.chatBusy ? "请等待当前问答完成" : action==="next" ? "这是历史列表，请重新检索后继续翻页" : "这轮澄清已结束，请在输入框补充当前需求";
-      if(action==="next")button.textContent=active || state.chatBusy ? "下一页 →" : "历史列表 · 下一页";
+      if(action==="next")button.textContent=active || state.chatBusy ? (reply.dataset.nextRequiresProcessing==="true" ? "继续核验并翻页 →" : "下一页 →") : "历史列表 · 下一页";
     }
-    const clarification=reply.querySelector(".clarification small");
+    const clarification=reply.querySelector(".clarification .clarification-hint");
     if(clarification)clarification.textContent=window.InterviewWorkspace.canContinueAnswer(origin,state.chatConversation,state.chatContinuation,"clarification") ? "也可以直接补充你的具体场景。" : "这轮澄清已结束；仍可在输入框提出新的需求。";
     const requeryButton=reply.querySelector(".chat-requery");if(requeryButton)requeryButton.disabled=state.chatBusy;
   }
@@ -469,11 +555,12 @@ function renderAssistant(reply,data,message,meta=data.facts?.meta || {}) {
   const facts=data.facts || {},action=data.intent || data.planning?.spec?.action,
     rows=action==="COUNT" ? [] : facts.data || facts.groups || facts.questions || (facts.canonical_question_id ? [facts] : []);
   const origin=window.InterviewWorkspace.feedbackOrigin(message,data);
-  reply.dataset.runId=origin.context.run_id || "";reply.dataset.conversationId=origin.context.conversation_id || "";
+  reply.dataset.runId=origin.context.run_id || "";reply.dataset.conversationId=origin.context.conversation_id || "";reply.dataset.nextRequiresProcessing=String(Boolean(scopeWorksetProgress(meta)?.next_requires_processing));
   const scope=pickFilters(meta.applied_filters || {});
-  const relevance={VERIFIED:"已筛选相关题",UNVERIFIED:"原始召回候选",UNAVAILABLE:"相关性核验未完成"}[meta.relevance_status];
+  const scopeSummary=scopeCandidateSummary(meta),
+    relevance=scopeSummary || {VERIFIED:"已筛选相关题",UNVERIFIED:"原始召回候选",UNAVAILABLE:"相关性核验未完成"}[meta.relevance_status];
   const clarification=window.InterviewWorkspace.clarificationFor(data);
-  reply.innerHTML=`${answerIntroHTML(data)}${clarification ? clarificationHTML(clarification,data.answer!==clarification.question) : ""}${relevance ? `<div class="answer-caption">${escapeHTML(relevance)}${meta.returned_count!==undefined ? ` · ${meta.returned_count} 道` : ""}</div>` : ""}${(facts.components || []).map(c=>`<details><summary>${escapeHTML(c.answer)}</summary>${(c.facts.data || []).map(resultRow).join("")}</details>`).join("")}${data.warnings?.length ? `<p class="notice">${escapeHTML(data.warnings.join("；"))}</p>` : ""}<div class="answer-results">${Array.isArray(rows) ? rows.map(resultRow).join("") : ""}</div><div class="answer-actions">${meta.pagination?.next_cursor ? '<button class="text-button chat-next">下一页 →</button>' : ""}${canRequery(origin) ? '<button class="text-button chat-requery">↻ 重新检索</button>' : ""}<button class="text-button chat-report">⚑ 反馈</button></div><details class="answer-evidence"><summary>来源与执行过程</summary><pre>${escapeHTML(pretty({run_id:data.run_id,intent:data.intent,planning:data.planning,tool_trace:data.tool_trace,meta}))}</pre></details>`;
+  reply.innerHTML=`${answerIntroHTML(data)}${clarification ? clarificationHTML(clarification,data.answer!==clarification.question) : ""}${relevance ? `<div class="answer-caption">${escapeHTML(relevance)}${!scopeSummary && meta.returned_count!==undefined ? ` · ${meta.returned_count} 道` : ""}</div>` : ""}${(facts.components || []).map(c=>`<details><summary>${escapeHTML(c.answer)}</summary>${(c.facts.data || []).map(resultRow).join("")}</details>`).join("")}${data.warnings?.length ? `<p class="notice">${escapeHTML(data.warnings.join("；"))}</p>` : ""}<div class="answer-results">${Array.isArray(rows) && rows.length ? rows.map(resultRow).join("") : scopeWorksetEmptyHTML(meta)}</div><div class="answer-actions">${meta.pagination?.next_cursor ? `<button class="text-button chat-next">${scopeNextLabel(meta)}</button>` : ""}${canRequery(origin) ? '<button class="text-button chat-requery">↻ 重新检索</button>' : ""}<button class="text-button chat-report">⚑ 反馈</button></div><details class="answer-evidence"><summary>来源与执行过程</summary><pre>${escapeHTML(pretty({run_id:data.run_id,intent:data.intent,planning:data.planning,tool_trace:data.tool_trace,meta}))}</pre></details>`;
   reply.addEventListener("click",event=>{
     const button=event.target.closest("button");if(!button)return;event.stopPropagation();
     if(button.dataset.detail)showDetail(button.dataset.detail,scope,origin);

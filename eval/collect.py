@@ -309,10 +309,33 @@ class ProviderCollector:
         return observation
 
 
+def load_http_cookies(path):
+    """Load the isolated tenant cookie without including its value in receipts/errors."""
+    if path is None:
+        return {}
+    path = Path(path)
+    require(os.name == "nt" or path.stat().st_mode & 0o077 == 0, "HTTP_COOKIE_FILE_PERMISSIONS_TOO_OPEN")
+    try:
+        cookies = read_json(path)
+    except (OSError, ValueError, UnicodeError) as error:
+        raise ValueError("HTTP_COOKIE_FILE_INVALID") from error
+    require(isinstance(cookies, dict) and set(cookies) == {"ii_tenant_session"}
+            and isinstance(cookies["ii_tenant_session"], str) and bool(cookies["ii_tenant_session"])
+            and all(ord(c) >= 33 and ord(c) < 127 for c in cookies["ii_tenant_session"]), "HTTP_COOKIE_FILE_INVALID")
+    return cookies
+
+
 class HttpQueryCollector:
     """Require an isolated eval host with actual per-request telemetry."""
-    def __init__(self, client, manifest, budget, *, allow_writes=False, resume_checkpoint=None):
+    def __init__(self, client, manifest, budget, *, allow_writes=False, resume_checkpoint=None,
+                 deployment_evidence=None, expected_proof_sha256=None, expected_fingerprint=None):
         self.client, self.budget, self.allow_writes = client, budget, allow_writes
+        proof = read_json(Path(deployment_evidence)) if deployment_evidence is not None else None
+        require(proof is None or isinstance(proof, dict), "INVALID_DEPLOYMENT_EVIDENCE")
+        require(proof is None or expected_proof_sha256 is None or digest(proof) == expected_proof_sha256,
+                "CANDIDATE_DEPLOYMENT_PROOF_MISMATCH")
+        self.expected_proof_sha256 = digest(proof) if proof is not None else expected_proof_sha256
+        self.expected_fingerprint = expected_fingerprint
         self.context = self.get_context()
         require(self.context["user_id"].startswith("eval-") and self.context.get("evaluation_host") is True,
                 "ISOLATED_EVALUATION_HOST_REQUIRED")
@@ -333,17 +356,59 @@ class HttpQueryCollector:
             require(self.context["state_count"] == self.context["event_count"] == 0,
                     "RESUME_REVIEW_STATE_NOT_EMPTY")
         require(self.context.get("model_gate_shared") is True, "SHARED_LINUX_MODEL_GATE_REQUIRED")
+        self.validate_runtime(self.context)
+        deadline = self.context.get("request_deadline_seconds")
+        if type(deadline) in (int, float) and 0 < deadline <= 1800 and isinstance(client, httpx.Client):
+            client.timeout = httpx.Timeout(deadline + 30)
         assert_snapshot(manifest["snapshot"], self.context["snapshot"])
         self.run_id, self.seen_calls = uuid4().hex, set()
         self.snapshot = manifest["snapshot"]
 
+    def validate_runtime(self, context):
+        from eval.checkpoint import runtime_record
+        for key in ("query_planning_max_calls", "request_max_model_calls", "request_max_tokens"):
+            require(type(context.get(key)) is int and context[key] > 0, "WHOLE_REQUEST_LIMITS_REQUIRED")
+            require(context[key] == self.context[key], "COLLECTION_RUNTIME_CHANGED")
+        require(context["query_planning_max_calls"] <= context["request_max_model_calls"],
+                "INVALID_WHOLE_REQUEST_LIMITS")
+        require(context.get("user_id") == self.context["user_id"] and context.get("model_gate_shared") is True,
+                "COLLECTION_RUNTIME_CHANGED")
+        require(all(context.get(key) == self.context.get(key) for key in ("multi_tenant_enabled", "provider_profile")),
+                "COLLECTION_PROVIDER_PROFILE_CHANGED")
+        require(runtime_record(context) == runtime_record(self.context), "COLLECTION_RUNTIME_CHANGED")
+
+    @staticmethod
+    def call_ledger_complete(context):
+        attempts, calls = context.get("model_attempts"), context.get("model_calls")
+        return (context.get("run_status") == "SUCCEEDED" and type(attempts) is int and attempts >= 0
+                and isinstance(calls, list) and attempts == len(calls)
+                and len({call.get("id") for call in calls}) == len(calls))
+
     def get_context(self, request_id=None):
         response = self.client.get("/api/evaluation/context", params={"request_id": request_id} if request_id else {})
         response.raise_for_status()
-        return response.json()
+        context = response.json()
+        context["runtime_verification"] = "REMOTE_SOURCE_NOT_VERIFIED"
+        if self.expected_proof_sha256 is not None:
+            from eval.runtime_identity import verify_runtime_evidence
+            from eval.runtime_identity import verify_shared_lock_evidence
+            checked = verify_runtime_evidence(context.get("runtime_evidence"),
+                expected_fingerprint=self.expected_fingerprint, expected_proof_sha256=self.expected_proof_sha256)
+            require(checked["status"] == "REMOTE_SOURCE_BOUND", "; ".join(checked["errors"]))
+            require(context.get("runtime_fingerprint") == checked["runtime_fingerprint"], "RUNTIME_FINGERPRINT_MISMATCH")
+            verify_shared_lock_evidence(context["runtime_evidence"]["measurement"].get("lock"),
+                                        context.get("model_gate_identity"))
+            require(context["model_gate_identity"]["api"]["process"] ==
+                    context["runtime_evidence"]["observed"]["api"]["process"], "SHARED_LOCK_API_PROCESS_MISMATCH")
+            context["runtime_verification"] = "REMOTE_SOURCE_BOUND"
+        elif context.get("model_gate_identity") is not None:
+            require(context["model_gate_identity"].get("expected_path") == "/app/runtime/model-call.lock",
+                    "INDEPENDENT_DEPLOYMENT_PROOF_REQUIRED")
+        return context
 
     def __call__(self, gold, calls):
         context = self.get_context()
+        self.validate_runtime(context)
         assert_snapshot(self.snapshot, context["snapshot"])
         conversation, version, previous, observations = None, None, None, []
         for index, turn in enumerate(gold.get("turns", [gold])):
@@ -367,37 +432,45 @@ class HttpQueryCollector:
                 require(not turn.get("allow_write") or self.allow_writes, "EVALUATION_WRITES_DISABLED")
                 if observations and observations[-1]["failed"]:
                     raise ValueError("PREVIOUS_TURN_FAILED")
-                self.budget.reserve(calls=0 if replay else self.context["query_max_model_calls"],
-                                    tokens=0 if replay else self.context["query_max_tokens"])
-                reserved = True
                 before = self.get_context()
+                self.validate_runtime(before)
                 assert_snapshot(self.snapshot, before["snapshot"])
+                self.budget.reserve(calls=0 if replay else before["request_max_model_calls"],
+                                    tokens=0 if replay else before["request_max_tokens"])
+                reserved = True
                 response = self.client.post("/api/questions/query", json=payload)
                 response.raise_for_status()
                 body = response.json()
                 meta = body["meta"]
                 conversation, version = meta.get("conversation_id"), meta.get("conversation_version")
                 after = self.get_context(request_id)
+                self.validate_runtime(after)
                 assert_snapshot(self.snapshot, after["snapshot"])
                 observed = [c for c in after["model_calls"] if c["id"] not in self.seen_calls]
                 self.seen_calls.update(c["id"] for c in observed)
                 observation.update(result={"rows": body["data"], "meta": meta, "plan": meta.get("planning", {}).get("spec", {}),
+                    "answer": meta.get("answer"),
                     "state": after["states"], "write_events": after["write_events"],
                     "turn_state": after.get("turn_state"),
                     "write_event_delta": after["event_count"] - before["event_count"]},
                     tool_trace=meta.get("tool_trace", []), model_calls=observed,
                     tool_invocations=after.get("tool_invocations", []), trajectory=after.get("trajectory", []),
-                    run_status=after.get("run_status"))
+                    run_status=after.get("run_status"), model_attempts=after.get("model_attempts"),
+                    request_id=request_id, run_id=meta.get("run_id"))
                 if after.get("run_status") == "RUNNING":
                     raise ValueError("QUERY_STILL_RUNNING")
                 if after.get("run_status") != "SUCCEEDED":
                     raise ValueError("QUERY_RUN_NOT_SUCCEEDED")
+                if not self.call_ledger_complete(after):
+                    raise ValueError("MODEL_CALL_LEDGER_INCOMPLETE")
                 previous = payload.copy()
             except Exception as error:
                 observation.update(failed=True, error_code=error_code(error))
                 if reserved:
                     try:
                         after = self.get_context(request_id)
+                        self.validate_runtime(after)
+                        assert_snapshot(self.snapshot, after["snapshot"])
                         observed = [c for c in after["model_calls"] if c["id"] not in self.seen_calls]
                         self.seen_calls.update(c["id"] for c in observed)
                         # A terminal-state rejection may follow a successful
@@ -405,14 +478,17 @@ class HttpQueryCollector:
                         # while adding any later calls from the second probe.
                         observation["model_calls"] = [*observation["model_calls"], *observed]
                         observation.update(tool_invocations=after.get("tool_invocations",[]),
-                            trajectory=after.get("trajectory",[]),run_status=after.get("run_status"))
+                            trajectory=after.get("trajectory",[]),run_status=after.get("run_status"),
+                            model_attempts=after.get("model_attempts"))
                         observation["tool_trace"]=[{"name":i["name"],"status":i.get("status")} for i in after.get("tool_invocations",[])]
                         observation["result"].update(state=after["states"],write_events=after["write_events"],
                             turn_state=after.get("turn_state"))
                         if before is not None:
                             observation["result"]["write_event_delta"]=after["event_count"]-before["event_count"]
-                        if after.get("run_status") not in {"SUCCEEDED", "FAILED", "CANCELLED",
-                                "SKIPPED", "SKIPPED_BUDGET", "INTERRUPTED"}:
+                        # Even a successful partial result can hide a failed call
+                        # log write. Reconcile the persisted attempt counter with
+                        # the full request ledger before releasing any reservation.
+                        if not self.call_ledger_complete(after):
                             observation["telemetry_unavailable"] = True
                     except Exception:
                         observation["telemetry_unavailable"] = True
@@ -420,8 +496,9 @@ class HttpQueryCollector:
                 if reserved:
                     observed = observation["model_calls"]
                     complete = not observation.get("telemetry_unavailable") and all(type(c.get("input_tokens")) is int
-                        and (type(c.get("output_tokens")) is int or c.get("operation_type") == "EMBEDDING") for c in observed)
-                    self.budget.reconcile(calls=len(observed) if not observation.get("telemetry_unavailable") else self.context["query_max_model_calls"],
+                        and c["input_tokens"] >= 0 and ((type(c.get("output_tokens")) is int and c["output_tokens"] >= 0)
+                        or c.get("operation_type") == "EMBEDDING" and c.get("output_tokens") is None) for c in observed)
+                    self.budget.reconcile(calls=len(observed) if not observation.get("telemetry_unavailable") else self.context["request_max_model_calls"],
                         tokens=sum(c["input_tokens"] + (c.get("output_tokens") or 0) for c in observed) if complete else None)
                 calls.extend(observation["model_calls"])
                 observation.update(elapsed_ms=(time.perf_counter() - started) * 1000, timings=phases(observation["model_calls"]))
@@ -429,7 +506,7 @@ class HttpQueryCollector:
                 observations.append(observation)
         return {"turns": observations, "failed": any(t["failed"] for t in observations), "model_calls": calls,
                 "telemetry_unavailable": any(t.get("telemetry_unavailable") for t in observations),
-                "snapshot": self.get_context()["snapshot"], "timings": phases(calls), "actor": self.context["user_id"]}
+                "snapshot": self.snapshot, "timings": phases(calls), "actor": self.context["user_id"]}
 
 
 def collect_rows(golds, collector, snapshot, observe_snapshot, *, on_row=None):
@@ -454,47 +531,29 @@ def collect_rows(golds, collector, snapshot, observe_snapshot, *, on_row=None):
     return rows
 
 
-def main():
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--dataset", type=Path, required=True)
-    parser.add_argument("--section", choices=SECTIONS, required=True)
-    parser.add_argument("--split", choices=("dev", "test"), default="dev")
-    parser.add_argument("--review-policy", choices=("human", "delegated_agent"), default="human")
-    parser.add_argument("--adapter", choices=("sql", "published", "provider", "retrieval", "http"), required=True)
-    parser.add_argument("--snapshot-export", type=Path)
-    parser.add_argument("--base-url", default="http://127.0.0.1:18002")
-    parser.add_argument("--output", type=Path, required=True)
-    parser.add_argument("--max-calls", type=int)
-    parser.add_argument("--max-tokens", type=int)
-    parser.add_argument("--allow-writes", action="store_true")
-    parser.add_argument("--extraction-prompt-version", choices=("extract_question_v2", "extract_question_v3", "extract_question_v4", "extract_question_v5", "extract_question_v6"))
-    parser.add_argument("--extraction-thinking-mode", choices=("auto", "enabled", "disabled"))
-    parser.add_argument("--dedup-prompt-version", choices=("dedup_judge_v1", "dedup_judge_v2", "dedup_judge_v3"))
-    parser.add_argument("--dedup-source-context", action="store_true",
-                        help="Authenticate and supply independent original-source evidence for each dedup endpoint")
-    parser.add_argument("--dedup-verify-equivalence", action=argparse.BooleanOptionalAction, default=None,
-                        help="Explicitly enable/disable SAME verification for provider dedup; otherwise use runtime settings")
-    args = parser.parse_args()
-    if args.dedup_prompt_version is not None or args.dedup_verify_equivalence is not None or args.dedup_source_context:
-        require(args.section == "dedup" and args.adapter == "provider", "dedup override requires provider dedup")
-    partial = args.output.with_suffix(".partial.jsonl")
-    require(not args.output.exists() and not partial.exists(), "PREDICTION_OUTPUT_ALREADY_EXISTS")
-    manifest = validate_gold(args.dataset, args.section, split=args.split, require_labels=args.split == "test", review_policy=args.review_policy)
-    golds = [g for g in manifest[args.section] if g["split"] == args.split]
-    from interview_intelligence.config import load_settings
-    from interview_intelligence.domain.models import create_database
-    settings = load_settings()
-    if args.extraction_thinking_mode is not None:
-        require(args.section == "extraction" and args.adapter == "provider", "thinking override requires provider extraction")
-        settings = settings.model_copy(update={"extraction_thinking_mode": args.extraction_thinking_mode})
-    budget, client = None, None
-    snapshot = manifest.get("snapshot", {})
+def _build_collector(args, manifest, settings, budget, journal):
+    snapshot, client, context = manifest.get("snapshot", {}), None, None
     if args.adapter == "http":
         require(args.section == "routing", "http adapter supports routing")
-        budget = EvaluationBudget(args.max_calls, args.max_tokens)
-        client = httpx.Client(base_url=args.base_url, timeout=180, trust_env=False,
+        client = httpx.Client(base_url=args.base_url, timeout=settings.query_deadline_seconds + 30, trust_env=False,
+                             cookies=load_http_cookies(args.http_cookie_file),
                              headers={"X-Usage-Purpose": "evaluation"})
-        collector = HttpQueryCollector(client, manifest, budget, allow_writes=args.allow_writes)
+        saved = journal.state["http_context"] if journal.state["rows"] else None
+        resume_context = {"actor": saved["user_id"], "conversation_count": saved["conversation_count"]} if saved else None
+        candidate = journal.identity.get("candidate_binding") or {}
+        component = candidate.get("components", {}).get(args.section, {})
+        collector = HttpQueryCollector(client, manifest, budget, allow_writes=args.allow_writes,
+            resume_checkpoint=resume_context, deployment_evidence=args.deployment_evidence,
+            expected_proof_sha256=component.get("deployment_proof_sha256", candidate.get("deployment_proof_sha256")),
+            expected_fingerprint=component.get("runtime_fingerprint", candidate.get("runtime_fingerprint")))
+        require(args.expected_actor is None or collector.context["user_id"] == args.expected_actor,
+                "EXPECTED_EVALUATION_ACTOR_MISMATCH")
+        collector.run_id = journal.bind_runtime(collector.context, collector.run_id)
+        snapshot = collector.context["snapshot"]
+        collector.snapshot = snapshot
+        collector.seen_calls.update(call["id"] for row in journal.state["rows"]
+                                    for call in row.get("model_calls", []) if call.get("id"))
+        context = collector.get_context
         observe = lambda: collector.get_context()["snapshot"]
     elif args.adapter == "published":
         require(args.section in {"extraction", "task_labels"} and args.snapshot_export, "published adapter needs export and extraction/task_labels section")
@@ -506,6 +565,7 @@ def main():
         collector = PublishedCollector(facts, args.section)
         observe = lambda: facts["snapshot"]
     else:
+        from interview_intelligence.domain.models import create_database
         database = create_database(settings.database_url, create_tables=False)
         actual = current_snapshot(database, settings, as_of=snapshot.get("as_of"))
         assert_snapshot(snapshot, actual); snapshot = actual
@@ -521,7 +581,6 @@ def main():
             from interview_intelligence.providers.gate import ModelCallGate
             gate = ModelCallGate(
                 settings.model_lock_path, minimum_interval_seconds=settings.model_min_interval_seconds)
-            budget = EvaluationBudget(args.max_calls, args.max_tokens)
             if args.adapter == "provider":
                 require(args.section in {"extraction", "task_labels", "dedup"}, "unsupported provider task")
                 collector = ProviderCollector(args.section, args.dataset, settings, gate, budget,
@@ -545,21 +604,120 @@ def main():
                     original.encoder.on_call = original.reranker.on_call = calls.append
                     return original(gold, calls)
                 collector = with_callbacks
-    try:
-        def checkpoint(rows):
-            write_jsonl(partial, rows)
-            print({"completed": len(rows), "failed": sum(r["failed"] for r in rows)}, flush=True)
-        rows = collect_rows(golds, collector, snapshot, observe, on_row=checkpoint)
-        write_jsonl(args.output, rows)
-        write_json(args.output.with_suffix(".collection.json"), {"adapter": args.adapter, "section": args.section,
-            "split": args.split, "review_policy": args.review_policy, "snapshot": snapshot, "samples": len(rows), "failed": sum(r["failed"] for r in rows),
-            "budget": budget.summary() if budget else {"model_calls": 0}, "provenance": provenance(),
-            "provider_fingerprints": list({digest(r["provider_fingerprint"]): r["provider_fingerprint"]
-                                           for r in rows if r.get("provider_fingerprint") is not None}.values()),
-            "predictions_sha256": digest(args.output.read_bytes())})
-    finally:
-        if client: client.close()
-    print({"output": str(args.output), "samples": len(rows), "failed": sum(r["failed"] for r in rows)})
+    journal.bind_snapshot(snapshot)
+    journal.verify_candidate()
+    return collector, observe, client, context
+
+
+def collection_identity(args, manifest, golds, settings):
+    source = provenance()
+    source.pop("created_at", None)
+    candidate = read_json(args.candidate_binding) if args.candidate_binding else None
+    if candidate is not None:
+        require(isinstance(candidate, dict), "INVALID_CANDIDATE_BINDING")
+        root = Path(__file__).resolve().parents[1]
+        component = candidate.get("components", {}).get(args.section, {})
+        require(isinstance(component, dict), "INVALID_CANDIDATE_COMPONENT")
+        for declaration in (candidate, component):
+            for name, expected in declaration.get("files", {}).items():
+                target = inside(root, name)
+                relative = target.relative_to(root)
+                require(relative.parts[0] not in {"md", "data", "vendor"}
+                        and not any(part.startswith(".env") for part in relative.parts), "CANDIDATE_SOURCE_PATH_NOT_ALLOWED")
+                require(target.is_file() and digest(target.read_bytes()) == expected, "CANDIDATE_SOURCE_CHANGED")
+    options = {key: str(value) if isinstance(value, Path) else value for key, value in vars(args).items()
+               if key not in {"resume", "output", "candidate_binding", "stop_after_samples", "http_cookie_file"}}
+    # Store digests, never credentials or endpoint passwords from Settings.
+    return {"adapter": args.adapter, "section": args.section, "split": args.split,
+            "review_policy": args.review_policy, "snapshot": manifest.get("snapshot", {}),
+            "dataset_sha256": digest(manifest), "selection_sha256": digest(golds),
+            "sample_ids": [row["id"] for row in golds], "options_sha256": digest(options),
+            "settings_sha256": digest(settings.model_dump(mode="json")), "provenance": source,
+            "candidate_binding": candidate,
+            "deployment_evidence_sha256": digest(read_json(args.deployment_evidence)) if args.deployment_evidence else None,
+            "http_cookie_file_sha256": digest(args.http_cookie_file.read_bytes()) if args.http_cookie_file else None,
+            "snapshot_export_sha256": digest((args.snapshot_export / "facts.json").read_bytes())
+                                      if args.snapshot_export else None}
+
+
+def collect_durable(golds, collector, observe_snapshot, journal, *, capture_context=None, stop_after_samples=None):
+    """Commit row state before moving on; completed IDs (including failures) never rerun."""
+    require(stop_after_samples is None or type(stop_after_samples) is int and stop_after_samples > 0,
+            "POSITIVE_STOP_AFTER_SAMPLES_REQUIRED")
+    for count, gold in enumerate(golds[len(journal.state["rows"]):], 1):
+        journal.begin(gold["id"])
+        row = collect_rows([gold], collector, journal.state["snapshot"], observe_snapshot)[0]
+        context = None
+        if capture_context is not None:
+            try:
+                context = capture_context()
+            except Exception:
+                row.update(failed=True, telemetry_unavailable=True, error_code="COLLECTION_CONTEXT_UNAVAILABLE")
+        journal.append(row, context=context)
+        journal.verify_candidate()
+        print({"completed": len(journal.state["rows"]), "failed": sum(bool(r["failed"]) for r in journal.state["rows"])}, flush=True)
+        if stop_after_samples is not None and count >= stop_after_samples and not journal.complete:
+            return journal.pause()
+    return journal.finalize()
+
+
+def main(argv=None):
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--dataset", type=Path, required=True)
+    parser.add_argument("--section", choices=SECTIONS, required=True)
+    parser.add_argument("--split", choices=("dev", "test"), default="dev")
+    parser.add_argument("--review-policy", choices=("human", "delegated_agent"), default="human")
+    parser.add_argument("--adapter", choices=("sql", "published", "provider", "retrieval", "http"), required=True)
+    parser.add_argument("--snapshot-export", type=Path)
+    parser.add_argument("--base-url", default="http://127.0.0.1:18002")
+    parser.add_argument("--output", type=Path, required=True)
+    parser.add_argument("--max-calls", type=int)
+    parser.add_argument("--max-tokens", type=int)
+    parser.add_argument("--allow-writes", action="store_true")
+    parser.add_argument("--extraction-prompt-version", choices=("extract_question_v2", "extract_question_v3", "extract_question_v4", "extract_question_v5", "extract_question_v6"))
+    parser.add_argument("--extraction-thinking-mode", choices=("auto", "enabled", "disabled"))
+    parser.add_argument("--dedup-prompt-version", choices=("dedup_judge_v1", "dedup_judge_v2", "dedup_judge_v3"))
+    parser.add_argument("--dedup-source-context", action="store_true",
+                        help="Authenticate and supply independent original-source evidence for each dedup endpoint")
+    parser.add_argument("--dedup-verify-equivalence", action=argparse.BooleanOptionalAction, default=None,
+                        help="Explicitly enable/disable SAME verification for provider dedup; otherwise use runtime settings")
+    parser.add_argument("--resume", action="store_true", help="Resume the checkpoint for this same output; uncertain calls are never replayed")
+    parser.add_argument("--candidate-binding", type=Path, help="JSON candidate identity supplied by an evaluation suite")
+    parser.add_argument("--expected-actor", help="Require this exact isolated HTTP evaluation actor")
+    parser.add_argument("--deployment-evidence", type=Path,
+                        help="Pin independently measured API/Pi and shared-lock proof for HTTP collection")
+    parser.add_argument("--http-cookie-file", type=Path,
+                        help="Private JSON containing only the isolated ii_tenant_session cookie; only its hash is recorded")
+    parser.add_argument("--stop-after-samples", type=int,
+                        help="Pause after N new complete scenarios; resume keeps the original total budget")
+    args = parser.parse_args(argv)
+    require(args.deployment_evidence is None or args.adapter == "http", "DEPLOYMENT_EVIDENCE_REQUIRES_HTTP")
+    require(args.http_cookie_file is None or args.adapter == "http", "HTTP_COOKIE_REQUIRES_HTTP")
+    if args.dedup_prompt_version is not None or args.dedup_verify_equivalence is not None or args.dedup_source_context:
+        require(args.section == "dedup" and args.adapter == "provider", "dedup override requires provider dedup")
+    manifest = validate_gold(args.dataset, args.section, split=args.split, require_labels=args.split == "test", review_policy=args.review_policy)
+    golds = [g for g in manifest[args.section] if g["split"] == args.split]
+    from interview_intelligence.config import load_settings
+    settings = load_settings()
+    if args.extraction_thinking_mode is not None:
+        require(args.section == "extraction" and args.adapter == "provider", "thinking override requires provider extraction")
+        settings = settings.model_copy(update={"extraction_thinking_mode": args.extraction_thinking_mode})
+    budget = EvaluationBudget(args.max_calls, args.max_tokens) if args.adapter in {"http", "provider", "retrieval"} else None
+    identity = collection_identity(args, manifest, golds, settings)
+    from eval.checkpoint import CollectionCheckpoint
+    with CollectionCheckpoint(args.output, identity, budget=budget, resume=args.resume) as journal:
+        if journal.complete:
+            receipt = journal.finalize()  # No collector, database, HTTP service or model needed.
+        else:
+            collector, observe, client, context = _build_collector(args, manifest, settings, budget, journal)
+            try:
+                receipt = collect_durable(golds, collector, observe, journal, capture_context=context,
+                                          stop_after_samples=args.stop_after_samples)
+            finally:
+                if client:
+                    client.close()
+    print({"output": str(args.output), "samples": receipt["samples"], "failed": receipt["failed"]})
+    return receipt
 
 
 if __name__ == "__main__":

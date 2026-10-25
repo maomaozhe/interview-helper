@@ -54,6 +54,7 @@ class QueryJournal:
                     AgentEvent.sequence>after).order_by(AgentEvent.sequence).limit(200))]
             return {"run_id":t.id,"request_id":t.request_id,"conversation_id":t.conversation_id,
                 "status":t.status,"error_code":t.error_code,"cancel_requested":t.cancel_requested,
+                "lease_until":aware(t.lease_until).isoformat() if t.lease_until else None,
                 "result":t.response if t.status=="SUCCEEDED" else None,
                 "partial_result":t.response if t.status!="SUCCEEDED" and t.response else None,
                 "events":events,"last_sequence":t.event_sequence,

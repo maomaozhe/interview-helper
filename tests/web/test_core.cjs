@@ -241,11 +241,12 @@ test('count replies render a quantity without treating count facts as question r
   const source=fs.readFileSync(path.resolve(__dirname,'../../src/interview_intelligence/web/assets/app.js'),'utf8');
   const escape=source.slice(source.indexOf('const escapeHTML ='),source.indexOf('\nconst labels ='));
   const renderer=source.slice(source.indexOf('function answerIntroHTML('),source.indexOf('\nfunction startQueryProgress('));
+  const workset=source.slice(source.indexOf('function scopeWorksetProgress('),source.indexOf('\nfunction sourceIssuesHTML('));
   const context=vm.createContext({window:{InterviewWorkspace:core,
     InterviewMarkdown:require('../../src/interview_intelligence/web/assets/markdown.js')},pickFilters:core.pickFilters,
     pretty:JSON.stringify,canRequery:()=>false,
     resultRow:()=>{throw Error('COUNT cannot render question rows');}});
-  vm.runInContext(escape+'\n'+renderer,context);
+  vm.runInContext(escape+'\n'+workset+'\n'+renderer,context);
   const reply={dataset:{},addEventListener(){}};
   context.renderAssistant(reply,{intent:'COUNT',answer:'共 2452 道题。',facts:{data:[{canonical_questions:2452}],
     meta:{count_scope:'full_corpus',counts:{canonical_questions:2452}}}},'一共有多少条数据？');

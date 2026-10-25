@@ -56,10 +56,26 @@ for(const scenario of before.cases)test(`Pi evidence projection remains frozen: 
   assert.deepEqual(rawResults[0].structuredContent,scenario.host_result,"complete host receipt must survive projection");
   const message=contexts[1].messages.find(message=>message.role==="toolResult");
   assert.ok(message,"the second actual model turn must receive the first tool result");
-  assert.deepEqual(message.content,scenario.expected_content,"compare raw summary text, not only parsed objects");
+  const expectedContent=structuredClone(scenario.expected_content);
+  const expectedSummary=JSON.parse(expectedContent[0].text);
+  if(Object.hasOwn(expectedSummary,"states")){
+    // The old fixture deliberately retains the complete historical receipt.
+    // Only review-state model evidence changes: notes and dates no longer pass.
+    if(expectedSummary.states===null)delete expectedSummary.states;
+    else {
+      const hasState=Object.hasOwn(expectedSummary.states,"q0");
+      expectedSummary.states={scope:"requested_question_ids",items:hasState ? [{canonical_question_id:"q0",status:"WEAK",
+        review_count:1,version:1,binding_status:"RESOLVED",last_score:2}] : [],total_count:hasState ? 1 : 0,
+        valid_count:hasState ? 1 : 0,invalid_count:0,returned_count:hasState ? 1 : 0,truncated:false,
+        status_counts:{UNSEEN:0,WEAK:hasState ? 1 : 0,REVIEWED:0,MASTERED:0},summary_complete:true};
+    }
+    expectedContent[0].text=JSON.stringify(expectedSummary);
+  }
+  assert.deepEqual(message.content,expectedContent,"all other raw summary fields remain frozen");
   const text=message.content.find(block=>block.type==="text").text;
   for(const marker of ["SYNTHETIC_SIGNED_CURSOR","SYNTHETIC_RESULT_SET","SYNTHETIC_SOURCE_BODY","SYNTHETIC_SOURCE_PATH"])
     assert.ok(!text.includes(marker),`${marker} must remain outside model evidence`);
+  assert.ok(!text.includes("Synthetic review note"),"private review notes stay in the complete receipt");
   if(scenario.id==="missing-harness-fallback-all-fields-and-utf16-limits") {
     const summary=JSON.parse(text);
     assert.equal(summary.items[0].canonical_text.length,400);

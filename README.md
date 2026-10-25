@@ -6,7 +6,7 @@
 
 例如，输入“工程系统设计题，类似设计一个排行榜这种”，按工程设计这一宽类别找题；明确“只要排行榜”时限定对象，问“解释如何设计排行榜”时给出参考解答。仅输入“场景设计题”、范围尚不明确时，Agent 提供 **Agent 应用 / 业务系统 / 线上排障 / 全部方向**供选择。
 
-问“Redis 高频题有哪些”时，SQL 列表与排名来自数据库中的完整事实；语义 SEARCH 的频次排序只覆盖候选池。能力、默认版本、部署证据、质量限制与下一步统一见 [当前状态](docs/status/current.md)。
+问“Redis 高频题有哪些”时，SQL 列表与排名来自数据库中的完整事实；语义 SEARCH 的频次排序只覆盖候选池。能力、部署证据与质量限制见 [当前状态](docs/status/current.md)，默认版本见 [运行配置](docs/reference/runtime-config.md#提示词选择与版本身份)。
 
 `Python 3.12` · `FastAPI` · `PostgreSQL` · `Elasticsearch` · `Pi Agent Loop` · `Docker Compose`
 
@@ -178,10 +178,10 @@ npm run check
 node --test tests/node/pi-runtime.test.mjs tests/web/test_core.cjs tests/web/test_query_stream.cjs
 
 # 无凭据生成六层合成评测报告；每次使用新的输出目录：
-uv run --locked --extra dev python -m eval.demo --output data/reports/evaluation-demo-new
+uv run --locked --extra dev python -m eval demo --output data/reports/evaluation-demo-new
 ```
 
-完整工作区回归使用 `uv run --locked --extra dev python -m pytest -q`；部分来源复现测试依赖私有快照/gold，缺失时不会自动 skip，新 clone 不能据此保证全套通过，具体边界见 [评测手册](eval/README.md#1-先验证框架)。合成数据只验证工程流程；真实质量实验需要自己的语料、模型服务和冻结参考集，历史本地 `data/reports/` 不随仓库分发。
+完整工作区回归使用 `uv run --locked --extra dev python -m pytest -q`；部分来源复现测试在私有输入缺失时明确 skip，跳过不代表质量通过。输入要求、坏数据检查和报告边界见 [评测手册](eval/README.md#1-先验证框架)；合成数据只验证工程流程。
 
 ## 代码导览
 

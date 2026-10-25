@@ -6,8 +6,11 @@ import json
 import time
 
 import httpx
+from pydantic import ValidationError
 
-from interview_intelligence.agent.query_contract import QuerySpec, QUERY_AGENT_VERSION, query_model_schema, validate_model_plan
+from interview_intelligence.agent.query_contract import (
+    QuerySpec, QUERY_AGENT_VERSION, QUERY_MODEL_SCHEMA_VERSION, query_model_schema, validate_model_plan,
+)
 from interview_intelligence.providers.runtime import current_limits
 from interview_intelligence.resources import resource_path
 
@@ -179,9 +182,27 @@ class ModelGateway:
              "\n当前模式直接输出 QuerySpec JSON，不调用工具。"},
             {"role": "user", "content": json.dumps(context, ensure_ascii=False)}],
             "response_format": {"type": "json_schema", "json_schema": {
-                "name": "QuerySpec", "strict": False, "schema": query_model_schema(context.get("tool_policy"))}}},
+                "name": QUERY_MODEL_SCHEMA_VERSION, "strict": False, "schema": query_model_schema(
+                    context.get("tool_policy"), require_user_goal=self.prompt_version == "query_agent_v16")}}},
             emit=emit if self.on_event else None)
-        return validate_model_plan(json.loads(response["choices"][0]["message"]["content"]))
+        try:
+            content = response["choices"][0]["message"]["content"]
+        except (KeyError, IndexError, TypeError):
+            content = None
+        if self.on_event:
+            await asyncio.to_thread(self.on_event, run.id, "model_response", {
+                "model_call": run.model_calls, "schema_version": QUERY_MODEL_SCHEMA_VERSION,
+                "content": content})
+        try:
+            if not isinstance(content, str):
+                raise ValueError("QUERY_MODEL_PLAN_CONTENT_INVALID")
+            return validate_model_plan(json.loads(content), require_user_goal=self.prompt_version == "query_agent_v16")
+        except (ValueError, ValidationError) as error:
+            if self.on_event:
+                await asyncio.to_thread(self.on_event, run.id, "model_plan_validation_failed", {
+                    "model_call": run.model_calls, "schema_version": QUERY_MODEL_SCHEMA_VERSION,
+                    "error_type": type(error).__name__})
+            raise ValueError("QUERY_MODEL_PLAN_INVALID") from None
 
 
 def completion_sse(response):

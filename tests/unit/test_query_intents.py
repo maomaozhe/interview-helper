@@ -20,12 +20,12 @@ def model_plan(**values):
     }
 
 
-def test_v13_is_default_and_ships_without_removing_previous_prompts():
+def test_v16_is_default_and_ships_without_removing_previous_prompts():
     root = Path(__file__).parents[2]
     manifest = tomllib.loads((root / "pyproject.toml").read_text(encoding="utf-8"))
     files = manifest["tool"]["hatch"]["build"]["targets"]["wheel"]["force-include"]
-    assert QUERY_AGENT_VERSION == Settings().query_prompt_version == "query_agent_v13"
-    for version in ("query_agent_v9", "query_agent_v10", "query_agent_v11", "query_agent_v12", "query_agent_v13"):
+    assert QUERY_AGENT_VERSION == Settings().query_prompt_version == "query_agent_v16"
+    for version in ("query_agent_v9", "query_agent_v10", "query_agent_v11", "query_agent_v12", "query_agent_v13", "query_agent_v14", "query_agent_v15", "query_agent_v16"):
         assert files[f"prompts/{version}.md"].endswith(f"/{version}.md")
         assert Settings(query_prompt_version=version).query_prompt_version == version
 
@@ -45,7 +45,7 @@ def test_v12_distinguishes_finding_counting_and_answering_before_retrieval_rules
     assert "requery_origin" in prompt and "lexical_facets" in prompt
 
 
-@pytest.mark.parametrize("version", ["query_agent_v11", "query_agent_v12", "query_agent_v13"])
+@pytest.mark.parametrize("version", ["query_agent_v11", "query_agent_v12", "query_agent_v13", "query_agent_v14"])
 def test_intent_prompt_stays_within_the_multistep_model_budget(version):
     root = Path(__file__).parents[2]
     prompt = (root / f"prompts/{version}.md").read_bytes()
@@ -100,13 +100,15 @@ def test_topic_statistics_support_both_levels_without_breaking_existing_plans():
         QuerySpec(action="STATS", group_by="topic", topic_level="L3")
 
 
-def test_default_query_budget_allows_three_planning_steps_with_bounded_reservations():
+def test_default_query_budget_supports_complex_tasks_with_bounded_reservations():
     settings = Settings()
-    assert settings.query_max_tokens == 96000
-    assert settings.query_max_model_calls == 4
-    assert Settings(query_max_tokens=128000).query_max_tokens == 128000
+    assert settings.query_max_tokens == 256000
+    assert settings.query_max_model_calls == 8
+    assert settings.query_max_total_model_calls == 24
+    assert settings.query_deadline_seconds == 600
+    assert Settings(query_max_tokens=1048576).query_max_tokens == 1048576
     with pytest.raises(ValueError):
-        Settings(query_max_tokens=128001)
+        Settings(query_max_tokens=1048577)
 
 
 @pytest.mark.parametrize("top_n", [1, 40, 1000])

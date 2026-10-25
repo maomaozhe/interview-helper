@@ -1,8 +1,14 @@
 (function(root){
   "use strict";
+  function queryWatchdogMs(snapshot,now=Date.now()) {
+    const lease=Date.parse(snapshot?.lease_until);
+    // The durable lease includes the host deadline plus 10 seconds. Leave
+    // another 20 seconds for transport and always inspect committed state.
+    return Number.isFinite(lease) ? Math.max(20000,lease-now+20000) : 630000;
+  }
   // Reconnect to the committed journal for the same run. Never submit a message here.
   function watchQueryRun({url,snapshot,readRun,onEvent=()=>{},signal,cancel=()=>{},
-    EventSourceClass=root.EventSource,timeoutMs=210000,pollMs=750,statusPollMs=8000,statusReadTimeoutMs=12000}) {
+    EventSourceClass=root.EventSource,timeoutMs=queryWatchdogMs(snapshot),pollMs=750,statusPollMs=8000,statusReadTimeoutMs=12000}) {
     return new Promise((resolve,reject)=>{
       let cursor=snapshot.event_cursor || 0,ended=false,source=null,polling=false;
       let statusTimer=null,statusChecking=false,statusPollingStalled=false,deadlineChecking=false,readQueue=Promise.resolve();
@@ -10,6 +16,7 @@
         signal?.removeEventListener("abort",abort);};
       const fail=(code,partial)=>{cleanup();const messages={
         QUERY_RELEVANCE_UNAVAILABLE:"本次语义核验未完成，结果未作为成功查询保存，请重试。",
+        WORKSET_BATCH_OUTCOME_UNAVAILABLE:"本批核验结果未能保存，原范围已保留，请重新查询。",
         SEMANTIC_SCOPE_INCOMPLETE:"当前范围的全量算法核验尚未完成，暂时无法提供完整列表。"};
         const error=new Error(messages[code] || code || "查询未完成");error.code=code;error.partial=partial;reject(error);};
       const abort=()=>{cleanup();cancel();reject(new DOMException("查询已取消","AbortError"));};
@@ -28,7 +35,7 @@
         readQueue=next;
         return next;
       };
-      // The server may use its full 180-second query deadline. Check the
+      // The server may use its full configured query deadline. Check the
       // committed result before cancelling a run whose SSE completion was late.
       const deadline=setTimeout(async()=>{
         if(ended)return;
@@ -121,7 +128,7 @@
       }catch(error){cleanup();reject(error);}
     });
   }
-  const api={watchQueryRun};
+  const api={watchQueryRun,queryWatchdogMs};
   if(typeof module!=="undefined" && module.exports)module.exports=api;
   else root.InterviewQueryStream=api;
 })(typeof window!=="undefined" ? window : globalThis);

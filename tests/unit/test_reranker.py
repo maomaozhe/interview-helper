@@ -58,7 +58,9 @@ def test_source_neighbor_cannot_ground_current_candidate_evidence():
         "source_context": [{"original_question": "请讲已有权限表结构。",
                             "context_after": "下一题：设计一个排行榜", "source_context_status": "VERIFIED"}]}
     rows = LLMReranker(client=client, model="test")._rank_candidates("排行榜", [candidate])
-    assert captured[0]["candidates"][0]["source_context"] == candidate["source_context"]
+    context = captured[0]["candidates"][0]["source_context"][0]
+    assert context["original_question"] == {"s0o0": "请讲已有权限表结构。"}
+    assert context["context_after"] == {"s0a0": "下一题：", "s0a1": "设计一个排行榜"}
     assert rows == []
     assert rows.audit["candidates"][0]["decision"] == "INVALID_EVIDENCE"
 
@@ -280,7 +282,7 @@ def test_r14_schema_requests_only_scopes_and_query_quotes_but_not_numeric_self_g
     rows = LLMReranker(client=client, model="test")._rank_candidates("内存泄漏排查", [
         {"canonical_question_id": "a", "canonical_text": "内存泄漏的原因和预防"}])
     schema = requests[0]["response_format"]["json_schema"]
-    assert schema["name"] == "rerank_v28_compact_verified_context_retry"
+    assert schema["name"] == "rerank_v42_source_activity_reference"
     assert {"query_object_evidence", "query_focus_evidence"} <= set(schema["schema"]["required"])
     item = schema["schema"]["$defs"]["CandidateRank"]
     assert {"object_scope", "focus_scope"} <= set(item["required"])
@@ -612,9 +614,39 @@ def test_valid_rows_in_partial_batch_still_need_grounded_quotes_and_matching_sco
             {"canonical_question_id": "c", "canonical_text": "内存分配原理"},
         ])
     assert rows == []
-    assert rows.audit["invalid_candidate_count"] == 1
+    assert rows.audit["invalid_candidate_count"] == 2
+    assert rows.audit["invalid_schema_count"] == rows.audit["invalid_evidence_count"] == 1
     assert [item["decision"] for item in rows.audit["candidates"]] == [
         "INVALID_SCHEMA", "INVALID_EVIDENCE", "BELOW_THRESHOLD"]
+
+
+@pytest.mark.parametrize("task,grade,decision", [
+    ("DESIGN_TASK", 0, "BELOW_THRESHOLD"),
+    ("UNKNOWN", 0, "TASK_REJECTED"),
+    ("PROJECT_REPORT", 3, "TASK_REJECTED"),
+])
+def test_semantic_negative_with_empty_optional_evidence_is_not_a_partial_failure(task, grade, decision):
+    client = Client(["c0"], grades={"c0": grade},
+        evidence={"c0": {"object": "", "focus": ""}},
+        scopes={"c0": {"candidate_task": task, "task_evidence": ""}},
+        query_evidence={"task": "INDEPENDENT_SYSTEM_DESIGN"})
+    rows = LLMReranker(client=client, model="test")._rank_candidates("独立系统设计题", [
+        {"canonical_question_id": "a", "canonical_text": "请介绍已有项目。"}])
+    assert rows == [] and rows.audit["candidate_verification_status"] == "COMPLETE"
+    assert rows.audit["invalid_candidate_count"] == rows.audit["invalid_evidence_count"] == 0
+    assert rows.audit["candidates"][0]["decision"] == decision
+
+
+def test_potential_design_acceptance_requires_task_proof_without_relabeling_it_as_semantic_rejection():
+    client = Client(["c0"], scopes={"c0": {"task_evidence": ""}},
+        query_evidence={"task": "INDEPENDENT_SYSTEM_DESIGN"})
+    rows = LLMReranker(client=client, model="test")._rank_candidates("独立系统设计题", [
+        {"canonical_question_id": "a", "canonical_text": "设计一个独立服务。"}])
+    diagnostic = rows.audit["candidates"][0]
+    assert rows == [] and rows.audit["candidate_verification_status"] == "PARTIAL"
+    assert rows.audit["invalid_evidence_count"] == 1
+    assert diagnostic["decision"] == "INVALID_TASK_EVIDENCE"
+    assert diagnostic["task_rejected"] is False and diagnostic["invalid_evidence_fields"] == ["task"]
 
 
 def test_host_envelope_preserves_all_provider_global_field_constraints():
@@ -713,7 +745,7 @@ def test_public_rerank_uses_two_calls_without_primary_judgment_in_verifier_input
         {"id": "c0", "question": candidates[1]["canonical_text"][:500]},
         {"id": "c1", "question": candidates[0]["canonical_text"]}]}
     schema = request["response_format"]["json_schema"]
-    assert schema["strict"] is True and schema["name"] == "scope_verify_v13_business_mechanism"
+    assert schema["strict"] is True and schema["name"] == "scope_verify_v25_source_activity_reference"
     item_schema = schema["schema"]["$defs"]["CandidateVerify"]
     assert set(item_schema["properties"]) == {"candidate_id", "keep", "reason"}
     assert item_schema["additionalProperties"] is False
@@ -722,7 +754,7 @@ def test_public_rerank_uses_two_calls_without_primary_judgment_in_verifier_input
     assert schema["schema"]["properties"]["verifications"]["minItems"] == 2
     assert schema["schema"]["properties"]["verifications"]["maxItems"] == 2
     audit = rows.audit
-    assert audit["scope_verifier_version"] == "scope_verify_v13_business_mechanism"
+    assert audit["scope_verifier_version"] == "scope_verify_v25_source_activity_reference"
     assert audit["scope_verification_status"] == "COMPLETE"
     assert len(audit["candidates"]) == 3
     assert [item["decision"] for item in audit["candidates"]] == ["ACCEPTED", "SCOPE_REJECTED", "BELOW_THRESHOLD"]
@@ -731,7 +763,7 @@ def test_public_rerank_uses_two_calls_without_primary_judgment_in_verifier_input
     assert audit["candidates"][1]["primary_diagnostic"]["decision"] == "ACCEPTED"
     assert audit["candidates"][1]["scope_verification_keep"] is False
     assert [log["operation_type"] for log in logs] == ["RERANK", "RERANK_VERIFY"]
-    assert [log["prompt_version"] for log in logs] == ["rerank_v28_compact_verified_context_retry", "scope_verify_v13_business_mechanism"]
+    assert [log["prompt_version"] for log in logs] == ["rerank_v42_source_activity_reference", "scope_verify_v25_source_activity_reference"]
     assert [log["input_tokens"] for log in logs] == [100, 200]
     assert [log["output_tokens"] for log in logs] == [10, 20]
     assert [log["model_revision"] for log in logs] == ["resolved-primary", "resolved-verify"]
@@ -747,11 +779,30 @@ def test_public_rerank_skips_verifier_when_no_primary_acceptance():
     assert rows.audit["scope_invalid_candidate_count"] == 0
 
 
+def test_public_partial_evidence_and_schema_counts_survive_scope_verification():
+    primary = Client(["c0", "c1", "c2", "c3"], scopes={
+        "c0": {"task_evidence": "不存在的任务引文"}, "c1": {"focus_scope": "INVALID_SCOPE"}},
+        evidence={"c2": {"focus": "不存在的焦点引文"}})
+    logs = []
+    rows = LLMReranker(client=TwoStageClient(primary=primary), model="test", on_call=logs.append).rerank(
+        "工具输出质量诊断", [{"canonical_question_id": str(index), "canonical_text": "定位工具输出质量异常"}
+                         for index in range(4)])
+    assert [row["canonical_question_id"] for row in rows] == ["3"]
+    assert rows.audit["candidate_verification_status"] == "PARTIAL"
+    assert rows.audit["invalid_candidate_count"] == rows.audit["primary_invalid_candidate_count"] == 3
+    assert rows.audit["invalid_schema_count"] == rows.audit["primary_invalid_schema_count"] == 1
+    assert rows.audit["invalid_evidence_count"] == rows.audit["primary_invalid_evidence_count"] == 2
+    assert rows.audit["scope_invalid_candidate_count"] == 0
+    assert [row["decision"] for row in rows.audit["candidates"]] == [
+        "INVALID_TASK_EVIDENCE", "INVALID_SCHEMA", "INVALID_EVIDENCE", "ACCEPTED"]
+    assert logs[0]["error_code"] == "PARTIAL_CANDIDATES_REJECTED:3"
+
+
 def test_public_empty_candidate_pool_is_audited_without_any_model_call_or_invented_quotes():
     client, logs = TwoStageClient(), []
     rows = LLMReranker(client=client, model="test", on_call=logs.append).rerank("无匹配候选", [])
     assert rows == [] and client.requests == logs == []
-    assert rows.audit["scope_verifier_version"] == "scope_verify_v13_business_mechanism"
+    assert rows.audit["scope_verifier_version"] == "scope_verify_v25_source_activity_reference"
     assert rows.audit["scope_verification_status"] == "NOT_REQUIRED"
     assert rows.audit["candidate_verification_status"] == "COMPLETE"
     assert rows.audit["invalid_candidate_count"] == rows.audit["scope_invalid_candidate_count"] == 0
@@ -922,7 +973,9 @@ def test_critic_obeys_shared_six_call_limit_and_settles_reservations(tmp_path, p
     import time
     from interview_intelligence.providers.gate import ModelCallGate
     from interview_intelligence.providers.runtime import RequestLimits, current_limits
-    limits = RequestLimits(deadline=time.monotonic() + 90, calls=prior_calls)
+    # Use the API's existing total token limit so this test isolates calls,
+    # rather than failing first on the old constructor's smaller default.
+    limits = RequestLimits(deadline=time.monotonic() + 90, calls=prior_calls, max_tokens=96000)
     client, logs = TwoStageClient(), []
     token = current_limits.set(limits)
     try:
@@ -960,7 +1013,7 @@ def test_critic_uses_remaining_original_ninety_second_deadline(tmp_path, monkeyp
         assert kwargs["timeout"] == 5  # No new 90-second window for the critic.
         raise TimeoutError("simulated provider timeout at remaining deadline")
     client = SimpleNamespace(chat=SimpleNamespace(completions=SimpleNamespace(create=create)))
-    limits = RequestLimits(deadline=190)
+    limits = RequestLimits(deadline=190, max_tokens=96000)
     token = current_limits.set(limits)
     logs = []
     try:
@@ -970,7 +1023,9 @@ def test_critic_uses_remaining_original_ninety_second_deadline(tmp_path, monkeyp
     finally:
         current_limits.reset(token)
     assert len(underlying.requests) == 1 and limits.token_reservations == 0
-    assert [log["status"] for log in logs] == ["SUCCEEDED", "FAILED"]
+    # A late primary is rejected before a critic can begin; an on-time primary
+    # still leaves only the original five seconds to the critic.
+    assert [log["status"] for log in logs] == (["FAILED"] if primary_seconds > 90 else ["SUCCEEDED", "FAILED"])
 
 
 def test_runtime_usage_reconciliation_charges_each_stage_once(tmp_path):
@@ -997,15 +1052,18 @@ def test_critic_cannot_bypass_token_reservation_budget(tmp_path):
     import time
     from interview_intelligence.providers.gate import ModelCallGate
     from interview_intelligence.providers.runtime import RequestLimits, current_limits
-    # Enough for the primary's reservation, insufficient for a second call.
-    limits = RequestLimits(deadline=time.monotonic() + 90, max_tokens=7000)
     client, logs = TwoStageClient(), []
+    reranker = LLMReranker(client=client, model="test", on_call=logs.append,
+        call_gate=ModelCallGate(tmp_path / "gate", minimum_interval_seconds=0))
+    candidates = [{"canonical_question_id": "a", "canonical_text": "OOM定位"}]
+    # Enough for exactly the complete primary request. Without known-usage
+    # reconciliation its reservation remains charged, leaving no scope budget.
+    limits = RequestLimits(deadline=time.monotonic() + 90,
+        max_tokens=reranker._primary_request("OOM", candidates)["token_upper_bound"])
     token = current_limits.set(limits)
     try:
         with pytest.raises(ValueError, match="QUERY_TOKEN_BUDGET_EXCEEDED"):
-            LLMReranker(client=client, model="test", on_call=logs.append,
-                call_gate=ModelCallGate(tmp_path / "gate", minimum_interval_seconds=0)).rerank("OOM", [
-                    {"canonical_question_id": "a", "canonical_text": "OOM定位"}])
+            reranker.rerank("OOM", candidates)
     finally:
         current_limits.reset(token)
     assert len(client.requests) == limits.calls == 1

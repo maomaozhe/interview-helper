@@ -203,7 +203,9 @@ def test_adapter_keeps_real_reranker_rules_all_50_and_two_calls_without_relaxing
     ungrounded = Client(producer=invented)
     filtered = LLMReranker(model="qwen3-test", client=QwenIdentityClient(ungrounded), stream=True).rerank(
         "Redis 缓存", candidates[:1])
-    assert filtered == [] and len(ungrounded.calls) == 1
+    assert filtered == [] and len(ungrounded.calls) == 2
+    assert filtered.audit["primary_evidence_repair"]["unresolved_count"] == 1
+    assert filtered.audit["candidates"][0]["verification_resolution"] == "UNRESOLVED"
     assert filtered.audit["candidates"][0]["quote_grounded"] is False
 
 

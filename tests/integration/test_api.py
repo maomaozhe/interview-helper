@@ -105,6 +105,37 @@ def test_interactive_search_explicitly_reports_dense_degradation():
     assert response.json()["meta"]["requested_pipeline"] == "HYBRID"
     assert response.json()["meta"]["executed_pipeline"] == "BM25"
     assert response.json()["meta"]["degraded"] is True
+    assert response.json()["meta"]["result_completeness"]["corpus_complete"] is False
+    assert any("不代表题库全部匹配题" in warning for warning in response.json()["warnings"])
+
+
+@pytest.mark.parametrize("has_results", [True, False])
+def test_legacy_search_surfaces_partial_evidence_verification(has_results):
+    db, fast_id, _ = seed_corpus()
+    with db.session() as session, session.begin():
+        session.get(CorpusState, 1).current_revision = 1
+        session.get(CorpusState, 1).indexed_revision = 1
+
+    class Retriever:
+        def retrieve(self, query, eligible_ids, pipeline, top_k):
+            return {"data": [{"canonical_question_id": fast_id}] if has_results else [], "meta": {
+                "pipeline": pipeline, "rerank_status": "COMPLETED_PARTIAL",
+                "candidate_verification_status": "PARTIAL", "candidate_count": 50,
+                "invalid_candidate_count": 1, "invalid_evidence_count": 1, "invalid_schema_count": 0}}
+
+    client = TestClient(create_app(db, Settings(database_url="sqlite+pysqlite:///:memory:"), Retriever()))
+    response = client.get("/api/questions/search", params={"query": "Redis", "pipeline": "HYBRID_RERANK"})
+    if not has_results:
+        assert response.status_code == 503, response.text
+        assert response.json()["error"]["code"] == "QUERY_RELEVANCE_UNAVAILABLE"
+        return
+    assert response.status_code == 200, response.text
+    result = response.json()
+    completeness = result["meta"]["result_completeness"]
+    assert completeness["verification_complete"] is False
+    assert completeness["corpus_complete"] is False
+    assert completeness["invalid_evidence_count"] == 1
+    assert any("1 个证据异常候选" in warning and "可能不完整" in warning for warning in result["warnings"])
 
 
 def test_source_snapshot_survives_a_host_path_change_and_normalizes_lines(tmp_path):

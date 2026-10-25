@@ -35,20 +35,26 @@ def register_error_handlers(app: FastAPI, request_id: Callable[[Request], str]) 
         code = message.split(":", 1)[0] if message.isupper() or ":" in message else "INVALID_OPERATION"
         status = 409 if code in {"IDEMPOTENCY_CONFLICT", "USER_STATE_VERSION_CONFLICT", "SNAPSHOT_CHANGED",
                                "CONVERSATION_VERSION_CONFLICT", "QUERY_IN_PROGRESS","PREFERENCE_VERSION_CONFLICT",
-                               "REQUERY_SOURCE_NOT_READY"} else 400
+                               "REQUERY_SOURCE_NOT_READY", "WORKSET_BATCH_OUTCOME_UNAVAILABLE"} else 400
         if code in {"INDEX_NOT_READY", "EMBEDDING_NOT_READY", "RERANKER_NOT_READY",
                     "MODEL_CONFIGURATION_INCOMPLETE", "MODEL_NOT_READY", "SOURCE_SNAPSHOT_MISSING",
                     "STREAM_INCOMPLETE", "MODEL_OUTPUT_TRUNCATED", "QUERY_DEADLINE_EXCEEDED", "LEXICAL_FACET_RETRIEVAL_FAILED",
-                    "QUERY_PLAN_MISSING", "QUERY_MODEL_BUDGET_EXCEEDED", "QUERY_RELEVANCE_UNAVAILABLE", "SEMANTIC_SCOPE_INCOMPLETE"}:
+                    "QUERY_PLAN_MISSING", "QUERY_MODEL_PLAN_INVALID", "QUERY_MODEL_BUDGET_EXCEEDED", "QUERY_RESPONSE_INCOMPLETE", "QUERY_RELEVANCE_UNAVAILABLE", "SEMANTIC_SCOPE_INCOMPLETE",
+                    "RELEVANCE_SCOPE_UNSUPPORTED", "RELEVANCE_SCOPE_NOT_APPLIED"}:
             status = 503
         if code == "QUERY_RELEVANCE_UNAVAILABLE":
             message = "本次语义核验未完成，结果未作为成功查询保存，请重试。"
+        if code == "QUERY_MODEL_PLAN_INVALID":
+            message = "模型生成的查询计划不符合执行契约，本次未执行，请重新提交查询。"
         if code == "SEMANTIC_SCOPE_INCOMPLETE":
-            message = "当前范围的全量算法核验尚未完成，暂时无法提供完整列表。"
+            message = "当前范围的全量语义审核尚未完成，存在缺失、过期或未决条目，暂时无法提供完整列表。"
+        if code == "WORKSET_BATCH_OUTCOME_UNAVAILABLE":
+            message = "本批核验结果未能保存，原查询范围已保留。同一请求不会重复核验，请明确重新检索以发起新请求。"
         if code == "MODEL_PROVIDER_UNAVAILABLE":
             status, message = 503, "模型请求未完成，请检查自己的模型配置。"
+        details = {"coverage": error.coverage} if hasattr(error, "coverage") else {}
         return JSONResponse(status_code=status, content={"error": {
-            "code": code, "message": message, "retryable": status == 503},
+            "code": code, "message": message, "retryable": status == 503, **details},
             "request_id": request_id(request)})
 
     @app.exception_handler(APIError)

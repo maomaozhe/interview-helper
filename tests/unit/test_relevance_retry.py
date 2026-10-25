@@ -130,15 +130,17 @@ def test_insufficient_remaining_calls_or_tokens_prevents_provider_retry(calls, t
 
 def test_failed_unknown_usage_remains_charged_and_blocks_unaffordable_retry():
     logs, client = [], Client([1])
-    limits = RequestLimits(deadline=time.monotonic()+30, max_calls=6, max_tokens=10000)
+    reranker = LLMReranker(client=client, model="test", on_call=logs.append)
+    bound = reranker._primary_request("业务系统设计题", CANDIDATES)["token_upper_bound"]
+    limits = RequestLimits(deadline=time.monotonic()+30, max_calls=6, max_tokens=bound * 2 - 1)
     token = current_limits.set(limits)
     try:
         with pytest.raises(RelevanceProviderUnavailable):
-            LLMReranker(client=client, model="test", on_call=logs.append).rerank("业务系统设计题", CANDIDATES)
+            reranker.rerank("业务系统设计题", CANDIDATES)
     finally:
         current_limits.reset(token)
     assert len(client.requests) == 1
-    assert limits.tokens > 6000 and limits.token_reservations == 0
+    assert limits.tokens == bound and limits.token_reservations == 0
     assert logs[0]["input_tokens"] is None and logs[0]["output_tokens"] is None
 
 
@@ -151,7 +153,7 @@ def test_retry_state_does_not_leak_to_following_queries():
     assert len(client.requests) == 6
 
 
-def test_full_primary_batch_leaves_budget_for_one_retry_without_duplicate_question_text():
+def test_full_primary_request_declines_retry_when_complete_cost_exceeds_original_96k():
     from interview_intelligence.search.citations import primary_candidate_payload
     text = "设计一个独立存储服务：" + "可靠存储并发读写" * 14 + "。"
     candidates = [{"canonical_question_id": str(index), "canonical_text": text} for index in range(50)]
@@ -159,14 +161,42 @@ def test_full_primary_batch_leaves_budget_for_one_retry_without_duplicate_questi
     assert 13000 + legacy_bound * 2 > 96000
     client, logs = Client([1]), []
     limits = RequestLimits(deadline=time.monotonic()+30, max_calls=6, max_tokens=96000, tokens=13000)
+    reranker = LLMReranker(client=client, model="test", on_call=logs.append)
+    full_bound = reranker._primary_request("业务系统设计题", candidates)["token_upper_bound"]
+    assert 13000 + full_bound <= 96000 < 13000 + full_bound * 2
     token = current_limits.set(limits)
     try:
-        rows = LLMReranker(client=client, model="test", on_call=logs.append).rerank("业务系统设计题", candidates)
+        with pytest.raises(RelevanceProviderUnavailable):
+            reranker.rerank("业务系统设计题", candidates)
     finally:
         current_limits.reset(token)
-    assert len(rows) == 50 and rows.audit["transport_retry_count"] == 1
-    assert client.requests[0] == client.requests[1] and len(client.requests) == 3
-    assert logs[0]["_token_charge"] > 0 and limits.tokens < 96000 and limits.token_reservations == 0
+    assert len(client.requests) == len(logs) == 1
+    assert logs[0]["_token_charge"] == full_bound and limits.token_reservations == 0
+    assert limits.tokens == 13000 + full_bound < limits.max_tokens == 96000
+
+
+def test_full_scope_request_must_fit_96k_when_all_prior_usage_is_unknown():
+    class UnknownClient(Client):
+        def create(self, **kwargs):
+            response = super().create(**kwargs)
+            response.usage = None
+            return response
+    text = "设计一个独立存储服务：" + "可靠存储并发读写" * 14 + "。"
+    candidates = [{"canonical_question_id": str(index), "canonical_text": text} for index in range(50)]
+    # Isolate scope admission: the primary succeeds with unknown usage. A
+    # failed primary would already block its retry under the complete bound.
+    client, logs = UnknownClient(), []
+    limits = RequestLimits(deadline=time.monotonic()+30, max_calls=6, max_tokens=96000, tokens=14000)
+    token = current_limits.set(limits)
+    try:
+        with pytest.raises(ValueError, match="QUERY_TOKEN_BUDGET_EXCEEDED"):
+            LLMReranker(client=client, model="test", on_call=logs.append).rerank("业务系统设计题", candidates)
+    finally:
+        current_limits.reset(token)
+    assert len(client.requests) == 1 and len(logs) == 2
+    assert all(entry["input_tokens"] is None for entry in logs)
+    assert limits.tokens == 14000 + sum(entry.get("_token_charge", 0) for entry in logs)
+    assert limits.token_reservations == 0 and limits.max_tokens == 96000
 
 
 def test_exhausted_relevance_provider_returns_no_unverified_search_candidates():

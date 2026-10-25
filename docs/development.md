@@ -1,6 +1,6 @@
 # 开发与运行说明
 
-项目入口与架构见 [README](../README.md)，能力、默认版本、部署与质量结论统一见 [当前状态](status/current.md)。本页维护推荐运行方式与开发操作，不记录另一份发布状态。
+项目入口与架构见 [README](../README.md)，能力、部署与质量结论见 [当前状态](status/current.md)，默认版本见 [运行配置](reference/runtime-config.md#提示词选择与版本身份)。本页维护运行方式与开发操作。
 
 开发任务导航见 [项目知识库](README.md)；Settings、环境变量、Compose 的覆盖关系，以及提示词默认/候选版本见 [运行配置与提示词登记](reference/runtime-config.md)。
 
@@ -22,7 +22,7 @@
 | `APP_SIGNING_KEY` / `INTERNAL_AGENT_TOKEN` | 分页签名及内部 Agent 回调鉴权，分别使用随机值。 |
 | `TASK_ANNOTATION_POLICY` | 默认 `VERIFIED`；`KNOWN` 允许明确的临时机器分类，用于开发诊断。 |
 
-`QUERY_PROMPT_VERSION` 默认 `query_agent_v13`，`QUERY_DEADLINE_SECONDS` 默认180秒，`QUERY_MAX_MODEL_CALLS` 默认4，`QUERY_MAX_TOKENS` 默认96,000。这四项的 Compose 与 Settings 默认一致；其他开关不能据此类推，例如 Compose 开启 router / Pi，而直接 Settings 默认关闭。普通 Compose 只透传 YAML `environment` 中列出的字段，具体覆盖关系见 [运行配置](reference/runtime-config.md#先确定配置入口)。真实证据重排会增加延迟；耗时以请求回执为准。
+`QUERY_PROMPT_VERSION` 默认 `query_agent_v16`，`QUERY_DEADLINE_SECONDS` 默认600秒，`QUERY_MAX_MODEL_CALLS` 默认8次规划/回答，`QUERY_MAX_TOTAL_MODEL_CALLS` 默认24次共享模型调用，`QUERY_MAX_TOKENS` 默认256,000。这些项的 Compose 与 Settings 默认一致；其他开关不能据此类推，例如 Compose 开启 router / Pi，而直接 Settings 默认关闭。普通 Compose 只透传 YAML `environment` 中列出的字段，具体覆盖关系见 [运行配置](reference/runtime-config.md#先确定配置入口)。真实证据重排会增加延迟；耗时以请求回执为准。
 
 长期偏好由用户明确保存。任务分类核验通过草稿和发布版本管理；不要把机器分类的 SQL 范围核对解释成语义分类正确。
 
@@ -88,6 +88,7 @@ docker compose exec api ii stats --sort gap --limit 5
 | 入口 | 用途与边界 |
 | --- | --- |
 | `tests/web/smoke_server.py` | 无凭据界面示例，使用临时数据库与合成数据；不代表真实模型问答已启动。操作见 [README](../README.md#无凭据体验界面)。 |
+| [只读 MCP](mcp.md) / `ii-mcp` | 外部 agent 自己调用检索、SQL 列表、统计和详情；本地 stdio 转发固定 API，安装可选 `mcp` 依赖。当前为 legacy REST 适配，不具备现代会话范围/完整工集契约。 |
 | 直接启动 Python API / worker、`Settings(...)`、Node `start:agent` | 模块调试与测试注入，需要自行提供依赖和配置；不能由单个进程推定完整服务或 Compose 默认行为。 |
 | `compose.evaluation.yaml`、封存源码 overlay | 独立评测 API / Pi、账号与时钟，用于采集和复现，沿用约定的开发快照及共享模型锁；详见 [评测手册](../eval/README.md#入口分类通用评测候选实验与历史复现)。 |
 | [SSH 部署](deployment-ssh.md) | 维护已有远端环境、备份与核对指定发布包；不是本地首次运行步骤，历史发布也不等于当前工作区已部署。 |

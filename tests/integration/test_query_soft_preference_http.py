@@ -46,7 +46,8 @@ def test_internal_search_http_preserves_soft_preference_without_reducing_scope(t
     payload = {"action": "SEARCH", "filters": filters, "sort": "frequency", "top_n": None,
                "page_size": 20, "search_query": "如何 设计 一个 系统",
                "relevance_query": "传统后端独立系统设计题", "pipeline": "HYBRID_RERANK",
-               "preferred_question_type": "SYSTEM_DESIGN", "final": True}
+               "preferred_question_type": "SYSTEM_DESIGN", "final": True,
+               "user_goal": {"objective": run.request.message, "response_mode": "DIRECT_RESULT"}}
     with TestClient(app) as client:
         response = client.post(f"/internal/agent/runs/{run.id}/tools/search_questions",
                                headers={"Authorization": "Bearer bridge-test"}, json=payload)

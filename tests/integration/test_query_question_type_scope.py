@@ -17,14 +17,17 @@ from test_conversation_quality import app_fixture
 
 class CapturingRetriever:
     supports_relevance_query = True
+    supports_relevance_scope = True
 
     def __init__(self):
         self.calls = []
 
-    def retrieve(self, query, eligible, pipeline, top_k, *, relevance_query=None):
+    def retrieve(self, query, eligible, pipeline, top_k, *, relevance_query=None, relevance_scope=None):
         self.calls.append({"query": query, "eligible": eligible, "relevance_query": relevance_query})
         return {"data": [{"canonical_question_id": qid} for qid in eligible[:top_k]],
-                "meta": {"pipeline": pipeline, "rerank_status": "COMPLETED"}}
+                "meta": {"pipeline": pipeline, "rerank_status": "COMPLETED",
+                    **({"relevance_scope_applied": True, "relevance_scope_hash": relevance_scope["scope_hash"]}
+                        if relevance_scope else {})}}
 
 
 def fixture():
@@ -58,7 +61,10 @@ def test_inferred_search_type_does_not_exclude_business_project_before_retrieval
     run = search(service, QueryRequest(message="找一些支付订单流转的场景题", request_id="soft-type"), question_type=inferred)
     assert set(service.retriever.calls[0]["eligible"]) == {project_id, scenario_id}
     assert project_id in {row["canonical_question_id"] for row in run.result["facts"]["data"]}
-    assert service.retriever.calls[0]["relevance_query"] == "支付平台订单流转的业务场景设计"
+    assert service.retriever.calls[0]["relevance_query"] == "找一些支付订单流转的场景题"
+    assert run.result["facts"]["meta"]["user_scope_policy"]["relevance"] == {
+        "planned": "支付平台订单流转的业务场景设计", "applied": "找一些支付订单流转的场景题",
+        "source": "user_messages"}
     assert run.result["facts"]["meta"]["question_type_filter_policy"] == {
         "version": "search_question_type_origin_v1", "planned_question_type": inferred,
         "applied_question_type": None, "source": "model_intent", "decision": "model_inferred_softened",

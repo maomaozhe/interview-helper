@@ -1,0 +1,32 @@
+{
+  "schema": "private_query_reference_pointer_v1",
+  "dataset": "data/gold/user-scope-five-20261016-v2",
+  "dataset_sha256": "39abd02284f5c0451d8524a388f674dafabf7b19a3636a5d4cbbd7ce721dc5c1",
+  "facts_sha256": "fc00c0f812690e3c17dbab0d83b7e9b51b0c9858d3814830458d714d23013120",
+  "exposure": "seen_source_development",
+  "release_eligible": false,
+  "review_policy": "delegated_agent",
+  "queries": [
+    {
+      "id": "s01",
+      "message": "agent工程设计题"
+    },
+    {
+      "id": "s02",
+      "message": "字节的算法题"
+    },
+    {
+      "id": "s03",
+      "message": "工程场景设计题"
+    },
+    {
+      "id": "s04",
+      "message": "redis场景题"
+    },
+    {
+      "id": "s05",
+      "message": "mq场景题目"
+    }
+  ],
+  "note": "Private original sources are required. Missing inputs are not evidence of reproduced quality."
+}

@@ -89,7 +89,7 @@ def test_search_progress_reaches_the_same_durable_run_and_legacy_retrievers_stil
         def plan(self,run,context):
             return QuerySpec(action="SEARCH",search_query="系统设计")
     client,_,_,_=app_fixture(tmp_path,Planner(),Retriever())
-    response=client.post("/api/query",json={"message":"业务系统设计","request_id":"progress-forward"})
+    response=client.post("/api/query",json={"message":"缓存场景设计题","request_id":"progress-forward"})
     assert response.status_code == 200,response.text
     run_id=response.json()["meta"]["run_id"]
     events=client.get(f"/api/runs/{run_id}").json()["data"]["events"]
@@ -154,11 +154,14 @@ def test_failed_relevance_is_not_presented_as_verified_results(tmp_path, pipelin
 def test_query_service_passes_restored_intent_separately_from_expansion(tmp_path):
     class Retriever:
         supports_relevance_query = True
+        supports_relevance_scope = True
         calls = []
 
-        def retrieve(self, query, eligible, pipeline, top_k, *, relevance_query=None):
+        def retrieve(self, query, eligible, pipeline, top_k, *, relevance_query=None, relevance_scope=None):
             self.calls.append((query, relevance_query))
-            return {"data": [], "meta": {"pipeline": pipeline, "rerank_status": "COMPLETED"}}
+            return {"data": [], "meta": {"pipeline": pipeline, "rerank_status": "COMPLETED",
+                **({"relevance_scope_hash": relevance_scope["scope_hash"], "relevance_scope_applied": True}
+                   if relevance_scope else {})}}
 
     class Planner:
         def plan(self, run, context):
@@ -167,9 +170,19 @@ def test_query_service_passes_restored_intent_separately_from_expansion(tmp_path
 
     retriever = Retriever()
     client, _, _, _ = app_fixture(tmp_path, Planner(), retriever)
-    response = client.post("/api/query", json={"message": "这类题再找一些", "request_id": "restored-intent"})
+    original = client.post("/api/query", json={"message": "高并发秒杀业务系统设计题", "request_id": "original-intent"})
+    assert original.status_code == 200, original.text
+    original_meta = original.json()["meta"]
+    response = client.post("/api/query", json={"message": "这类题再找一些", "request_id": "restored-intent",
+        "conversation_id": original_meta["conversation_id"], "expected_version": original_meta["conversation_version"]})
     assert response.status_code == 200, response.text
-    assert retriever.calls == [("秒杀设计 库存扣减 Redis 异步消息", "高并发秒杀业务系统怎么设计")]
+    restored = "高并发秒杀业务系统设计题"
+    assert retriever.calls == [("秒杀设计 库存扣减 Redis 异步消息", "高并发秒杀业务系统设计题"),
+                              ("秒杀设计 库存扣减 Redis 异步消息", restored)]
+    assert response.json()["meta"]["user_scope_policy"]["relevance"]["applied"] == restored
+    assert response.json()["meta"]["user_scope_policy"]["relevance"]["source"] == "user_messages"
+    assert response.json()["meta"]["relevance_scope"]["target_unit"] == "BUSINESS_APPLICATION"
+    assert response.json()["meta"]["relevance_scope_hash"] == original_meta["relevance_scope_hash"]
 
 
 @pytest.mark.parametrize("supports_facets", [True, False])
@@ -222,14 +235,20 @@ def test_failed_lexical_facets_are_retryable_and_do_not_degrade_to_raw_results(t
 
 
 def test_feedback_binds_full_authoritative_receipt_memory_and_new_requery(tmp_path):
+    class Retriever:
+        def retrieve(self, query, eligible, pipeline, top_k):
+            return {"data": [{"canonical_question_id": eligible[0]}],
+                    "meta": {"pipeline": pipeline, "rerank_status": "COMPLETED"}}
     class Planner:
         contexts = []
         def plan(self, run, context):
             self.contexts.append(context)
-            return QuerySpec(action="LIST")
+            return QuerySpec(action="SEARCH", search_query="Agent设计题")
     planner = Planner()
-    client, _, _, service = app_fixture(tmp_path, planner)
-    original = client.post("/api/query", json={"message": "Agent设计题", "request_id": "original"}).json()
+    client, _, _, service = app_fixture(tmp_path, planner, Retriever())
+    initial = client.post("/api/query", json={"message": "Agent设计题", "request_id": "original"})
+    assert initial.status_code == 200, initial.text
+    original = initial.json()
     meta = original["meta"]
     feedback = client.post("/api/feedback", json={"category": "IRRELEVANT", "query": "Agent设计题",
         "note": "只找Agent的上下文记忆设计，不要普通缓存设计", "run_id": meta["run_id"],

@@ -27,19 +27,63 @@ def _matching_rows(session: Session, filters: FilterSpec, canonical_id: str | No
     ))
 
 
-def _source_refs(occurrence, interview, document, revision) -> list[dict]:
-    return [{
+def _source_state(occurrence, interview, document, revision):
+    """Separate usable citation shapes from current SQL facts with bad spans.
+
+    This does not verify snapshot bytes or semantic membership. In particular,
+    a malformed span must never become a line-1 citation to keep a UI working.
+    """
+    spans = occurrence.source_spans
+    refs, issues = [], []
+
+    def issue(reason, *, index=None, missing=False):
+        issues.append({"occurrence_id": occurrence.id, "interview_id": interview.id,
+            "source_document_id": document.id, "revision_id": revision.id,
+            "raw_question": occurrence.raw_question, "source_path": document.original_relative_path,
+            "status": "MISSING_SOURCE_SPANS" if missing else "INVALID_SOURCE_SPANS",
+            "reason": reason, "source_evidence_verified": False,
+            **({"span_index": index} if index is not None else {})})
+
+    if not isinstance(spans, list) or not spans:
+        issue("原文引用位置缺失；保留当前原问，不能声称已核验来源位置。" if spans is None or spans == []
+            else "原文引用位置结构无效；保留当前原问，不能将其作为已核验原文引用。",
+            missing=spans is None or spans == [])
+        return refs, issues
+    for index, span in enumerate(spans):
+        if not isinstance(span, dict) or not isinstance(span.get("quote"), str) or not span["quote"].strip():
+            issue("该引用缺少有效的连续原文文本；未生成来源定位按钮。", index=index)
+            continue
+        start_line, end_line = span.get("start_line", 1), span.get("end_line", span.get("start_line", 1))
+        if (type(start_line) is not int or type(end_line) is not int
+                or start_line < 1 or end_line < start_line):
+            issue("该引用的原文行号无效；未生成来源定位按钮。", index=index)
+            continue
+        if "start_char" in span or "end_char" in span:
+            start, end = span.get("start_char"), span.get("end_char")
+            if (type(start) is not int or type(end) is not int or start < 0
+                    or end <= start or end - start != len(span["quote"])):
+                issue("该引用的字符位置与原文文本不一致；未生成来源定位按钮。", index=index)
+                continue
+        if span.get("revision_id", revision.id) != revision.id:
+            issue("该引用绑定了其他来源版本；未生成来源定位按钮。", index=index)
+            continue
+        refs.append({
         "occurrence_id": occurrence.id,
         "interview_id": interview.id,
         "source_document_id": document.id,
         "revision_id": revision.id,
         "raw_file_hash": revision.raw_file_hash,
         "source_url": document.source_url,
-        "start_line": span.get("start_line", 1),
-        "end_line": span.get("end_line", span.get("start_line", 1)),
+        "start_line": start_line,
+        "end_line": end_line,
         "quote": span["quote"],
         "source_api_url": f"/api/sources/{revision.id}",
-    } for span in occurrence.source_spans]
+        })
+    return refs, issues
+
+
+def _source_refs(occurrence, interview, document, revision) -> list[dict]:
+    return _source_state(occurrence, interview, document, revision)[0]
 
 
 def list_occurrences(
@@ -65,14 +109,17 @@ def list_occurrences(
             raise ValueError("invalid occurrence scope")
     items = []
     for occurrence, interview, document, revision in rows[offset:offset + limit]:
+        refs, issues = _source_state(occurrence, interview, document, revision)
         items.append({
             "canonical_question_id": occurrence.canonical_question_id,
             "raw_question": occurrence.raw_question,
             "company": interview.company_normalized,
             "round": interview.round,
             "interview_date": interview.interview_date.isoformat() if interview.interview_date else None,
-            "sources": _source_refs(occurrence, interview, document, revision),
-            **_source_refs(occurrence, interview, document, revision)[0],
+            "sources": refs,
+            **(refs[0] if refs else {"occurrence_id": occurrence.id, "interview_id": interview.id,
+                "source_document_id": document.id, "revision_id": revision.id}),
+            **({"source_issues": issues, "source_evidence_verified": False} if issues else {}),
         })
     return {"data": items, "total": len(rows), "next_offset": offset + limit if offset + limit < len(rows) else None}
 
@@ -121,7 +168,9 @@ def get_question_detail(session: Session, canonical_id: str, filters: FilterSpec
                     QuestionRelation.source_canonical_id == canonical.id,
                     QuestionRelation.relation_type.in_(["RELATED", "SIMILAR"]),
                 ))]
-    refs = [ref for row in rows for ref in _source_refs(*row)]
+    source_states = [_source_state(*row) for row in rows]
+    refs = [ref for row_refs, _ in source_states for ref in row_refs]
+    source_issues = [issue for _, row_issues in source_states for issue in row_issues]
     return {
         "canonical_question_id": canonical.id,
         "canonical_text": canonical.canonical_text,
@@ -138,5 +187,6 @@ def get_question_detail(session: Session, canonical_id: str, filters: FilterSpec
         "algorithm_matches": algorithms,
         "sources": refs[:20],
         "sources_total": len(refs),
+        **({"source_issues": source_issues, "source_evidence_verified": False} if source_issues else {}),
         "corpus_revision": session.get(CorpusState, 1).current_revision,
     }

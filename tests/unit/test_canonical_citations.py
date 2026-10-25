@@ -36,6 +36,7 @@ def test_selection_resolves_canonical_spaces_and_punctuation_without_using_origi
     assert all(quote in text for quote in rows[0]["relevance_evidence"].values())
     schema = client.requests[0]["response_format"]["json_schema"]["schema"]
     assert schema["$defs"]["CandidateRank"]["properties"]["object_evidence"]["enum"] == ["", "q0", "q1"]
+    assert "s0o0" in schema["$defs"]["CandidateRank"]["properties"]["task_evidence"]["enum"]
 
 
 @pytest.mark.parametrize("bad_id", ["q9", "q500", "q0+q1", "其他候选:q0"])
@@ -87,6 +88,85 @@ def test_wire_preserves_bound_fragments_and_source_context_without_repeating_que
     assert "canonical_evidence_options" not in wire[0]
     assert wire[0]["question"] == payload[0]["canonical_evidence_options"]
     assert "".join(wire[0]["question"].values()) == candidates[0]["canonical_text"]
-    assert wire[0]["source_context"] == [{"source_context_status": "VERIFIED", "original_question": "设计独立服务，要求可靠读写。"}]
+    assert wire[0]["source_context"] == [{"source_context_status": "VERIFIED",
+        "original_question": {"s0o0": "设计独立服务，", "s0o1": "要求可靠读写。"}}]
     assert wire[0]["id"] == payload[0]["id"] and payload[0]["source_context"][0]["occurrence_id"] == "opaque-occurrence"
     assert isinstance(payload[0]["question"], str)
+
+
+def test_bounded_source_id_repair_keeps_unresolved_if_provider_repeats_ellipsis():
+    text = "请设计一个停车场管理系统：支持车辆入场、出场、车位查询与计费。请给出需求与关键流程、核心数据模型、主要接口、系统模块划分、异常场景及处理方式。"
+    candidate = {"canonical_question_id": "parking", "canonical_text": text}
+    bad_quote = "请设计一个停车场管理系统：...请给出需求与关键流程、核心数据模型、主要接口、系统模块划分、异常场景及处理方式。"
+    client = SelectionClient(task_evidence=bad_quote)
+    rows = LLMReranker(client=client, model="test").rerank("独立系统设计题", [candidate])
+    assert rows == [] and len(client.requests) == 2
+    audit = rows.audit
+    assert audit["candidate_verification_status"] == "PARTIAL"
+    assert audit["invalid_candidate_count"] == audit["invalid_evidence_count"] == 1
+    assert audit["invalid_schema_count"] == 0
+    diagnostic = audit["candidates"][0]
+    assert diagnostic["decision"] == "INVALID_TASK_EVIDENCE"
+    assert diagnostic["invalid_evidence_fields"] == ["task"]
+    assert diagnostic["task_evidence"] == bad_quote
+    assert diagnostic["task_grounded"] is False and diagnostic["task_rejected"] is False
+    assert diagnostic["verification_resolution"] == "UNRESOLVED"
+    assert audit["primary_evidence_repair"]["status"] == "UNRESOLVED"
+    # New calls select an exact excerpt; the old malformed quote remains invalid.
+    rows = LLMReranker(client=SelectionClient(task_evidence="q0"), model="test")._rank_candidates(
+        "独立系统设计题", [candidate])
+    assert len(rows) == 1 and rows.audit["invalid_candidate_count"] == 0
+    assert rows.audit["candidates"][0]["task_evidence"] == "请设计一个停车场管理系统："
+    assert rows.audit["candidates"][0]["task_evidence_reference"] == "q0"
+
+
+def test_historical_cache_punctuation_error_is_counted_without_fuzzy_repair():
+    candidate = {"canonical_question_id": "cache", "canonical_text": "如何设计一个高吞吐、低延时、可扩展的高速Cache？"}
+    rows = LLMReranker(client=SelectionClient(focus_id="高吞吐，低延时，可扩展", task_evidence="q0"),
+        model="test")._rank_candidates("独立系统设计题", [candidate])
+    assert rows == []
+    assert rows.audit["candidate_verification_status"] == "PARTIAL"
+    assert rows.audit["invalid_candidate_count"] == rows.audit["invalid_evidence_count"] == 1
+    assert rows.audit["candidates"][0]["decision"] == "INVALID_EVIDENCE"
+    assert rows.audit["candidates"][0]["invalid_evidence_fields"] == ["focus"]
+    rows = LLMReranker(client=SelectionClient(task_evidence="q0"), model="test")._rank_candidates(
+        "独立系统设计题", [candidate])
+    assert len(rows) == 1 and rows.audit["invalid_candidate_count"] == 0
+
+
+@pytest.mark.parametrize("task", ["DESIGN_TASK", "ALGORITHM_TASK"])
+def test_positive_task_ids_cannot_use_neighbor_markers_or_unverified_source(task):
+    candidate = {"canonical_question_id": "one", "canonical_text": "当前题如何处理？", "source_context": [
+        {"source_context_status": "VERIFIED", "context_before": "设计一个独立服务。", "original_question": "当前题如何处理？"},
+        {"source_context_status": "UNAVAILABLE", "original_question": "算法：岛屿问题。"}]}
+    for selection in ["s0b0", "s1o0", "q99", "s0o0+s0b0"]:
+        rows = LLMReranker(client=SelectionClient(task=task, task_evidence=selection), model="test")._rank_candidates(
+            "独立系统设计题", [candidate])
+        assert rows == []
+        assert rows.audit["invalid_candidate_count"] == 1
+        assert rows.audit["candidates"][0]["decision"] == "INVALID_TASK_EVIDENCE"
+
+
+def test_verified_original_task_id_and_negative_context_marker_preserve_their_sources():
+    candidate = {"canonical_question_id": "one", "canonical_text": "如何保证吞吐？", "source_context": [
+        {"source_context_status": "VERIFIED", "original_question": "重新设计消息服务以满足新的吞吐要求。",
+         "context_before": "介绍自己的项目实现。"}]}
+    rows = LLMReranker(client=SelectionClient(task_evidence="s0o0"), model="test")._rank_candidates(
+        "独立系统设计题", [candidate])
+    assert len(rows) == 1
+    assert rows.audit["candidates"][0]["task_evidence"] == candidate["source_context"][0]["original_question"]
+    rows = LLMReranker(client=SelectionClient(task="PROJECT_REPORT", task_evidence="s0b0"), model="test")._rank_candidates(
+        "独立系统设计题", [candidate])
+    assert rows == [] and rows.audit["invalid_candidate_count"] == 0
+    assert rows.audit["candidates"][0]["decision"] == "TASK_REJECTED"
+
+
+def test_task_id_is_resolved_within_the_current_candidate_only():
+    candidates = [{"canonical_question_id": "one", "canonical_text": "设计一个独立服务。"},
+        {"canonical_question_id": "two", "canonical_text": "设计另一个服务。", "source_context": [
+            {"source_context_status": "VERIFIED", "original_question": "设计另一个服务。"}]}]
+    rows = LLMReranker(client=SelectionClient(task_evidence="s0o0"), model="test")._rank_candidates(
+        "独立系统设计题", candidates)
+    assert [row["canonical_question_id"] for row in rows] == ["two"]
+    assert rows.audit["invalid_candidate_count"] == rows.audit["invalid_evidence_count"] == 1
+    assert rows.audit["candidates"][0]["decision"] == "INVALID_TASK_EVIDENCE"

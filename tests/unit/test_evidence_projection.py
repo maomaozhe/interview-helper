@@ -48,8 +48,16 @@ def test_host_projection_matches_original_output_without_mutating_facts(name):
     before = json.loads((Path(__file__).parents[1] / "fixtures/evidence-projection-host-before.json").read_text())
     row, meta = projection_cases()[name]
     original = deepcopy((row, meta))
+    projected_meta = ContextCompiler.evidence_meta(meta)
+    if name == "full":
+        # The source fixture already supplied this field. Keeping it is an
+        # intentional contract addition; all historical fields remain frozen.
+        assert projected_meta.pop("semantic_scope") == {"status": "COMPLETE"}
+        # Answer synthesis now also sees the returned-page count. It remains
+        # distinct from the eligible universe and the verified candidate pool.
+        assert projected_meta.pop("returned_count") == 2
     actual = {"row": fingerprint(ContextCompiler.evidence_row(row)),
-              "meta": fingerprint(ContextCompiler.evidence_meta(meta))}
+              "meta": fingerprint(projected_meta)}
     assert actual == before[name]
     assert (row, meta) == original
 

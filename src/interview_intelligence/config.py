@@ -10,6 +10,11 @@ from urllib.parse import urlparse
 from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
 
+from interview_intelligence.providers.runtime import (
+    DEFAULT_QUERY_DEADLINE_SECONDS, DEFAULT_QUERY_MAX_MODEL_CALLS,
+    DEFAULT_QUERY_MAX_TOTAL_MODEL_CALLS, DEFAULT_QUERY_MAX_TOKENS,
+)
+
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(extra="ignore")
@@ -51,12 +56,14 @@ class Settings(BaseSettings):
     pi_agent_url: str = "http://pi-agent:8787"
     internal_agent_token: str | None = None
     query_model: str | None = None
-    query_prompt_version: Literal["query_agent_v6", "query_agent_v7", "query_agent_v8", "query_agent_v9", "query_agent_v10", "query_agent_v11", "query_agent_v12", "query_agent_v13"] = "query_agent_v13"
-    query_deadline_seconds: float = Field(default=180, gt=0, le=180)
-    query_max_model_calls: int = Field(default=4, ge=1, le=6)
-    query_max_tokens: int = Field(default=96000, ge=4096, le=128000)
+    query_prompt_version: Literal["query_agent_v6", "query_agent_v7", "query_agent_v8", "query_agent_v9", "query_agent_v10", "query_agent_v11", "query_agent_v12", "query_agent_v13", "query_agent_v14", "query_agent_v15", "query_agent_v16"] = "query_agent_v16"
+    query_deadline_seconds: float = Field(default=DEFAULT_QUERY_DEADLINE_SECONDS, gt=0, le=1800)
+    query_max_model_calls: int = Field(default=DEFAULT_QUERY_MAX_MODEL_CALLS, ge=1, le=32)
+    query_max_total_model_calls: int = Field(default=DEFAULT_QUERY_MAX_TOTAL_MODEL_CALLS, ge=1, le=128)
+    query_max_tokens: int = Field(default=DEFAULT_QUERY_MAX_TOKENS, ge=4096, le=1048576)
     query_compact_context: bool = True
     query_dynamic_tools: bool = True
+    query_collection_selection_threshold: int = Field(default=100, ge=1, le=1000000)
     dedup_candidate_backend: Literal["auto","exact","hnsw"] = "auto"
     dedup_ann_min_size: int = Field(default=10000, ge=1)
     dedup_verify_equivalence: bool = False

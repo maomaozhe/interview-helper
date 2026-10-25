@@ -87,6 +87,29 @@ def test_candidate_context_is_loaded_for_actual_rerank_pool_only():
     assert len(calls) == 1
 
 
+def test_retriever_reports_schema_and_evidence_failures_separately():
+    from interview_intelligence.search.reranker import RerankedCandidates
+
+    class AuditedReranker:
+        version = "evidence-schema-audit"
+
+        def rerank(self, query, candidates):
+            return RerankedCandidates([], {
+                "candidate_verification_status": "PARTIAL", "invalid_candidate_count": 1,
+                "invalid_evidence_count": 2, "invalid_schema_count": 1,
+                "candidates": [],
+            })
+
+    result = ElasticsearchRetriever("http://unused", Encoder(), client=FakeClient(),
+                                    reranker=AuditedReranker()).retrieve(
+        "缓存", ["a", "b"], "HYBRID_RERANK", 2)
+
+    assert result["meta"]["candidate_verification_status"] == "PARTIAL"
+    assert result["meta"]["invalid_candidate_count"] == 1
+    assert result["meta"]["invalid_evidence_count"] == 2
+    assert result["meta"]["invalid_schema_count"] == 1
+
+
 def test_progress_emits_only_phases_that_are_actually_entered():
     stages=[]
     class CheckedEncoder(Encoder):
@@ -529,7 +552,7 @@ def test_soft_type_pool_preserves_broad_projects_and_same_query_preferred_candid
             body = kwargs["json"]
             filters = body.get("knn", {}).get("filter") or body.get("query", {}).get("bool", {}).get("filter")
             is_preferred = isinstance(filters, dict) and "bool" in filters or isinstance(filters, list) and len(filters) == 2
-            ids = preferred if is_preferred else branches[int(body["query"]["bool"]["must"][0]["multi_match"]["query"].split()[-1])] if body["size"] == 50 else main
+            ids = [] if "should" in body.get("query", {}).get("bool", {}) else preferred if is_preferred else branches[int(body["query"]["bool"]["must"][0]["multi_match"]["query"].split()[-1])] if body["size"] == 50 else main
             return Response({"hits": {"hits": [{"_id": qid, "_score": 100 - rank,
                 "_source": {"canonical_text": "business PROJECT " + qid}} for rank, qid in enumerate(ids)]}})
 
@@ -570,14 +593,15 @@ def test_soft_type_pool_preserves_broad_projects_and_same_query_preferred_candid
     assert audit["retrieval_provenance"]["stage_ranks"] == added["stage_ranks"]
     assert result["meta"]["question_type_preference"]["preferred_new_limit"] == limit
     searches = [options for path, options in client.calls if path == "/_search"]
-    assert len(searches) == 4 + len(facets)
+    assert len(searches) == 4 + len(facets) + bool(facets)
     assert all(options["json"]["pit"]["id"] == "pit-id" and options["params"]["allow_partial_search_results"] == "false"
                for options in searches)
-    assert searches[-2]["json"]["query"]["bool"]["filter"] == [
+    preferred_searches = searches[-3:-1] if facets else searches[-2:]
+    assert preferred_searches[0]["json"]["query"]["bool"]["filter"] == [
         {"terms": {"_id": eligible}}, {"terms": {"_id": sorted(preferred)}}]
-    assert searches[-1]["json"]["knn"]["filter"]["bool"]["filter"] == searches[-2]["json"]["query"]["bool"]["filter"]
-    assert searches[-1]["json"]["knn"]["query_vector"] == searches[-3]["json"]["knn"]["query_vector"]
-    assert searches[-2]["json"]["query"]["bool"]["must"] == searches[0]["json"]["query"]["bool"]["must"]
+    assert preferred_searches[1]["json"]["knn"]["filter"]["bool"]["filter"] == preferred_searches[0]["json"]["query"]["bool"]["filter"]
+    assert preferred_searches[1]["json"]["knn"]["query_vector"] == searches[len(facets) + 1]["json"]["knn"]["query_vector"]
+    assert preferred_searches[0]["json"]["query"]["bool"]["must"] == searches[0]["json"]["query"]["bool"]["must"]
     assert client.calls[-1][0] == "/_pit"
 
 
@@ -590,6 +614,111 @@ def test_preferred_pool_deduplicates_overlaps_and_backfills_broad():
     assert len(pool) == len({row["canonical_question_id"] for row in pool}) == 50
     assert pool[10]["canonical_question_id"] == "extra" and pool[11]["canonical_question_id"] == "facet"
     assert pool[12]["canonical_question_id"] == "m10" and pool[0]["stage_ranks"]["preferred_rrf"] == 1
+
+
+def test_construction_recall_keeps_narrow_object_and_semantic_target_within_existing_pool():
+    main = [f"broad-{i:03}" for i in range(100)]
+    preferred = [f"preferred-{i:03}" for i in range(80)]
+    original = "如何设计报表导出服务"
+    relevance = "报表导出服务的独立设计任务，排除代码实现和原理"
+
+    class Client(FakeClient):
+        def post(self, path, **kwargs):
+            if path != "/_search":
+                return super().post(path, **kwargs)
+            self.calls.append((path, kwargs))
+            body = kwargs["json"]
+            query = body.get("query", {}).get("bool", {})
+            filters = body.get("knn", {}).get("filter") or query.get("filter")
+            if "should" in query:
+                ids = [preferred[0], preferred[42], preferred[43]]
+            elif isinstance(filters, dict) and "bool" in filters or isinstance(filters, list) and len(filters) == 2:
+                ids = preferred
+            else:
+                ids = main
+            return Response({"hits": {"hits": [{"_id": qid, "_score": 100 - rank,
+                "_source": {"canonical_text": qid}} for rank, qid in enumerate(ids)]}})
+
+    class CountingEncoder(Encoder):
+        def __init__(self): self.calls = []
+        def embed(self, query):
+            self.calls.append(query)
+            return super().embed(query)
+
+    class Verifier:
+        version = "construction-task-test"
+        def rerank(self, query, candidates):
+            assert query == relevance
+            assert len(candidates) == len({row["canonical_question_id"] for row in candidates}) == 50
+            assert [row["canonical_question_id"] for row in candidates[:10]] == main[:10]
+            assert [row["canonical_question_id"] for row in candidates[10:40]] == preferred[:30]
+            added = next(row for row in candidates if row["canonical_question_id"] == preferred[42])
+            assert added["stage_ranks"]["construction_task"] == 2
+            assert added["candidate_selection_source"] == "construction_task"
+            # The newly recalled code/principle example is still rejected.
+            assert any(row["canonical_question_id"] == preferred[43] for row in candidates)
+            return [added]
+
+    client, encoder = Client(), CountingEncoder()
+    eligible = main + preferred
+    result = ElasticsearchRetriever("http://unused", encoder, client=client, reranker=Verifier()).retrieve(
+        original, eligible, "HYBRID_RERANK", 20, relevance_query=relevance,
+        lexical_facets=["报表导出系统设计"], preferred_question_type="SYSTEM_DESIGN",
+        preferred_eligible_ids=preferred)
+
+    construction = [options["json"] for path, options in client.calls if path == "/_search"
+                    and "should" in options["json"].get("query", {}).get("bool", {})][0]
+    assert construction["query"]["bool"]["filter"] == [
+        {"terms": {"_id": eligible}}, {"terms": {"_id": sorted(preferred)}}]
+    clauses = construction["query"]["bool"]["should"]
+    assert clauses[0]["multi_match"]["query"] == tokenize(original)
+    assert clauses[0]["multi_match"]["boost"] == pytest.approx(0.2)
+    assert "报表" in clauses[0]["multi_match"]["query"] and "导出" in clauses[0]["multi_match"]["query"]
+    assert {"开发", "实现", "功能", "建设"} <= set(clauses[1]["multi_match"]["query"].split())
+    assert construction["query"]["bool"]["minimum_should_match"] == 1
+    assert encoder.calls == [original]
+    assert [row["canonical_question_id"] for row in result["data"]] == [preferred[42]]
+    assert result["meta"]["construction_task_recall"]["context_query"] == original
+    assert result["meta"]["construction_task_recall"]["context_boost"] == pytest.approx(0.2)
+    assert result["meta"]["construction_task_recall"]["scope"] == "preferred_eligible_ids"
+    assert result["meta"]["construction_task_recall"]["selected_count"] == 2
+    assert client.calls[-1] == ("/_pit", {"json": {"id": "pit-id"}})
+
+
+@pytest.mark.parametrize("failure", ["timeout", "outside_preferred_scope"])
+def test_construction_recall_failure_closes_pit_without_verifying_partial_pool(failure):
+    import httpx
+
+    class Client(FakeClient):
+        def post(self, path, **kwargs):
+            if path == "/_search" and "should" in kwargs["json"].get("query", {}).get("bool", {}):
+                self.calls.append((path, kwargs))
+                if failure == "timeout":
+                    raise httpx.ReadTimeout("construction branch failed")
+                return Response({"hits": {"hits": [{"_id": "foreign", "_score": 1}]}})
+            return super().post(path, **kwargs)
+
+    class Verifier:
+        version = "must-not-run"
+        def rerank(self, *args): raise AssertionError("partial recall is not verified")
+
+    client = Client()
+    with pytest.raises(ValueError, match="LEXICAL_FACET_RETRIEVAL_FAILED"):
+        ElasticsearchRetriever("http://unused", Encoder(), client=client, reranker=Verifier()).retrieve(
+            "系统设计", ["a", "b"], "HYBRID_RERANK", 20, lexical_facets=["系统设计"],
+            preferred_question_type="SYSTEM_DESIGN", preferred_eligible_ids=["a", "b"])
+    assert client.calls[-1] == ("/_pit", {"json": {"id": "pit-id"}})
+
+
+def test_other_question_type_preferences_do_not_add_construction_recall():
+    client = FakeClient()
+    result = ElasticsearchRetriever("http://unused", Encoder(), client=client).retrieve(
+        "线上排障场景", ["a", "b"], "HYBRID", 20, lexical_facets=["线程阻塞"],
+        preferred_question_type="SCENARIO", preferred_eligible_ids=["a", "b"])
+    searches = [options["json"] for path, options in client.calls if path == "/_search"]
+    assert len(searches) == 5
+    assert all("should" not in body.get("query", {}).get("bool", {}) for body in searches)
+    assert "construction_task_recall" not in result["meta"]
 
 
 @pytest.mark.parametrize("pipeline", ["BM25", "DENSE"])

@@ -16,9 +16,10 @@ from interview_intelligence.providers.qwen_identity import QwenIdentityClient
 
 class PersonalReranker(LLMReranker):
     """Never persist or expose a tenant provider's raw validation/error payload."""
-    def rerank(self, query, candidates):
+    def rerank(self, query, candidates, *, relevance_scope=None):
         try:
-            return super().rerank(query, candidates)
+            return super().rerank(query, candidates, **(
+                {"relevance_scope": relevance_scope} if relevance_scope is not None else {}))
         except RelevanceProviderUnavailable as error:
             safe = RelevanceProviderUnavailable(phase=error.diagnostics["phase"],
                 retry_count=error.diagnostics["transport_retry_count"], error=error)
@@ -78,3 +79,9 @@ class TenantRetriever:
 
     def __getattr__(self, name):
         return getattr(self.selected(), name)
+
+    def prepare_workset_order(self, *args, **kwargs):
+        return self.selected().prepare_workset_order(*args, **kwargs)
+
+    def hydrate_and_rerank_ids(self, *args, **kwargs):
+        return self.selected().hydrate_and_rerank_ids(*args, **kwargs)

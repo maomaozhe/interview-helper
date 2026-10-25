@@ -6,6 +6,8 @@
 
 ## 当前发布版本
 
+2026-10-16 已按线上实际包为基线发布工程全集与大集合选择增量23文件：query v15，数量阈值100；保留原 rerank v15 / scope v6、模型提供方、共享锁及单轮预算，未发布工作区 v34 检索实验。来源审核经正式 PostgreSQL 精确集合/hash/span dry-run 后原子发布，r295 / i295 保持，注解 a31→a32；其他注解内容摘要一致，无 schema migration。默认先报确认/待核验/可浏览数量，支持已有主题分类和全量分页，分类不明确及待核验独立保留。API/worker/Pi 已重启，七服务及正式资源SHA通过；来源/配置/数据库备份在 `/home/dylan/services/interview-intelligence/backups/complete-engineering-20261016T092828Z`。正式HTTPS gold逐类与分页验收进度及最终结论见[本轮记录](retrospectives/2026-10-14-complete-query-scope.md#2026-10-16-线上部署与真实分页验收工作记录)，私有清单与回执在 `data/reports/complete-engineering-live-20261016/`；早期发布记录按原日期理解。
+
 2026-10-09 的 SSH 版本使用 query v13 / context v4 / tool policy v2 / `rerank_v14_design_unit_scope_partial`，规划调用配置为4、请求总调用上限为6、截止180秒。工程系统设计修复见文末对应章节。随后发布4文件侧栏增量，支持拖动、隐藏和移动抽屉；公网资源哈希、正式页面交互及七个服务核验通过，后端版本与语料 r293/index293 保持。详见 [侧栏验收](verification/2026-10-09-sidebar.md)。
 
 随后已补发 Markdown/SSE 增量，正式 workspace 版本为 `9377bec16b82`。原历史回答的加粗/列表渲染及真实模型完成前的回答增量已在正式服务验收；保持上述查询、检索版本和语料。旧页面需重载后取得新脚本。详见 [Markdown/SSE 正式验收](verification/2026-10-09-markdown-sse.md)。

@@ -106,11 +106,16 @@ def test_short_answer_and_followup_keep_original_goal_separate_from_recall_terms
     retriever = Retriever()
     client, _, _, _ = app_fixture(tmp_path, Planner(), retriever)
     conversation = None
-    for index, message in enumerate(["场景设计题", "Agent 应用设计", "这类题再找一些"]):
+    for index, message in enumerate(["场景设计题", "Agent 应用设计", "相关的再来一些"]):
         body = {"message": message, "request_id": f"intent-turn-{index}"}
         if conversation:
             body.update(conversation_id=conversation["conversation_id"], expected_version=conversation["conversation_version"])
         response = client.post("/api/query", json=body)
         assert response.status_code == 200, response.text
         conversation = response.json()["meta"]
-    assert retriever.calls == [(expansion, "场景设计题：Agent 应用设计")] * 2
+    first_intent = "用户此前原话：\n场景设计题\n用户本轮原话（纠正优先）：\nAgent 应用设计"
+    continued_intent = "用户此前原话：\n场景设计题\nAgent 应用设计\n用户本轮原话（纠正优先）：\n相关的再来一些"
+    assert retriever.calls == [(expansion, first_intent), (expansion, continued_intent)]
+    assert conversation["user_scope_policy"]["user_messages"] == ["场景设计题", "Agent 应用设计", "相关的再来一些"]
+    assert conversation["user_scope_policy"]["relevance"] == {
+        "planned": first_intent, "applied": continued_intent, "source": "user_messages"}

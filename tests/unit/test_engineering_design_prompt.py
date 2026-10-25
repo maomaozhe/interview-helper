@@ -13,32 +13,39 @@ import pytest
 from interview_intelligence.agent.harness import ContextCompiler
 from interview_intelligence.agent.query_contract import validate_model_plan
 from interview_intelligence.config import Settings
+from interview_intelligence.contracts import FilterSpec
 from interview_intelligence.resources import resource_path
 
 
 def test_default_prompt_delivers_broad_example_and_narrow_object_rules():
     version = Settings().query_prompt_version
     prompt = resource_path(f"prompts/{version}.md").read_text(encoding="utf-8")
-    assert version == "query_agent_v13"
-    assert "排行榜仅为题型示例" in prompt
-    assert "只要排行榜/专门找排行榜设计题" in prompt
-    assert "排行榜如何设计”是具体解答" in prompt
+    assert version == "query_agent_v16"
+    assert "是题型示例" in prompt
+    assert "明确“只要排行榜”才限定" in prompt
+    assert "“排行榜如何设计”是解答" in prompt
     assert "coding_focus描述编程任务，不是系统设计领域" in prompt
-    assert "题库SYSTEM_DESIGN标签不保证题干符合工程设计意图" in prompt
-    assert "纯技术原理、知识点比较、项目经历介绍" in prompt
+    assert "SYSTEM_DESIGN标签不证明任务" in prompt
+    assert "原理、知识比较、项目经历" in prompt
     manifest = tomllib.loads((Path(__file__).parents[2] / "pyproject.toml").read_text(encoding="utf-8"))
     included = manifest["tool"]["hatch"]["build"]["targets"]["wheel"]["force-include"]
     assert included[f"prompts/{version}.md"] == f"interview_intelligence/resources/prompts/{version}.md"
+    # Goal/completion rules are intentional new instructions; request budgets
+    # remain enforced on the complete prepared model call, not this file alone.
+    assert "user_goal" in prompt and "evidence_tool_ordinals" in prompt
     assert len(prompt.encode("utf-8")) <= 14_000
 
 
-def test_complete_design_search_example_validates_without_inferred_hard_filters():
+def test_complete_design_search_validates_without_inferred_hard_filters():
     prompt = resource_path(f"prompts/{Settings().query_prompt_version}.md").read_text(encoding="utf-8")
-    example = next(line for line in prompt.splitlines() if line.startswith('{"action":"SEARCH"'))
-    plan = validate_model_plan(json.loads(example))
+    assert "filters.question_type仍null（UI除外）" in prompt
+    plan = validate_model_plan({"action": "SEARCH", "filters": FilterSpec().model_dump(mode="json"), "sort": "frequency",
+        "top_n": None, "page_size": 20, "search_query": "工程 场景 设计 系统 业务 服务 机制 约束 方案",
+        "relevance_query": "工程场景设计题", "pipeline": "HYBRID_RERANK", "final": True,
+        "lexical_facets": ["如何 设计 一个 系统", "场景 设计 服务 方案"]})
     assert plan.action == "SEARCH" and plan.final is True
     assert plan.pipeline == "HYBRID_RERANK" and plan.top_n is None
-    assert plan.preferred_question_type == "SYSTEM_DESIGN"
+    assert plan.preferred_question_type is None  # Broad engineering includes AI and conventional systems.
     assert all(value is None for key, value in plan.filters.model_dump().items() if key != "date_basis")
     assert len(plan.lexical_facets) == 2  # Leave the third branch for the user's actual example.
     assert plan.search_query != plan.relevance_query

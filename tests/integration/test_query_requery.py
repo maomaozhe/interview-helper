@@ -14,16 +14,20 @@ from test_conversation_quality import app_fixture
 
 
 def test_requery_short_answer_restores_goal_scope_feedback_and_original_message(tmp_path):
+    effective_target = "用户此前原话：\n场景设计题\n用户本轮原话（纠正优先）：\nAgent 应用设计"
     class Retriever:
         supports_relevance_query = True
+        supports_relevance_scope = True
 
         def __init__(self):
             self.calls = []
 
-        def retrieve(self, query, eligible, pipeline, top_k, *, relevance_query=None):
+        def retrieve(self, query, eligible, pipeline, top_k, *, relevance_query=None, relevance_scope=None):
             self.calls.append((query, relevance_query, pipeline, top_k, eligible))
             return {"data": [{"canonical_question_id": eligible[0]}] if eligible else [],
-                    "meta": {"pipeline": pipeline, "rerank_status": "COMPLETED"}}
+                    "meta": {"pipeline": pipeline, "rerank_status": "COMPLETED",
+                        **({"relevance_scope_hash": relevance_scope["scope_hash"], "relevance_scope_applied": True}
+                           if relevance_scope else {})}}
 
     class Planner:
         def __init__(self):
@@ -39,7 +43,7 @@ def test_requery_short_answer_restores_goal_scope_feedback_and_original_message(
             if context.get("requery_origin"):
                 assert context["message"] == "Agent 应用设计"
                 assert context["session"]["pending_clarification"]["original_message"] == "场景设计题"
-                assert context["session"]["last_plan"]["relevance_query"] == "Agent 应用架构设计"
+                assert context["session"]["last_plan"]["relevance_query"] == effective_target
                 assert "current_page_ids" not in context["session"]
                 assert context["default_page_size"] == 7 and context["requested_pipeline"] == "BM25"
                 return QuerySpec.model_validate({**context["session"]["last_plan"],
@@ -75,7 +79,10 @@ def test_requery_short_answer_restores_goal_scope_feedback_and_original_message(
     assert meta["conversation_version"] == 4 and meta["run_id"] != source["run_id"]
     assert meta["requery_of_run_id"] == source["run_id"]
     assert meta["applied_filters"]["company"] == "腾讯" and meta["applied_filters"]["round"] is None
-    assert retriever.calls[-1][:4] == ("Agent 智能体 应用 架构 记忆设计", "Agent 应用架构设计", "BM25", 7)
+    assert retriever.calls[-1][:4] == ("Agent 智能体 应用 架构 记忆设计", effective_target, "BM25", 7)
+    assert original.json()["meta"]["user_scope_policy"]["relevance"] == {
+        "planned": "Agent 应用架构设计", "applied": effective_target, "source": "user_messages"}
+    assert meta["user_scope_policy"]["relevance"]["applied"] == effective_target
     context = planner.contexts[-1]
     assert context["explicit_filters"] == {"company": "腾讯", "round": None}
     assert context["query_feedback"][0]["feedback_id"] == fid
@@ -87,7 +94,7 @@ def test_requery_short_answer_restores_goal_scope_feedback_and_original_message(
         turn = session.get(AgentTurn, meta["run_id"])
         assert turn.message == "Agent 应用设计" and turn.request_id == "fresh-agent"
         assert turn.request_payload["requery_of_run_id"] == source["run_id"]
-        assert turn.state_before["last_plan"]["relevance_query"] == "Agent 应用架构设计"
+        assert turn.state_before["last_plan"]["relevance_query"] == effective_target
     conflict = client.post("/api/query", json={**refresh_body, "feedback_ids": []})
     assert conflict.status_code == 409
     stale = client.post("/api/query", json={**refresh_body, "request_id": "stale-fresh-agent"})

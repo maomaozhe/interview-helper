@@ -1,0 +1,56 @@
+{
+  "cases": [
+    {
+      "id": "seven-requested-states-with-five-detail-items",
+      "input": {"states": {
+        "q0": {"status": "UNSEEN", "review_count": 0, "version": 0, "binding_status": "RESOLVED", "last_score": 0},
+        "q1": {"status": "WEAK", "review_count": 1, "version": 1},
+        "q2": {"status": "REVIEWED", "review_count": 2, "version": 2},
+        "q3": {"status": "MASTERED", "review_count": 3, "version": 3},
+        "q4": {"status": "WEAK", "review_count": 4, "version": 4},
+        "q5": {"status": "MASTERED", "review_count": 5, "version": 5},
+        "q6": {"status": "UNSEEN", "review_count": 6, "version": 6}
+      }, "user_state_revision": 12},
+      "expected": {"scope": "requested_question_ids", "items": [
+        {"canonical_question_id": "q0", "status": "UNSEEN", "review_count": 0, "version": 0, "binding_status": "RESOLVED", "last_score": 0},
+        {"canonical_question_id": "q1", "status": "WEAK", "review_count": 1, "version": 1},
+        {"canonical_question_id": "q2", "status": "REVIEWED", "review_count": 2, "version": 2},
+        {"canonical_question_id": "q3", "status": "MASTERED", "review_count": 3, "version": 3},
+        {"canonical_question_id": "q4", "status": "WEAK", "review_count": 4, "version": 4}
+      ], "total_count": 7, "valid_count": 7, "invalid_count": 0, "returned_count": 5, "truncated": true,
+        "status_counts": {"UNSEEN": 2, "WEAK": 2, "REVIEWED": 1, "MASTERED": 2},
+        "summary_complete": true, "user_state_revision": 12}
+    },
+    {
+      "id": "empty-requested-state-set",
+      "input": {"states": {}, "user_state_revision": 0},
+      "expected": {"scope": "requested_question_ids", "items": [], "total_count": 0, "valid_count": 0,
+        "invalid_count": 0, "returned_count": 0, "truncated": false,
+        "status_counts": {"UNSEEN": 0, "WEAK": 0, "REVIEWED": 0, "MASTERED": 0},
+        "summary_complete": true, "user_state_revision": 0}
+    },
+    {
+      "id": "malformed-rows-stay-unknown-instead-of-unseen",
+      "input": {"states": {
+        "q-ok": {"status": "WEAK", "review_count": 0, "version": 0, "last_score": true},
+        "q-status": {"status": "UNKNOWN", "review_count": 0, "version": 0},
+        "q-newline\n": {"status": "MASTERED", "review_count": 1, "version": 1},
+        "q-version": {"status": "MASTERED", "review_count": 1, "version": true},
+        "q-shape": [],
+        "q-count": {"status": "UNSEEN", "review_count": -1, "version": 0}
+      }, "user_state_revision": false},
+      "expected": {"scope": "requested_question_ids", "items": [
+        {"canonical_question_id": "q-ok", "status": "WEAK", "review_count": 0, "version": 0}
+      ], "total_count": 6, "valid_count": 1, "invalid_count": 5, "returned_count": 1, "truncated": true,
+        "status_counts": {"UNSEEN": 0, "WEAK": 1, "REVIEWED": 0, "MASTERED": 0}, "summary_complete": false}
+    },
+    {
+      "id": "legacy-direct-id-map",
+      "input": {"q-legacy": {"status": "MASTERED", "review_count": 1, "version": 2}},
+      "expected": {"scope": "requested_question_ids", "items": [
+        {"canonical_question_id": "q-legacy", "status": "MASTERED", "review_count": 1, "version": 2}
+      ], "total_count": 1, "valid_count": 1, "invalid_count": 0, "returned_count": 1, "truncated": false,
+        "status_counts": {"UNSEEN": 0, "WEAK": 0, "REVIEWED": 0, "MASTERED": 1}, "summary_complete": true}
+    }
+  ]
+}

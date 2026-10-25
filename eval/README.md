@@ -4,11 +4,11 @@
 
 ## 入口分类：通用评测、候选实验与历史复现
 
-本页是评测与实验的统一入口；完整应用运行使用 [普通 Compose](../docs/development.md#推荐完整运行普通-compose)，当前默认版本、部署和质量结论只汇总到 [状态表](../docs/status/current.md)。评测脚本、候选提示词和历史配方继续保留，存在于目录中不表示已启用或适合直接运行。
+本页是评测与实验的统一入口；完整应用运行使用 [普通 Compose](../docs/development.md#推荐完整运行普通-compose)，当前能力、部署和质量结论见 [状态页](../docs/status/current.md)，默认版本见 [运行配置](../docs/reference/runtime-config.md)。评测脚本、候选提示词和历史配方继续保留，存在于目录中不表示已启用或适合直接运行。
 
 | 入口 | 身份与用途 | 从哪里开始 |
 | --- | --- | --- |
-| `eval/` 通用工具 | 快照、准备、采集、校验、评分、比较与门禁；按本次数据和隔离环境显式配置 | 本页第 1–5 节；先用合成数据验证流程 |
+| `python -m eval` | suite 统一预检、运行/恢复、比较与严格报告检查；旧模块命令继续可用 | 先看第 1 节；需要准备数据或真实采集再看第 2–5 节 |
 | `compose.evaluation.yaml` | 独立评测 API / Pi，不替代完整运行；沿用指定开发快照、隔离账号及共享 Linux 模型锁 | [第 4 节](#4-隔离queryagent评测)；真实调用遵守预算与写入授权 |
 | `evals/agent_gold/` | 独立来源审核、裁决与冻结配方；带日期的文件绑定特定来源/数据版本 | [第 6 节](#6-已完成的独立标注与审核)、[来源参考集](#9-2026-10-14-真实面经来源参考集)、[历史查询范围](#10-历史用户查询与真实来源范围-gold)；旧批次配方见 [agent_gold](../evals/agent_gold/README.md) |
 | `evals/project_quality/` | 候选对照、封存运行、性能诊断和历史回放；没有独立运行默认的承诺 | 第 7–10 节；`source_iteration.py` 等来源候选结果见 [10-15 报告](../docs/verification/2026-10-15-source-optimization.md)，具体参数以封存协议为准 |
@@ -18,16 +18,98 @@
 
 ## 1 先验证框架
 
-先运行使用合成 fixture 的通用检查，不需要私有语料或服务：
+日常从这个入口开始，不需要先读后面的历史配方。首次用合成数据跑通整个流程，无需私有语料、数据库或模型凭据：
 
 ```powershell
-python -m pytest -q tests/unit/test_source_gold.py
-python -m eval.demo --output data/reports/evaluation-demo-new
+python -m eval demo --output .tmp/evaluation-demo
 ```
 
-打开输出的 `index.html`。六个模块报告包含刻意制造的漏题、弃权和错误参数，供检查评分与坏案例定位。所有数据为 SYNTHETIC，门槛为 NOT_ELIGIBLE。输出目录必须不存在；历史结果不会覆盖。
+打开 `.tmp/evaluation-demo/run/index.html`。六模块走同一 suite 编排；抽取漏题、分类弃权和错误参数是刻意设置的失败。流程完成不等于这些失败消失：合成报告的门槛保持 `NOT_ELIGIBLE`。输出目录必须不存在。
 
-`python -m pytest -q` 是完整工作区回归，不能保证在新 clone 中全部运行：部分来源复现测试直接读取私有快照/gold，缺失时目前不会自动 skip。例如 `test_user_query_source_gold.py` 通过默认 `build()` 依赖历史来源材料，`test_user_query_source_revision_20261015.py` 依赖封存 v1 数据。它们虽不调用模型，仍有私有 fixture 前提；须在报告中列出缺失材料和未覆盖范围，不能把该失败解释为语义质量退步，也不能用通用检查通过代替完整回归。原文与完整历史归档继续留在忽略目录，不为让测试通过复制到公开仓库。
+生成的 `.tmp/evaluation-demo/suite.json` 是完整配置示例。新实验复制配置后显式选择自己的输入和版本；路径相对 suite 文件，而不是运行命令的目录。候选 `candidate.id/components`、每模块的 dataset、split、review_policy、threshold_version、default_pipeline 都必须填写，不能凭最高版本号自动选择。每模块使用已有 `predictions` 或 `collect: {adapter, options}` 二选一；抽取另填审核过的 alignments。`components` 按 section 声明版本，可用 `files: {文件路径: SHA256}` 核对实际文件；声明本身不证明服务器运行了它。
+
+| 要做什么 | 命令 |
+| --- | --- |
+| 检查环境、数据、版本和预算，不访问服务 | `python -m eval preflight <suite.json>` |
+| 新建一次运行 | `python -m eval run <suite.json> --output <新目录>` |
+| 继续同一次运行 | `python -m eval resume <suite.json> --output <原目录>` |
+| 比较两次 suite 或两个模块报告 | `python -m eval compare <旧目录> <新目录> --output <比较.json>` |
+| 拆分已有真实请求的阶段耗时与代价 | `python -m eval profile-latency <旧predictions.jsonl> <新predictions.jsonl> --output <耗时对照.json>`；仅复算原遥测，不重跑模型，不叠加 tool/decision 与其内部模型耗时 |
+| 严格复算一个模块报告 | `python -m eval check <模块报告目录>` |
+| 检查六模块与指定回归门禁 | `python -m eval check <运行目录>/release-bundle.json --root <运行目录>` |
+| 从独立原文审核冻结查题对照集 | `python -m eval freeze-queries --snapshot <快照目录> --reviews <审核JSON...> --recipe <规则JSON> --authorization <授权JSON> --output <新gold目录>` |
+
+suite 的 `release.modules` 可指定 `{section: module_id}`，`release.required_regressions` 指定 `{回归名: module_id}`；这些模块均须实际运行，不因主评测通过就跳过旧回归。六模块不完整、数据未达资格或门槛未过都会阻断发布。旧 bundle 使用 `python -m eval check <旧bundle.json> --root . --legacy` 明确作历史核查；缺少封存输入或版本证据的旧报告不会自动升级为严格验收。
+
+恢复会检查输入、候选、评分代码、已完成报告及会话/轮次账本指纹，保持原预算及未知 usage 占用；完成项不会重跑。缺少新账本指纹的旧未完成 HTTP 检查点明确拒绝自动续跑，已完成回执仍可核查。无法确认结果的在途模型/HTTP 请求会停下并保留证据，不自动重复扣费或写入。纯本地 SQL/已发布结果的只读未完成项可以重新读取；HTTP 已产生复习写入的恢复仍需单独核对。直接采集入口也支持 `python -m eval.collect ... --resume`，复用相同 output 和参数。
+
+新抽取采集须预先填写 `alignments` 的目标路径，可以暂不存在。采集后若缺对齐，运行停在 `NEEDS_INPUT`，模块保存 `alignments.draft.jsonl`；核对后把批准的对齐写到原目标路径，再用同一 suite 续跑，其他模块不必等待。评分成功后绑定对齐 hash；修改已验收对齐须另建运行。
+
+预检 `PASS` 只证明本地静态条件满足。需要服务的采集还必须显式 `--allow-live`，模型 adapter 在 `collect.options` 填写正数 max_calls/max_tokens；HTTP 另指定 base_url、expected_actor（`eval-` 账号），实际采集核对服务快照、账号与共享锁。provider/retrieval 仍须 Linux 共享模型锁。真实预算和业务口径在开展该轮前确定；离线演示没有真实模型调用。
+
+严格发布还要求候选的 `runtime_fingerprint` 匹配实际采集运行物，模型/提示词声明与调用观测一致；声明 model_revision 时也须一致。本地采集使用源码指纹，远端不能拿本地指纹代替。
+
+HTTP 可通过独立部署证明绑定 API/Pi 的运行文件、资源、依赖、PID/启动身份，以及 API/worker 共用锁的路径、设备和 inode。先用 [身份探针](runtime_identity.py) 独立测量，再给 `eval.serve --deployment-evidence <证明.json>`；Pi 的身份端点须显式启用且通过内部认证。候选预先固定 `deployment_proof_sha256` 与运行指纹；collector 同样传 `--deployment-evidence`，每轮前后及恢复时核对。证据一致才记 `REMOTE_SOURCE_BOUND`，否则保持未核验并阻断严格发布。该证明核验运行物，不认证模型权重、标注真实性或整体质量。
+
+HTTP 整轮预算使用服务回报的 `request_max_model_calls/request_max_tokens`（当前默认 24 / 256000），与 `query_planning_max_calls`（默认 8）分开；成功终态还须持久尝试数与唯一调用账本相符，才能按完整遥测结算。失败终态或日志不全保留整轮未知扣计并停止，不能按空日志退成零。共享锁默认支持容器路径；SSH 自定义位置须有进程环境和同文件身份的独立证明，不能只指定任意路径。多租户评测使用新 `eval-` 账号和 `--http-cookie-file <私密JSON>`，文件只含 `ii_tenant_session`，Linux 权限为 0600；报告仅保存文件 hash。保留实际账号的提供方选择及全局 embedding 链，不关闭多租户来替代真实路径。
+
+小批采集可用 `--stop-after-samples N` 在完整场景后暂停，不生成最终预测/receipt；随后同一输入、output、预算和证明加 `--resume` 继续。暂停参数不改变身份；失败的完成项也不重放。[真实服务 pilot](pilot.py) 从独立快照及来源审核冻结 8 场景/12 轮，`assess` 同时检查结果/频次/来源/指代，技术答案另绑定独立审核，缺审核保持 UNKNOWN；该 dev 小集没有正式发布资格。
+
+新报告封存 gold、预测、alignment、评分协议和候选身份，严格检查重新计算指标、逐样本断言和门槛。比较会展示缺失指标与断言变化，并标明协议变化，不能把换数据/门槛当作模型变好。首页分别显示执行、质量和发布检查状态；真实用户任务质量仍标为未建立，需用原始问法、实际结果与独立预期补充回归。详细实现及本批验证见 [可用性记录](../docs/plans/2026-10-15-evaluation-readiness.md)。
+
+`python -m pytest -q` 是完整工作区回归。部分来源复现测试需要私有快照/gold：`test_user_query_source_gold.py`、`test_user_query_source_revision_20261015.py` 和 `test_user_query_checkpoint.py` 在必要输入缺失时明确 skip；输入存在时仍检查 JSON、hash 和语义，坏数据会失败，不会被跳过。使用 `python -m pytest -q -rs` 查看原因，报告须列出跳过项和未覆盖范围；新 clone 运行结束不代表复现了历史实验，skip 和合成检查通过都不等于真实质量通过。
+
+真实质量实验需要自己的语料、模型服务和冻结参考集。私有原文与历史 `data/gold/`、`data/reports/` 不随仓库分发，不为让测试通过复制到公开仓库。
+
+当前五问回归使用固定[原问与验收规则](scenarios/user_scope_five.json)、[参考版本/hash](scenarios/user_scope_five.reference.json)，正确题单在私有 `data/gold/user-scope-five-20261016-v2/EXPECTED-ANSWERS.md`。原文审核、边界、反例和历史分歧保留；这是已见来源的开发集。`query_result_reference` 让正常 routing 评分同时核对实际题目/来源、强正例数量、工程对象族、已知正例覆盖；未审项为 UNKNOWN，有限面板不认证全库召回。完整语义 SQL 声称已返回全部时，漏掉已知正例不能通过。
+
+复算原服务五问：`python -m eval run eval/scenarios/user_scope_five.baseline.json --output <新目录>`。它读取字节不变的旧预测重新评分，原 v1 采集回执另存来源证据，不冒充针对 v2 采集；缺私有材料会阻断。候选使用相同 gold/评分器，以实际新采集结果比较，不把离线资格恢复伪装为新命中。SQL 完整字符 span 须唯一对应冻结原题；SEARCH 须核对实际 occurrence、hash 和定位，弱引用或歧义失败。
+
+### 多轮题单与最终回答
+
+单轮 `source_query_results_v1` 继续按原契约评分。新的多轮参考使用 `source_query_results_v2`：`query_result_reference.queries[case_id].turns` 与场景 `turns` 等长，每个来源参考绑定当轮原始 `message`，独立审核的完整意图另存 `review_query`；后轮不能借用首轮标签。新多轮场景还检查会话身份连续、版本逐轮递增，显式重放保持原版本；缺证据为 UNKNOWN，换会话或版本倒退失败。`freeze-queries` 的 recipe 支持 `cases[].turns`，每轮的 `query` 选择独立来源审核，`message` 保留用户原话，并填写该轮的 `minimum_positive/expected_plan` 等条件。分页也需为对应轮准备参考，不会把跨页并集充作当页命中。
+
+同一次请求先取证再回答时，来源参考可指定正整数 `tool_ordinal`，从**当轮持久完成回执**取原始题单；数组位置不是 ordinal。缺回执保持 UNKNOWN，失败、跨 run 或矛盾回执不能通过。没有题单要求的轮次须显式 `source_results_required: false` 并使用 null 来源参考；若实际执行 LIST/NEXT/SEARCH/DETAILS，仍会失败，不能隐藏中间查题结果。COUNT/STATS 的事实可用该轮普通 assertions 检查。
+
+需要评测最终回答的轮次增加 `answer_rubric`，例如：
+
+```json
+{
+  "schema": "query_answer_v1",
+  "required_basis": "CORPUS",
+  "criteria": [
+    {"id": "goal", "description": "直接回答当前原问的数量和判断，引用当轮统计。"},
+    {"id": "scope", "description": "区分筛选范围、检索候选和全库覆盖，保留未决限制。"}
+  ]
+}
+```
+
+rubric 在采集前作为 gold 冻结；技术解释应另写具体正确性标准。可加 `assertions` 检查实际 observation 的确定性字段。工程检查要求非空 ANSWER、成功终态、主机完成契约及当前 run 的持久最终 ANSWER 一致，引用 ordinal 只能来自本轮已完成读工具；合法的“上轮列题、本轮解释这些题”可使用本轮 ANSWER 重新加载的有来源详情。上述检查不替代技术正确性和目标达成审核。
+
+独立回答审核放在外部 JSON，不能写回预测或由被测模型自报成功。根对象为 `schema: query_answer_reviews_v1`，包含 `dataset_sha256`（`digest(load_dataset(dataset))`）、`predictions_sha256`（预测文件原始字节 hash）及 `reviews` 数组。每条记录格式为：
+
+```json
+{
+  "case_id": "conversation-1",
+  "turn_index": 1,
+  "answer_sha256": "<answer_text 的 UTF-8 字节 SHA256>",
+  "rubric_sha256": "<digest(answer_rubric)>",
+  "reviewer_kind": "agent",
+  "reviewer": "独立审核者",
+  "reviewed_at": "2026-10-25T00:00:00+08:00",
+  "independent": true,
+  "assessments": {
+    "goal": {"passed": true, "evidence_quote": "回答中的逐字片段", "reason": "与冻结参考核对的理由"},
+    "scope": {"passed": null, "evidence_quote": "", "reason": "当前证据尚不足以判断"}
+  }
+}
+```
+
+`turn_index` 从 0 开始。审核绑定完整数据集、原始预测、指定轮次、逐字回答和 rubric；正向判断必须提供回答中的非空逐字片段，负向或未决判断仍须写理由。缺审核或缺 criterion 保持 UNKNOWN，明确否定为 FAIL；失效 hash、重复/越界轮次、非独立审核和虚构引用会拒绝评分。审核者身份是来源声明，hash 绑定不认证其真实性。
+
+suite 的 routing 模块可填写 `answer_reviews: "独立审核.json"`；模块入口也支持 `python -m eval.run --dataset <gold> --section routing --predictions <预测.jsonl> --answer-reviews <审核.json> --split dev`。先采集时可不带审核，报告会保留 UNKNOWN；审核完成后用 stored predictions 和新输出目录重新评分。携带审核的 suite 只接受已有预测，不能给正在采集的请求预填答案审核。已完成报告/检查点不会被补审核静默改写。
+
+报告输出逐轮来源检查与 `answer_quality` 的工程/语义分项，审核文件随报告封存并参与严格复算和恢复指纹；篡改审核即使重写外层 hash 也须重新通过输入绑定及评分。比较还核对每轮的审核覆盖与审核主体类型，补审核不计作模型效果提升。当前评分协议为 `evaluation_scoring_v2`，旧报告须显式历史核查或从原输入新建重评分，不覆盖历史结果。有限已审核题单覆盖仍不是全库召回，未声明 rubric 的旧场景不因此获得回答正确性认证。
 
 ## 2 导出真实快照及待标注工作包
 
@@ -143,7 +225,7 @@ prepare只生成空对齐模板，人工核对后填写pairs/sessions及review�
 ```powershell
 python -m eval.validate_gold --dataset data/gold/v2 --section retrieval
 python -m eval.run --dataset data/gold/v2 --section retrieval --predictions data/reports/retrieval-test.predictions.jsonl --default-pipeline HYBRID_RERANK
-python -m eval.compare eval/sql/results/old-run eval/sql/results/new-run --output data/reports/sql-comparison.json
+python -m eval compare eval/sql/results/old-run eval/sql/results/new-run --output data/reports/sql-comparison.json
 ```
 
 默认 `eval/<section>/results/<unique-run>/` 保存HTML/Markdown摘要、坏案例、逐样本CSV/JSONL、原始预测、配置hash和门槛；采集receipt存在时一并校验与复制。检索额外保存四路消融表。UNKNOWN不能成为任务成功；不同数据hash、snapshot或split不可直接比较。embedding阈值baseline可按相同id/result.label格式导入评分，目前没有候选召回或baseline实验时标明NOT_RUN。

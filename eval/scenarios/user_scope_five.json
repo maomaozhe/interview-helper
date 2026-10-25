@@ -1,0 +1,12 @@
+{
+  "id": "user-scope-five-v2",
+  "guide_version": "user_scope_source_v2",
+  "as_of": "2026-10-16",
+  "cases": [
+    {"id": "s01", "query": "agent工程设计题", "minimum_positive": 5, "expected_plan": {"action": "SEARCH", "relevance_query": "agent工程设计题", "semantic_task": null, "filters.company": null, "filters.question_type": null, "filters.response_form": null, "filters.coding_focus": null}},
+    {"id": "s02", "query": "字节的算法题", "minimum_positive": 5, "required_company": "字节", "expected_plan": {"semantic_task": "ALGORITHM_PROBLEM", "filters.company": "字节", "filters.question_type": null, "filters.response_form": null, "filters.coding_focus": null}},
+    {"id": "s03", "query": "工程场景设计题", "minimum_positive": 10, "minimum_families": 4, "expected_plan": {"action": "SEARCH", "relevance_query": "工程场景设计题", "semantic_task": null, "filters.company": null, "filters.question_type": null, "filters.response_form": null, "filters.coding_focus": null}},
+    {"id": "s04", "query": "redis场景题", "minimum_positive": 5, "expected_plan": {"action": "SEARCH", "relevance_query": "redis场景题", "semantic_task": null, "filters.company": null, "filters.topic_l1": null, "filters.question_type": null, "filters.response_form": null, "filters.coding_focus": null}},
+    {"id": "s05", "query": "mq场景题目", "minimum_positive": 5, "expected_plan": {"action": "SEARCH", "relevance_query": "mq场景题目", "semantic_task": null, "filters.company": null, "filters.topic_l1": null, "filters.question_type": null, "filters.response_form": null, "filters.coding_focus": null}}
+  ]
+}

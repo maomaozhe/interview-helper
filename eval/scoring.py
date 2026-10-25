@@ -65,14 +65,110 @@ def _row(gold, prediction, checks, **scores):
             "checks": checks, "scores": scores, "observation": prediction}
 
 
-def score_query(golds, predictions, *, sql=False):
+def _source_observation(actual, ordinal):
+    """Select a completed receipt by persisted ordinal, never by array position."""
+    if ordinal is None:
+        return actual, True
+    invocations = actual.get("tool_invocations")
+    if not isinstance(invocations, list):
+        return None, None
+    matches = []
+    result = actual.get("result", {})
+    if not isinstance(result, dict) or not isinstance(result.get("meta", {}), dict):
+        return None, False
+    current_meta = result.get("meta", {})
+    current_goal = current_meta.get("user_goal")
+    current_goal = current_goal if isinstance(current_goal, dict) else {}
+    run_id = actual.get("run_id") or current_meta.get("run_id") or current_goal.get("run_id")
+    for invocation in invocations:
+        if not isinstance(invocation, dict):
+            return None, False
+        part = invocation.get("result") or {}
+        if not isinstance(part, dict):
+            return None, False
+        facts = part.get("facts")
+        if not isinstance(facts, dict) or not isinstance(facts.get("meta", {}), dict):
+            return None, False
+        meta = facts.get("meta", {})
+        completion = meta.get("completion")
+        completion = completion if isinstance(completion, dict) else {}
+        receipt_goal = meta.get("user_goal")
+        receipt_goal = receipt_goal if isinstance(receipt_goal, dict) else {}
+        stored = completion.get("tool_ordinal")
+        explicit = invocation.get("ordinal")
+        if ordinal not in (stored, explicit):
+            continue
+        if (any(value is not None and (type(value) is not int or value <= 0) for value in (stored, explicit))
+                or stored is not None and explicit is not None and stored != explicit
+                or invocation.get("status") != "COMPLETED"):
+            return None, False
+        receipt_run = invocation.get("run_id") or meta.get("run_id") or receipt_goal.get("run_id")
+        known_runs = [value for value in (actual.get("run_id"), current_meta.get("run_id"),
+            current_goal.get("run_id"), invocation.get("run_id"), meta.get("run_id"),
+            receipt_goal.get("run_id")) if value is not None]
+        if any(not isinstance(value, str) or not value or value != run_id for value in known_runs):
+            return None, False
+        if run_id is None or receipt_run is None:
+            return None, None
+        if receipt_run != run_id:
+            return None, False
+        action = part.get("intent")
+        planning = part.get("planning", {})
+        if not isinstance(planning, dict) or not isinstance(planning.get("spec", {}), dict):
+            return None, False
+        plan = planning.get("spec", {})
+        if (not isinstance(action, str) or action not in {"LIST", "NEXT", "SEARCH", "DETAILS"}
+                or not isinstance(facts.get("data"), list)
+                or plan.get("action", action) != action
+                or completion.get("tool_action", action) != action):
+            return None, False
+        matches.append({"failed": False, "result": {"rows": facts["data"], "meta": meta,
+                        "plan": part.get("planning", {}).get("spec", {"action": part["intent"]})}})
+    return (matches[0], True) if len(matches) == 1 else (None, False if matches else None)
+
+
+def score_query(golds, predictions, *, sql=False, result_reference=None, answer_reviews=None):
     rows, tool_scores, field_scores, plan_scores, tool_counts, writes = [], [], [], [], [], 0
+    source_turns, answer_turns = [], []
+    answer_reviews = answer_reviews or {}
     for gold, prediction in zip(golds, predictions):
         turns = gold.get("turns", [gold])
         observed = prediction.get("turns", [prediction])
+        require(isinstance(observed, list) and all(isinstance(t, dict) for t in observed), "invalid observed turns")
+        references = None
+        if result_reference is not None:
+            from eval.query_results import source_references_for_case
+            references = source_references_for_case(result_reference["reference"], gold)
+        conversation_contract = (any(t.get("answer_rubric") is not None for t in turns)
+            or result_reference is not None and result_reference["reference"]["schema"] == "source_query_results_v2")
+        case_sources, case_answers = [], []
         checks = [check("turn_count", len(observed) == len(turns), expected=len(turns), actual=len(observed), dimension="process")]
         for index, turn in enumerate(turns):
             actual = observed[index] if index < len(observed) else {"failed": True}
+            require(type(actual.get("failed", False)) is bool, "QUERY_TURN_FAILED_FLAG_INVALID")
+            result = actual.get("result", {})
+            if (not isinstance(result, dict) or not isinstance(result.get("plan", {}), dict)
+                    or not isinstance(result.get("meta", {}), dict)
+                    or "action" in result.get("plan", {}) and not isinstance(result["plan"]["action"], str)):
+                checks.append(check(f"turn{index}.observation_shape", False, dimension="risk"))
+                actual = {**actual, "failed": True, "result": {}}
+            if index and conversation_contract:
+                previous_result = observed[index - 1].get("result", {}) if index <= len(observed) else {}
+                previous_meta = previous_result.get("meta", {}) if isinstance(previous_result, dict) else {}
+                previous_meta = previous_meta if isinstance(previous_meta, dict) else {}
+                current_meta = actual.get("result", {}).get("meta", {})
+                before_id, after_id = previous_meta.get("conversation_id"), current_meta.get("conversation_id")
+                identity = None if before_id is None or after_id is None else (
+                    isinstance(before_id, str) and bool(before_id) and before_id == after_id)
+                checks.append(check(f"turn{index}.conversation_identity", identity, expected=before_id,
+                                    actual=after_id, dimension="risk"))
+                before_version, after_version = (previous_meta.get("conversation_version"),
+                                                  current_meta.get("conversation_version"))
+                progression = None if before_version is None or after_version is None else (
+                    type(before_version) is int and type(after_version) is int and before_version > 0
+                    and after_version == before_version + (0 if turn.get("replay_previous") else 1))
+                checks.append(check(f"turn{index}.conversation_version", progression,
+                                    expected=before_version, actual=after_version, dimension="risk"))
             trace = actual.get("tool_trace", [])
             require(isinstance(trace, list) and all(isinstance(t, dict) and isinstance(t.get("name"), str) for t in trace), "invalid tool trace")
             used = [t["name"] for t in trace]
@@ -103,13 +199,71 @@ def score_query(golds, predictions, *, sql=False):
                 plan_scores.append(int(all(fields)))
             checks.extend({**assertion(rule, actual), "id": f"turn{index}.{rule['id']}"} for rule in turn["assertions"])
             checks.append(check(f"turn{index}.executed", not actual.get("failed"), actual=actual.get("error_code"), dimension="process"))
-        rows.append(_row(gold, prediction, checks))
+            if references is not None:
+                reference = references[index]
+                if reference is not None:
+                    from eval.query_results import score_query_results
+                    evidence, present = _source_observation(actual, reference.get("tool_ordinal"))
+                    prefix = f"turn{index}." if len(turns) > 1 else ""
+                    if evidence is None:
+                        checks.append(check(prefix + "source_results.receipt", present, dimension="risk",
+                                            reason="A completed current-turn receipt with the specified ordinal is required."))
+                        diagnostics = {"roles": {}, "judged_pool_positive_coverage": None,
+                                       "reference_scope": "judged_pool", "receipt_status": "UNKNOWN" if present is None else "FAIL"}
+                    else:
+                        source_checks, diagnostics = score_query_results(reference, evidence, result_reference["rows"])
+                        checks.extend({**c, "id": prefix + c["id"]} for c in source_checks)
+                    case_sources.append({"turn_index": index, **diagnostics})
+                    source_turns.append(diagnostics)
+                else:
+                    invocations = actual.get("tool_invocations", [])
+                    valid = isinstance(invocations, list) and all(isinstance(i, dict)
+                            and isinstance(i.get("result", {}), dict)
+                            and (i.get("result", {}).get("intent") is None
+                                 or isinstance(i["result"]["intent"], str)) for i in invocations)
+                    internal_lists = [i.get("result", {}).get("intent") for i in invocations
+                                      if i.get("status") == "COMPLETED"] if valid else []
+                    checks.append(check(f"turn{index}.source_results.not_requested",
+                        valid and not ({plan.get("action"), *internal_lists} & {"LIST", "NEXT", "SEARCH", "DETAILS"}),
+                        actual=plan.get("action"), reason="An unreferenced turn cannot silently return a question list."))
+            if turn.get("answer_rubric") is not None:
+                from eval.answer_quality import score_answer
+                answer_checks, diagnostics = score_answer(turn, actual, review=answer_reviews.get((gold["id"], index)))
+                checks.extend({**c, "id": f"turn{index}." + c["id"]} for c in answer_checks)
+                case_answers.append({"turn_index": index, **diagnostics})
+                answer_turns.append(diagnostics)
+        source_scores = {}
+        if len(case_sources) == 1:
+            source_scores = {key: value for key, value in case_sources[0].items() if key != "turn_index"}
+        elif case_sources:
+            coverage = [s["judged_pool_positive_coverage"] for s in case_sources]
+            source_scores = {"turns": case_sources, "reference_scope": "judged_pool",
+                "roles": dict(sum((Counter(s["roles"]) for s in case_sources), Counter())),
+                "judged_pool_positive_coverage": mean(coverage) if all(v is not None for v in coverage) else None}
+        scores = {"source_results": source_scores} if source_scores else {}
+        if case_answers:
+            scores["answer_quality"] = {"turns": case_answers}
+        rows.append(_row(gold, prediction, checks, **scores))
     metrics = {"task_success_rate": mean(r["status"] == "PASS" for r in rows) if rows else None,
                "evaluated_queries": len(rows), "tool_selection_accuracy": mean(tool_scores) if tool_scores else None,
                "argument_accuracy": mean(field_scores) if field_scores else None,
                "argument_fields": len(field_scores), "complete_plan_accuracy": mean(plan_scores) if plan_scores else None,
                "unauthorized_write_count": writes, "mean_tool_calls": mean(tool_counts) if tool_counts else None,
                "unknown_assertions": sum(c["status"] == "UNKNOWN" for r in rows for c in r["checks"])}
+    if result_reference is not None:
+        metrics["source_results"] = {
+            "reference_scope": "judged_pool", "cases": len(rows), "evaluated_turns": len(source_turns),
+            "returned_roles": dict(sum((Counter(s["roles"]) for s in source_turns), Counter())),
+            "mean_judged_pool_positive_coverage": mean(
+                s["judged_pool_positive_coverage"] for s in source_turns) if source_turns and all(
+                    s["judged_pool_positive_coverage"] is not None for s in source_turns) else None,
+            "note": "Coverage of reviewed positive canonicals only; unreviewed results are UNKNOWN, not negatives. Not corpus recall."}
+    if answer_turns:
+        metrics["answer_quality"] = {"evaluated_turns": len(answer_turns),
+            "engineering_pass_rate": mean(a["engineering_status"] == "PASS" for a in answer_turns),
+            "semantic_pass_rate": mean(a["semantic_status"] == "PASS" for a in answer_turns),
+            "unknown_semantic_turns": sum(a["semantic_status"] == "UNKNOWN" for a in answer_turns),
+            "scope": "Declared answer rubrics and independent assessments only; not unmeasured corpus or answer quality."}
     return metrics, rows
 
 

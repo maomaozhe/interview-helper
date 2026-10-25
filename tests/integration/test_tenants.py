@@ -67,6 +67,7 @@ def test_auth_session_tamper_revoke_csrf_and_credential_validation(setup):
     assert client.get("/api/conversations", headers={"X-Tenant-ID": "local", "X-User-ID": "local"}).status_code == 401
     identifier = register(client)
     cookie = client.cookies.get(TENANT_COOKIE)
+    cookie_slot = next(item for item in client.cookies.jar if item.name == TENANT_COOKIE)
     assert "account-secret-password" not in cookie
     assert client.get("/api/account").json()["data"]["tenant_id"] == identifier
     forbidden = client.patch("/api/account/model", headers={**ACTION, "Origin": "https://evil.example"},
@@ -77,11 +78,12 @@ def test_auth_session_tamper_revoke_csrf_and_credential_validation(setup):
     assert malformed.status_code == 422 and "private-key" not in malformed.text
     assert malformed.json() == {"error": {"code": "VALIDATION_ERROR",
         "message": "invalid credentials or configuration request", "retryable": False}}
-    client.cookies.set(TENANT_COOKIE, cookie[:-4] + "aaaa")
+    # Replace the host-scoped cookie so the valid original is not also sent.
+    client.cookies.set(TENANT_COOKIE, cookie[:-4] + "aaaa", domain=cookie_slot.domain, path=cookie_slot.path)
     assert client.get("/api/account").json()["data"]["authenticated"] is False
-    client.cookies.set(TENANT_COOKIE, cookie)
+    client.cookies.set(TENANT_COOKIE, cookie, domain=cookie_slot.domain, path=cookie_slot.path)
     assert client.post("/api/account/logout", headers=ACTION).status_code == 200
-    client.cookies.set(TENANT_COOKIE, cookie)
+    client.cookies.set(TENANT_COOKIE, cookie, domain=cookie_slot.domain, path=cookie_slot.path)
     assert client.get("/api/account").json()["data"]["authenticated"] is False
 
 
@@ -203,7 +205,8 @@ def test_gateway_routes_real_tenant_events_default_and_personal_without_global_f
     import interview_intelligence.agent.model_gateway as gateway_module
     sent = []
     original = httpx.AsyncClient
-    plan = QuerySpec(action="LIST").model_dump(mode="json")
+    plan = QuerySpec(action="LIST", user_goal={"objective": "列出题目",
+        "response_mode": "DIRECT_RESULT"}).model_dump(mode="json")
     def provider(request):
         sent.append((str(request.url), request.headers["authorization"], json.loads(request.content)["model"]))
         if sent[-1][2] == "own-fail":

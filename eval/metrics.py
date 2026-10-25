@@ -91,13 +91,17 @@ def routing_metrics(samples):
 
 
 def efficiency(rows):
+    def valid_tokens(value):
+        return type(value) is int and value >= 0
+
     def percentile(values, fraction):
         values = sorted(values)
         return values[max(0, math.ceil(len(values) * fraction) - 1)] if values else None
     timings = [r["elapsed_ms"] for r in rows if type(r.get("elapsed_ms")) in {int, float} and math.isfinite(r["elapsed_ms"]) and r["elapsed_ms"] >= 0]
     usages = [call for r in rows for call in r.get("model_calls", [])]
-    known = [call for call in usages if type(call.get("input_tokens")) is int
-             and (type(call.get("output_tokens")) is int or call.get("operation_type") == "EMBEDDING")]
+    known = [call for call in usages if valid_tokens(call.get("input_tokens"))
+             and (valid_tokens(call.get("output_tokens"))
+                  or call.get("operation_type") == "EMBEDDING" and call.get("output_tokens") is None)]
     unavailable = sum("model_calls" not in r or bool(r.get("telemetry_unavailable")) for r in rows)
     phases = {k: percentile([r.get("timings", {}).get(k) for r in rows
               if type(r.get("timings", {}).get(k)) in {int, float} and math.isfinite(r["timings"][k]) and r["timings"][k] >= 0], .95)
@@ -107,6 +111,6 @@ def efficiency(rows):
             "failed_samples": sum(bool(r.get("failed")) for r in rows),
             "model_calls": None if unavailable else len(usages), "observed_model_calls": len(usages),
             "telemetry_unavailable_samples": unavailable, "unknown_usage_calls": len(usages) - len(known),
-            "input_tokens_known": sum(c["input_tokens"] for c in usages if type(c.get("input_tokens")) is int),
-            "output_tokens_known": sum(c["output_tokens"] for c in usages if type(c.get("output_tokens")) is int),
+            "input_tokens_known": sum(c["input_tokens"] for c in usages if valid_tokens(c.get("input_tokens"))),
+            "output_tokens_known": sum(c["output_tokens"] for c in usages if valid_tokens(c.get("output_tokens"))),
             "estimated_cost": None, "phase_p95_ms": phases}

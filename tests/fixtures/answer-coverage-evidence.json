@@ -1,0 +1,78 @@
+{
+  "cases": [
+    {
+      "id": "verified-candidate-pool-is-not-a-corpus-total",
+      "meta": {
+        "route": "SEARCH", "candidate_count": 50, "eligible_count": 80, "returned_count": 4,
+        "candidate_verification_status": "COMPLETE",
+        "result_completeness": {
+          "scope": "retrieval_candidates", "corpus_complete": false, "verification_complete": true,
+          "candidate_count": 50, "eligible_count": 80, "returned_count": 4,
+          "invalid_candidate_count": 0, "invalid_evidence_count": 0, "invalid_schema_count": 0,
+          "page_cutoff_count": 0
+        }
+      }
+    },
+    {
+      "id": "partial-verification-and-page-cutoff",
+      "meta": {
+        "route": "SEARCH", "candidate_count": 50, "eligible_count": 80, "returned_count": 4,
+        "candidate_verification_status": "PARTIAL", "invalid_candidate_count": 3,
+        "invalid_evidence_count": 2, "invalid_schema_count": 1,
+        "result_completeness": {
+          "scope": "retrieval_candidates", "corpus_complete": false, "verification_complete": false,
+          "candidate_count": 50, "eligible_count": 80, "returned_count": 4,
+          "invalid_candidate_count": 3, "invalid_evidence_count": 2, "invalid_schema_count": 1,
+          "page_cutoff_count": 2
+        }
+      }
+    },
+    {
+      "id": "zero-retrieval-results-do-not-prove-empty-corpus",
+      "meta": {
+        "route": "SEARCH", "candidate_count": 50, "eligible_count": 80, "returned_count": 0,
+        "candidate_verification_status": "PARTIAL",
+        "result_completeness": {
+          "scope": "retrieval_candidates", "corpus_complete": false, "verification_complete": false,
+          "candidate_count": 50, "eligible_count": 80, "returned_count": 0
+        }
+      }
+    },
+    {
+      "id": "proven-empty-sql-scope",
+      "meta": {
+        "route": "SEARCH", "candidate_count": 0, "eligible_count": 0, "returned_count": 0,
+        "verification_basis": "empty_sql_scope",
+        "result_completeness": {
+          "scope": "empty_sql_scope", "corpus_complete": true, "verification_complete": true,
+          "candidate_count": 0, "eligible_count": 0, "returned_count": 0,
+          "invalid_candidate_count": 0, "invalid_evidence_count": 0, "invalid_schema_count": 0,
+          "page_cutoff_count": 0
+        }
+      }
+    },
+    {
+      "id": "unprocessed-workset-members-remain-unknown",
+      "meta": {
+        "route": "SEARCH", "returned_count": 13,
+        "result_completeness": {
+          "scope": "engineering_candidate_workset", "corpus_complete": false,
+          "candidate_universe_complete": true, "verification_complete": false,
+          "business_count_complete": false, "candidate_count": 320, "processed_count": 20,
+          "unprocessed_count": 300, "confirmed_count": 8, "pending_count": 5,
+          "excluded_count": 7, "returned_count": 13
+        }
+      }
+    },
+    {
+      "id": "authorized-workset-pending-membership",
+      "meta": {
+        "route": "SEARCH", "returned_count": 13,
+        "result_completeness": {
+          "complete": false, "reason": "candidate_workset_pending",
+          "candidate_universe_complete": true, "business_membership_complete": false
+        }
+      }
+    }
+  ]
+}

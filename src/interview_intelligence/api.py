@@ -26,7 +26,8 @@ from interview_intelligence.analytics.stats import query_question_stats
 from interview_intelligence.analytics.scope import sign_scope, verify_scope
 from interview_intelligence.agent.service import AgentService
 from interview_intelligence.agent.planner import SearchPlanner
-from interview_intelligence.agent.query_contract import QueryRequest, QuerySpec, ListQueryRequest, StructuredQueryRequest, TOOL_ACTIONS, QUERY_AGENT_VERSION, query_model_schema, validate_model_plan
+from interview_intelligence.agent.query_contract import QueryRequest, QuerySpec, ListQueryRequest, StructuredQueryRequest, TOOL_ACTIONS, QUERY_AGENT_VERSION, QUERY_MODEL_SCHEMA_VERSION, QUERY_PI_TOOL_WIRE_VERSION, query_model_schema, validate_model_plan
+from interview_intelligence.agent.goal_contract import restore_completion
 from interview_intelligence.agent.query_service import QueryService, QueryRun
 from interview_intelligence.agent.model_gateway import ModelGateway, completion_sse
 from interview_intelligence.agent.jev import JevPlanner
@@ -34,9 +35,9 @@ from interview_intelligence.agent.preferences import PreferenceUpdate
 from interview_intelligence.agent.feedback_memory import MemoryUpdate
 from interview_intelligence.agent.history import ConversationHistory
 from interview_intelligence.agent.annotation_review import AnnotationReviewer,AnnotationReview,AnnotationPublish
-from interview_intelligence.analytics.listing import ListRequest, list_questions
+from interview_intelligence.analytics.listing import ListRequest, StatsListRequest, list_questions
 from interview_intelligence.analytics.usage import UsageRequest, question_usage, question_usage_states, record_usage
-from interview_intelligence.providers.runtime import current_limits
+from interview_intelligence.providers.runtime import RequestLimits, current_limits
 from interview_intelligence.config import Settings, load_settings, resolve_corpus_document, discover_corpus_documents, validate_backend_model_endpoint, validate_model_preflight
 from interview_intelligence.contracts import FilterSpec, ReviewRequest, StatsRequest, StrictModel
 from interview_intelligence.domain.models import (
@@ -51,6 +52,7 @@ from interview_intelligence.providers.budget import CallBudget
 from interview_intelligence.providers.gate import ModelCallGate
 from interview_intelligence.ingestion.snapshot import decode_source
 from interview_intelligence.search.service import search_questions
+from interview_intelligence.search.completeness import search_completeness, partial_verification_warning
 from interview_intelligence.taxonomy import load_taxonomy
 from interview_intelligence.web import register_web
 from interview_intelligence.resources import resource_path
@@ -87,6 +89,11 @@ class SearchRequest(FilterSpec):
     top_k: int = Field(default=10, ge=1, le=50)
     pipeline: Literal["BM25", "DENSE", "HYBRID", "HYBRID_RERANK"] = "HYBRID_RERANK"
     usage_purpose: Literal["practice", "evaluation"] = "practice"
+
+
+class OccurrenceRequest(FilterSpec):
+    offset: int = Field(default=0, ge=0)
+    limit: int = Field(default=20, ge=1, le=100)
 
 
 def _request_id(request: Request) -> str:
@@ -201,6 +208,9 @@ def create_app(database=None, settings: Settings | None = None, retriever=None, 
                                  task_annotation_policy=settings.task_annotation_policy,
                                  compact_context=settings.query_compact_context,
                                  dynamic_tools=settings.query_dynamic_tools,
+                                 max_planning_calls=settings.query_max_model_calls,
+                                 max_total_model_calls=settings.query_max_total_model_calls,
+                                 collection_selection_threshold=settings.query_collection_selection_threshold,
                                  prompt_version=settings.query_prompt_version,
                                  feedback_root=settings.snapshot_root.parent / "feedback"))
     agent_service = ScopedService(settings, lambda identifier: AgentService(database,
@@ -275,6 +285,7 @@ def create_app(database=None, settings: Settings | None = None, retriever=None, 
         async def work():
             if run.resume.get("write_done"):
                 run.result,run.state,run.terminal=run.resume["result"],run.resume["state"],True
+                restore_completion(run, run.result)
                 return await asyncio.to_thread(query_service.finish,run,provider="recovered_receipt")
             if run.resume.get("write"):
                 run.tool_calls=run.resume["write_ordinal"]-1
@@ -284,17 +295,33 @@ def create_app(database=None, settings: Settings | None = None, retriever=None, 
                 return await asyncio.to_thread(query_service.finish,run,provider="recovered_read")
             if isinstance(payload, StructuredQueryRequest):
                 params = payload.list_request
-                plan = QuerySpec(action="LIST", filters=payload.filters, sort=params.sort,
+                plan = QuerySpec(action="STATS" if isinstance(params, StatsListRequest) else "LIST",
+                    semantic_task=params.semantic_task, filters=payload.filters, sort=params.sort,
+                    group_by=getattr(params, "group_by", "question"), topic_level=getattr(params, "topic_level", "L1"),
                     top_n=params.top_n, page_size=params.page_size,review_statuses=params.review_statuses,
                     review_order=params.review_order)
-                await asyncio.to_thread(query_service.execute, run, "list_questions", plan)
+                await asyncio.to_thread(query_service.execute, run,
+                    "get_question_stats" if plan.action == "STATS" else "list_questions", plan)
                 return await asyncio.to_thread(query_service.finish, run, provider="structured_sql",
                     timings={"decision_ms": 0, "total_ms": int((time.perf_counter() - started) * 1000),
                              "model_attempts": 0, **run.call_timings})
+            # Typed/legacy adapters retain collection shortcuts. Modern natural
+            # language declares its response goal before selecting evidence.
+            collection_plan = (None if settings.query_prompt_version == "query_agent_v16" else
+                               query_service.complete_collection_plan(run))
+            if collection_plan is not None:
+                tool = {"COUNT": "get_question_count", "SEARCH": "search_questions"}.get(
+                    collection_plan.action, "list_questions")
+                await asyncio.to_thread(query_service.execute, run, tool, collection_plan)
+                if run.terminal:
+                    return await asyncio.to_thread(query_service.finish, run,
+                        provider="host_semantic_candidates" if run.state.get("relevance_scope") else "audited_collection_sql",
+                        timings={"decision_ms": 0, "total_ms": int((time.perf_counter() - started) * 1000),
+                                 "model_attempts": run.limits.calls, **run.call_timings})
             context = await asyncio.to_thread(query_service.model_context, run)
             plan_started = time.perf_counter()
             selected_jev = jev if not settings.multi_tenant_enabled else None
-            plan = await asyncio.to_thread(selected_jev.plan, run, context) if selected_jev else None
+            plan = await asyncio.to_thread(selected_jev.plan, run, context) if selected_jev and settings.query_prompt_version != "query_agent_v16" else None
             if selected_jev and settings.jev_decision_mode == "shadow":
                 run.decision["candidate_spec"] = plan.model_dump(mode="json") if plan else None
                 plan = None
@@ -308,12 +335,21 @@ def create_app(database=None, settings: Settings | None = None, retriever=None, 
             elif plan is None and settings.pi_agent_enabled:
                 if not settings.internal_agent_token:
                     raise ValueError("MODEL_CONFIGURATION_INCOMPLETE")
+                wire = ({"tool_wire_version": QUERY_PI_TOOL_WIRE_VERSION}
+                        if settings.query_prompt_version == "query_agent_v16" else {})
+                run.model_wire_version = wire.get("tool_wire_version")
+                await asyncio.to_thread(query_service.journal.event, run.id, "model_wire", {
+                    "version": wire.get("tool_wire_version", "domain_tools_v1"), "runtime": "pi",
+                    "query_schema": QUERY_MODEL_SCHEMA_VERSION, "prompt_version": settings.query_prompt_version})
                 try:
                     async with httpx.AsyncClient(timeout=settings.query_deadline_seconds, trust_env=False) as client:
                         response = await client.post(settings.pi_agent_url.rstrip("/") + "/run",
                         headers={"Authorization": f"Bearer {settings.internal_agent_token}"},
                         json={"run_id": run.id, "conversation_id": run.conversation_id, "context": context,
-                              "schema": query_model_schema(),
+                              **wire,
+                              "schema": query_model_schema(require_user_goal=settings.query_prompt_version == "query_agent_v16"),
+                              "max_model_calls": max(0, min(settings.query_max_model_calls - run.model_calls,
+                                  run.limits.max_calls - run.limits.calls)),
                               "prompt": resource_path(f"prompts/{settings.query_prompt_version}.md").read_text(encoding="utf-8"),
                               "timeout_ms": int(max(0.01, run.limits.deadline - time.monotonic()) * 1000)})
                         response.raise_for_status()
@@ -337,8 +373,14 @@ def create_app(database=None, settings: Settings | None = None, retriever=None, 
             while plan:
                 name = next(name for name, actions in TOOL_ACTIONS.items() if plan.action in actions)
                 await asyncio.to_thread(query_service.execute, run, name, plan)
-                if plan.final: break
-                plan=await gateway.plan(run,await asyncio.to_thread(query_service.model_context,run))
+                if run.terminal: break
+                if query_planner:
+                    plan=query_planner.plan(run,await asyncio.to_thread(query_service.model_context,run))
+                    if hasattr(plan, "__await__"):
+                        plan=await plan
+                    plan=QuerySpec.model_validate(plan)
+                else:
+                    plan=await gateway.plan(run,await asyncio.to_thread(query_service.model_context,run))
             if run.decision:
                 run.result["planning"]["decision"] = run.decision
             if provider == "pi":
@@ -378,7 +420,7 @@ def create_app(database=None, settings: Settings | None = None, retriever=None, 
         async def streaming():
             from interview_intelligence.agent.presentation import AnswerStream, ClarificationStream
             presentation = ClarificationStream()
-            answers = AnswerStream()
+            answers = AnswerStream(query_step=getattr(run, "model_wire_version", None) == QUERY_PI_TOOL_WIRE_VERSION)
             queue=asyncio.Queue(maxsize=32)
             async def emit(chunk):
                 question = presentation.update(chunk)
@@ -426,7 +468,7 @@ def create_app(database=None, settings: Settings | None = None, retriever=None, 
     @app.post("/internal/agent/runs/{run_id}/tools/{tool_name}")
     async def pi_tool(request: Request, run_id: str, tool_name: str):
         run = internal_run(request, run_id)
-        plan = validate_model_plan(await request.json())
+        plan = validate_model_plan(await request.json(), require_user_goal=settings.query_prompt_version == "query_agent_v16")
         trace_token = model_request_id.set(run.request.request_id)
         run_token = query_run_context.set(run)
         try:
@@ -626,6 +668,11 @@ def create_app(database=None, settings: Settings | None = None, retriever=None, 
                     "index": "ready" if retriever and state.current_revision > 0 and state.indexed_revision == state.current_revision else "not_ready",
                     "model_max_in_flight": 1,
                     "model_min_interval_seconds": settings.model_min_interval_seconds,
+                    "query_request_limits": {"max_planning_calls": settings.query_max_model_calls,
+                        "max_model_calls": settings.query_max_total_model_calls, "max_tool_calls": 8,
+                        "max_tokens": settings.query_max_tokens, "deadline_seconds": settings.query_deadline_seconds},
+                    "search_request_limits": {"version": "public_search_limits_v1", "max_model_calls": settings.query_max_total_model_calls,
+                        "max_tokens": settings.query_max_tokens, "deadline_seconds": settings.query_deadline_seconds},
                     "query_router_enabled": settings.query_router_enabled or query_planner is not None,
                     "task_filters_enabled":settings.task_filters_enabled,
                     "task_annotation_policy":settings.task_annotation_policy,
@@ -689,6 +736,19 @@ def create_app(database=None, settings: Settings | None = None, retriever=None, 
 
     @app.get("/api/questions/search")
     def question_search(request: Request, params: Annotated[SearchRequest, Query()]):
+        # External tool callers use this route without a QueryRun. Keep the
+        # same per-request provider limits rather than relying on a process's
+        # long-lived budget alone. The synchronous call owns cleanup; a client
+        # timeout must not leave an unaccounted background retry.
+        limits = RequestLimits(time.monotonic() + settings.query_deadline_seconds,
+                               max_calls=settings.query_max_total_model_calls, max_tokens=settings.query_max_tokens)
+        token = current_limits.set(limits)
+        try:
+            return execute_question_search(request, params)
+        finally:
+            current_limits.reset(token)
+
+    def execute_question_search(request: Request, params: SearchRequest):
         # FastAPI supplies query-model defaults as fields. Presence in the
         # URL, rather than Pydantic fields_set, establishes an explicit choice.
         params = _with_usage_purpose(request, params, explicit="usage_purpose" in request.query_params)
@@ -727,9 +787,18 @@ def create_app(database=None, settings: Settings | None = None, retriever=None, 
             with database.session() as latest:
                 current = latest.get(CorpusState, 1)
                 if (current.current_revision, current.indexed_revision) == revision:
+                    if (result["meta"].get("rerank_status") == "COMPLETED_PARTIAL"
+                            and result["meta"].get("invalid_candidate_count", 0) > 0
+                            and not result["data"]):
+                        raise ValueError("QUERY_RELEVANCE_UNAVAILABLE")
                     usage_meta = {**result["meta"], "corpus_revision": revision[0], "indexed_revision": revision[1],
                         "relevance_status": "VERIFIED" if result["meta"].get("rerank_status") in {
                             "COMPLETED", "COMPLETED_PARTIAL"} else "UNVERIFIED"}
+                    result["meta"]["result_completeness"] = search_completeness(usage_meta, len(result["data"]))
+                    warnings.append("本次结果来自检索候选，不代表题库全部匹配题。")
+                    if (result["meta"].get("candidate_verification_status") == "PARTIAL"
+                            and result["meta"].get("invalid_candidate_count", 0) > 0):
+                        warnings.append(partial_verification_warning(result["meta"]))
                     record_usage(latest, user_id=tenant_user_id(settings), request_key="search:" + str(uuid4()),
                         parts=[{"intent": "SEARCH", "facts": {**result, "meta": usage_meta}}],
                         source="SEARCH_API", purpose=params.usage_purpose)
@@ -737,17 +806,28 @@ def create_app(database=None, settings: Settings | None = None, retriever=None, 
                     return _response(request, database, result["data"], filters=filters,
                                      extra={**result["meta"], "requested_pipeline": pipeline,
                                             "executed_pipeline": executed,
-                                            "degraded": executed != pipeline}, warnings=warnings)
+                                            "degraded": executed != pipeline,
+                                            "relevance_status": usage_meta["relevance_status"],
+                                            "request_budget": {
+                                                "max_model_calls": current_limits.get().max_calls,
+                                                "charged_model_calls": current_limits.get().calls,
+                                                "max_tokens": current_limits.get().max_tokens,
+                                                "charged_tokens": current_limits.get().tokens,
+                                                "token_charge_basis": "CONSERVATIVE_RESERVATIONS"}}, warnings=warnings)
         raise ValueError("SNAPSHOT_CHANGED")
 
     @app.get("/api/questions/{canonical_id}/occurrences")
     def question_occurrences(request: Request, canonical_id: str,
-                             filters: Annotated[FilterSpec, Query()],
-                             offset: int = Query(0, ge=0), limit: int = Query(20, ge=1, le=100)):
+                             params: Annotated[OccurrenceRequest, Query()]):
+        # FastAPI flattens a query model only when it owns all query fields.
+        # Separate offset/limit parameters made `filters` a required object and
+        # rejected the documented flat company/round filters with HTTP 422.
+        filters = FilterSpec.model_validate(params.model_dump(exclude={"offset", "limit"}))
         with database.session() as session:
             if session.get(CanonicalQuestion, canonical_id) is None:
                 raise KeyError("QUESTION_NOT_FOUND")
-            result = list_occurrences(session, filters, canonical_id=canonical_id, offset=offset, limit=limit)
+            result = list_occurrences(session, filters, canonical_id=canonical_id,
+                                      offset=params.offset, limit=params.limit)
         return _response(request, database, result["data"], filters=filters,
                          extra={"pagination": {"total": result["total"], "next_offset": result["next_offset"]}})
 

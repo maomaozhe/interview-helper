@@ -5,15 +5,20 @@ from pydantic import Field, model_validator
 
 from interview_intelligence.contracts import FilterSpec, ReviewItem, StrictModel, QuestionType
 from interview_intelligence.analytics.listing import ListRequest, StatsListRequest
+from interview_intelligence.analytics.semantic_scope import SemanticTask
 from interview_intelligence.agent.tool_definitions import ACTION_REQUIRED_FIELDS, COMMON_REQUIRED, TOOL_ACTIONS
+from interview_intelligence.agent.goal_contract import UserGoal
 
 
-QUERY_AGENT_VERSION = "query_agent_v13"
+QUERY_AGENT_VERSION = "query_agent_v16"
+QUERY_MODEL_SCHEMA_VERSION = "QuerySpec_v3"
+QUERY_PI_TOOL_WIRE_VERSION = "query_step_v1"
 
 
 class QuerySpec(StrictModel):
     action: Literal["LIST", "COUNT", "STATS", "SEARCH", "DETAILS", "ANSWER", "REVIEW_STATE", "RECORD_REVIEW", "CLARIFY", "NEXT"]
-    semantic_task: Literal["ALGORITHM_PROBLEM"] | None = None
+    user_goal: UserGoal | None = None
+    semantic_task: SemanticTask | None = None
     filters: FilterSpec = Field(default_factory=FilterSpec)
     sort: Literal["frequency", "importance", "gap"] = "frequency"
     top_n: int | None = Field(default=None, ge=1, le=1000)
@@ -29,6 +34,7 @@ class QuerySpec(StrictModel):
     answer_text: str | None = Field(default=None, min_length=1, max_length=12000)
     answer_kind: Literal["EXPLAIN", "COMPARE", "SOLVE", "STUDY_PLAN", "CHAT"] = "EXPLAIN"
     answer_basis: Literal["GENERAL_KNOWLEDGE", "CORPUS", "MIXED"] = "GENERAL_KNOWLEDGE"
+    evidence_tool_ordinals: list[Annotated[int, Field(strict=True, ge=1, le=8)]] = Field(default_factory=list, max_length=8)
     review_items: list[ReviewItem] = Field(default_factory=list, max_length=100)
     review_statuses: list[Literal["UNSEEN","WEAK","REVIEWED","MASTERED"]] = Field(default_factory=list,max_length=4)
     review_order: Literal["BEFORE_TOP_N","AFTER_TOP_N"] = "BEFORE_TOP_N"
@@ -39,9 +45,13 @@ class QuerySpec(StrictModel):
 
     @model_validator(mode="after")
     def validate_action(self):
+        if self.action != "ANSWER" and self.evidence_tool_ordinals:
+            raise ValueError("tool evidence references require ANSWER")
+        if len(self.evidence_tool_ordinals) != len(set(self.evidence_tool_ordinals)):
+            raise ValueError("duplicate tool evidence reference")
         if self.semantic_task and self.action not in {"LIST", "NEXT", "COUNT", "STATS"}:
             raise ValueError("SEMANTIC_SCOPE_ACTION_CONFLICT")
-        if self.semantic_task and (self.filters.coding_focus or self.filters.annotation_status):
+        if self.semantic_task == "ALGORITHM_PROBLEM" and (self.filters.coding_focus or self.filters.annotation_status):
             raise ValueError("SEMANTIC_SCOPE_LEGACY_TASK_FILTER_CONFLICT")
         if self.action == "COUNT" and self.top_n is not None:
             raise ValueError("count requires top_n=null; use LIST pagination.result_total for a Top N set")
@@ -85,11 +95,30 @@ class QuerySpec(StrictModel):
         return self
 
 
-def query_model_schema(tool_policy=None):
+def query_model_schema(tool_policy=None, *, require_user_goal=False):
     """Require explicit scope from a model; host/UI contracts keep their defaults."""
     schema = QuerySpec.model_json_schema()
     schema["required"] = list(COMMON_REQUIRED)
+    if require_user_goal:
+        schema["required"].append("user_goal")
+        schema["properties"]["user_goal"] = {"$ref": "#/$defs/UserGoal"}
     schema["$defs"]["FilterSpec"]["required"] = list(FilterSpec.model_fields)
+    schema["properties"]["semantic_task"]["description"] = (
+        "Only LIST/NEXT/COUNT/STATS may select an audited SQL semantic collection. "
+        "SEARCH must set semantic_task=null; its clarified meaning is bound separately by the host.")
+    # Pydantic's after-validator is not represented in its generated schema.
+    # Expose the same mutually exclusive routes to the Python JSON planner as
+    # the action-specific Pi tools, while retaining strict host validation.
+    schema["allOf"] = [
+        {"if": {"properties": {"action": {"not": {"enum": ["LIST", "NEXT", "COUNT", "STATS"]}}},
+                "required": ["action"]},
+         "then": {"properties": {"semantic_task": {"type": "null"}}}},
+        {"if": {"properties": {"action": {"const": "SEARCH"}}, "required": ["action"]},
+         "then": {"properties": {"top_n": {"type": "null"},
+                    "page_size": {"type": "integer", "minimum": 1, "maximum": 50},
+                    "search_query": {"type": "string", "minLength": 1, "maxLength": 500}},
+                  "required": ["search_query"]}},
+    ]
     if tool_policy is not None:
         allowed = {action for name, actions in tool_policy["allowed_actions"].items()
                    for action in actions if action in TOOL_ACTIONS.get(name, ())}
@@ -97,16 +126,20 @@ def query_model_schema(tool_policy=None):
     return schema
 
 
-def validate_model_plan(payload):
+def validate_model_plan(payload, *, require_user_goal=False):
     if not isinstance(payload, dict):
         raise ValueError("QUERY_PLAN_INCOMPLETE: provide a complete query object")
     required = set(COMMON_REQUIRED)
+    if require_user_goal:
+        required.add("user_goal")
     required.update(ACTION_REQUIRED_FIELDS.get(payload.get("action"), ()))
     missing = required - payload.keys()
     if isinstance(payload.get("filters"), dict):
         missing.update("filters." + k for k in FilterSpec.model_fields if k not in payload["filters"])
     if missing:
         raise ValueError("QUERY_PLAN_INCOMPLETE: explicitly provide " + ", ".join(sorted(missing)))
+    if require_user_goal and payload.get("user_goal") is None:
+        raise ValueError("QUERY_PLAN_INCOMPLETE: user_goal must describe the current request")
     return QuerySpec.model_validate(payload)
 
 

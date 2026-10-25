@@ -9,7 +9,7 @@ import threading
 import time
 from contextlib import contextmanager
 from pathlib import Path
-from interview_intelligence.providers.runtime import current_limits
+from interview_intelligence.providers.runtime import current_limits, check_model_call_deadline
 
 
 _THREAD_LOCKS: dict[str, threading.Lock] = {}
@@ -34,27 +34,31 @@ class ModelCallGate:
 
     @contextmanager
     def call(self):
+        check_model_call_deadline()
         limits = current_limits.get()
         if limits:
             limits.attempt()
         started = time.perf_counter()
         timings = {"queue_ms": 0, "interval_ms": 0}
         def check():
-            if limits:
-                limits.check()
+            check_model_call_deadline()
         self.lock_path.parent.mkdir(parents=True, exist_ok=True)
         while not self._thread_lock.acquire(timeout=0.05):
             check()
         try:
             check()
             for attempt in range(5):
+                check()
                 try:
                     descriptor = os.open(self.lock_path, os.O_RDWR | os.O_CREAT, 0o600)
                     break
                 except PermissionError:
                     if attempt == 4:
                         raise
-                    time.sleep(0.2 * 2 ** attempt)
+                    until = time.monotonic() + 0.2 * 2 ** attempt
+                    while time.monotonic() < until:
+                        check()
+                        time.sleep(min(0.05, max(0, until - time.monotonic())))
             with os.fdopen(descriptor, "r+b") as lock_file:
                 self._acquire(lock_file, check)
                 try:

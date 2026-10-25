@@ -86,8 +86,9 @@ class AnswerStream:
     characters. These are temporary projections; only a checked tool result
     establishes a completed answer.
     """
-    def __init__(self, *, content_json=False):
+    def __init__(self, *, content_json=False, query_step=False):
         self.content_json = content_json
+        self.query_step = query_step
         self.arguments, self.names, self.last_text = {}, {}, {}
 
     def update(self, chunk):
@@ -112,7 +113,9 @@ class AnswerStream:
                 # A named ANSWER tool may put answer_text before action. Other
                 # tools and free-text reasoning must never become an answer.
                 known_answer = not self.content_json and self.names[index] == "answer_question"
-                if (self.names[index] and not known_answer or
+                wrapped_answer = (self.query_step and not self.content_json and
+                    self.names[index] == "query_step" and fields.get("action") == "ANSWER")
+                if (self.names[index] and not known_answer and not wrapped_answer or
                         fields.get("action") not in ({None, "ANSWER"} if known_answer else {"ANSWER"})):
                     continue
                 answer = fields.get("answer_text")

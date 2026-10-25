@@ -9,7 +9,7 @@ from eval.prepare import draft
 from eval.run import run_section
 
 
-def demo(output: Path):
+def prepare_demo(output: Path):
     output.mkdir(parents=True, exist_ok=False)
     root = output / "fixture"
     root.mkdir()
@@ -50,15 +50,43 @@ def demo(output: Path):
         "routing": [{"id": "routing", "task_success": True, "tool_trace": [{"name": "list_questions"}], "result": {"plan": {"top_n": 20}, "rows": [1]}}],
         "sql": [{"id": "sql", "model_calls": [], "result": {"rows": [{"canonical_question_id": "c1"}, {"canonical_question_id": "c2"}]}}]}
     write_jsonl(root / "alignments.jsonl", [alignment])
-    reports = {}
     for section in SECTIONS:
         file = root / (section + ".predictions.jsonl")
         write_jsonl(file, predictions[section])
+    return root
+
+
+def demo(output: Path):
+    root = prepare_demo(output)
+    reports = {}
+    for section in SECTIONS:
+        file = root / (section + ".predictions.jsonl")
         reports[section] = run_section(root, section, file, output / "reports", split="dev",
                                       alignments=root / "alignments.jsonl" if section == "extraction" else None)
     links = "".join(f'<li><a href="{path.relative_to(output).as_posix()}/summary.html">{s}</a></li>' for s, path in reports.items())
     (output / "index.html").write_text('<!doctype html><meta charset="utf-8"><title>评测框架验证</title><h1>SYNTHETIC 合成框架验证</h1><p>六个模块仅验证评分与报告，不代表业务质量。抽取漏题、分类弃权和错误参数是刻意设置的失败。</p><ul>'+links+'</ul>', encoding="utf-8")
     return reports
+
+
+def suite_demo(output: Path):
+    """Exercise the same preflight/run/checkpoint path used by real suites."""
+    from eval.suite import run_suite
+
+    output = output.resolve()
+    prepare_demo(output)
+    suite = {"schema_version": "evaluation_suite_v1", "id": "synthetic-six-module-demo",
+             "candidate": {"id": "synthetic-demo-v2", "components": {
+                 section: {"kind": "synthetic", "version": "synthetic-demo-v2"} for section in SECTIONS}},
+             "modules": [{"id": section, "section": section, "dataset": "fixture", "split": "dev",
+                          "review_policy": "human", "threshold_version": "quality_gate_v3",
+                          "default_pipeline": "HYBRID", "predictions": f"fixture/{section}.predictions.jsonl",
+                          **({"alignments": "fixture/alignments.jsonl"} if section == "extraction" else {})}
+                         for section in SECTIONS]}
+    write_json(output / "suite.json", suite)
+    result = run_suite(output / "suite.json", output / "run")
+    result["index"] = str(output / "run" / "index.html")
+    result["suite"] = str(output / "suite.json")
+    return result
 
 
 def main():

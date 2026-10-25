@@ -10,15 +10,17 @@ import json
 import re
 from dataclasses import dataclass
 
+from interview_intelligence.providers.runtime import DEFAULT_QUERY_MAX_MODEL_CALLS
+
 from interview_intelligence.agent.query_contract import TOOL_ACTIONS
-from interview_intelligence.agent.evidence_projection import EVIDENCE_RESULT_ROWS, project_meta, project_row
+from interview_intelligence.agent.evidence_projection import EVIDENCE_RESULT_ROWS, project_meta, project_row, project_review_states
 from interview_intelligence.contracts import FilterSpec
 
-CONTEXT_VERSION = "query_context_v4"
+CONTEXT_VERSION = "query_context_v6"
 POLICY_VERSION = "query_tool_policy_v2"
 STATE_FIELDS = ("filters", "sort", "last_plan", "list_request", "current_page_ids",
                 "corpus_revision", "task_annotation_revision", "pending_clarification", "question_type_scope",
-                "search_filter_scope", "search_ranking", "last_response", "last_count", "current_page_summary", "conversation_focus")
+                "search_filter_scope", "search_ranking", "last_response", "last_count", "current_page_summary", "conversation_focus", "user_goal")
 PLAN_FIELDS = ("action", "semantic_task", "filters", "sort", "top_n", "page_size", "group_by", "topic_level",
                "search_query", "relevance_query", "lexical_facets", "pipeline", "scope", "review_statuses", "review_order")
 
@@ -49,11 +51,27 @@ def write_authorized(message: str) -> bool:
     return bool(authorized_statuses(message))
 
 
+def authorizes_result_page_write(message: str) -> bool:
+    """Recognize explicit compound authorization, never a model goal.
+
+    The resulting permission binds only the first displayed result page. A
+    reference to an existing page keeps the original request-start binding.
+    """
+    if not write_authorized(message):
+        return False
+    text = re.sub(r'“[^”]*”|「[^」]*」|"[^"]*"|`[^`]*`', "", message).strip()
+    if re.search(r"当前页|这些|这几题|刚才|上面|前面", text):
+        return False
+    return bool(re.search(r"(?:列出|列举|找出|查找|查询|搜索)[^。！？!\n]{0,80}(?:题|问题)"
+        r"[^。！？!\n]{0,12}(?:并|然后|再)[^。！？!\n]{0,16}(?:标记|标为|记为|设为|改为|记录|保存)", text))
+
+
 @dataclass(frozen=True)
 class ToolPolicy:
     actions: dict[str, list[str]]
     reasons: dict[str, str]
     write_authorized: bool
+    model_budget: dict | None = None
 
     @classmethod
     def compile(cls, message, state, *, terminal=False, remaining_tools=8, read_only=False):
@@ -65,7 +83,7 @@ class ToolPolicy:
         reasons = {}
         page = state.get("current_page_ids") or []
         listing = state.get("list_request") or {}
-        if listing.get("cursor"):
+        if listing.get("cursor") or listing.get("kind") == "semantic_candidates" and state.get("semantic_candidate_pages"):
             actions["list_questions"].append("NEXT")
         if page:
             actions["get_question_details"] = ["DETAILS"]
@@ -87,10 +105,43 @@ class ToolPolicy:
         if action not in self.actions.get(name, []):
             raise ValueError("QUERY_TOOL_NOT_ALLOWED")
 
+    def with_budget(self, *, remaining_shared_calls, remaining_planning_calls=DEFAULT_QUERY_MAX_MODEL_CALLS,
+                    pending_planning_calls=0, completion_reserve_calls=0,
+                    search_model_calls=3, next_model_calls=0):
+        """Offer reads only when their provider work leaves a completion turn.
+
+        Projection includes the next, not-yet-made planning call. Execution
+        checks the same allowance after that call has already been charged.
+        Costs are conservative base costs; the provider gate also protects the
+        completion reserve against retries and optional verification work.
+        """
+        budget = dict(remaining_shared_calls=remaining_shared_calls,
+            remaining_planning_calls=remaining_planning_calls,
+            pending_planning_calls=pending_planning_calls,
+            completion_reserve_calls=completion_reserve_calls,
+            search_model_calls=search_model_calls, next_model_calls=next_model_calls)
+        actions, reasons = {}, dict(self.reasons)
+        for name, offered in self.actions.items():
+            allowed = []
+            for action in offered:
+                cost = search_model_calls if action == "SEARCH" else next_model_calls if action == "NEXT" else 0
+                reserve = 0 if action in {"ANSWER", "CLARIFY", "RECORD_REVIEW"} else completion_reserve_calls
+                if (pending_planning_calls + cost + reserve <= remaining_shared_calls and
+                        pending_planning_calls + reserve <= remaining_planning_calls):
+                    allowed.append(action)
+                else:
+                    reasons[name] = "completion_model_budget_reserved"
+            if allowed:
+                actions[name] = allowed
+        return ToolPolicy(actions, reasons, self.write_authorized, budget)
+
     def model_dump(self):
-        return {"version": POLICY_VERSION, "allowed_tools": list(self.actions),
+        result = {"version": POLICY_VERSION, "allowed_tools": list(self.actions),
                 "allowed_actions": self.actions, "denied_reasons": self.reasons,
                 "write_authorized": self.write_authorized}
+        if self.model_budget is not None:
+            result["model_budget"] = self.model_budget
+        return result
 
 
 class ContextCompiler:
@@ -144,6 +195,10 @@ class ContextCompiler:
     @staticmethod
     def state_projection(state):
         projected = {key: state[key] for key in STATE_FIELDS if key in state}
+        if state.get("relevance_scope"):
+            scope = state["relevance_scope"]
+            projected["relevance_scope"] = {key: scope[key] for key in (
+                "version", "target_unit", "excluded_domains", "independent_only", "retrieval_mode", "scope_hash") if key in scope}
         focus = ContextCompiler.conversation_focus(state)
         if focus:
             projected["conversation_focus"] = focus
@@ -162,7 +217,8 @@ class ContextCompiler:
                 "provenance": "previous_assistant_response"}
         if "current_page_summary" in projected:
             projected["current_page_summary"] = [{key: (value[:200] if key == "canonical_text" else value)
-                for key, value in row.items() if key in {"canonical_question_id", "canonical_text", "occurrence_count"}}
+                for key, value in row.items() if key in {"canonical_question_id", "canonical_text", "occurrence_count",
+                    "semantic_verification", "confirmed_occurrence_count", "pending_occurrence_count"}}
                 for row in projected["current_page_summary"][:5]]
         ids = projected.get("current_page_ids", [])
         if not isinstance(ids, list) or len(ids) > 100 or len(set(ids)) != len(ids):
@@ -171,7 +227,8 @@ class ContextCompiler:
 
     def compile(self, *, message, today, explicit_filters, preferences, state,
                 default_page_size, requested_pipeline, parts=(), terminal=False, remaining_tools=8,
-                query_feedback=(), query_memory=(), requery_origin=None, filter_catalog=None):
+                query_feedback=(), query_memory=(), requery_origin=None, filter_catalog=None,
+                user_goal=None, completion=None):
         session = self.state_projection(state)
         previous = [m[:800] for m in state.get("recent_messages", [])[-self.recent_messages:]
                     if isinstance(m, str) and m != message]
@@ -188,7 +245,7 @@ class ContextCompiler:
             user_sources.append("session.recent_messages")
         relevance_intent = {"user_sources": user_sources,
             "previous_target_source": "session.last_plan.relevance_query" if last_plan.get("relevance_query") else None,
-            "previous_target_kind": "model_reformulation",
+            "previous_target_kind": "host_grounded_scope" if session.get("relevance_scope") else "model_reformulation",
             "correction_sources": [key for key, values in (("query_feedback", query_feedback),
                                                           ("query_memory", query_memory)) if values],
             "allow_inferred_requirements": False}
@@ -200,9 +257,12 @@ class ContextCompiler:
                    "relevance_intent": relevance_intent,
                    "retrieval_expansions": {"previous_plan": expansion},
                    "query_feedback": list(query_feedback), "query_memory": list(query_memory),
-                   "completed_tools": [{"intent": p["intent"], "answer": p["answer"][:1800],
-                       "data": [self.evidence_row(row) for row in p["facts"].get("data", [])[:EVIDENCE_RESULT_ROWS]],
-                       "meta": self.evidence_meta(p["facts"]["meta"])} for p in parts[-3:]],
+                   "completed_tools": [{"ordinal": p["facts"]["meta"].get("completion", {}).get("tool_ordinal", index + 1), "intent": p["intent"],
+                       "answer": p["answer"][:1800] if index >= len(parts) - 3 else "",
+                       "data": [self.evidence_row(row) for row in p["facts"].get("data", [])[:EVIDENCE_RESULT_ROWS]]
+                           if index >= len(parts) - 3 else [],
+                       **({"states": states} if (states := project_review_states(p["facts"].get("states"))) is not None else {}),
+                       "meta": self.evidence_meta(p["facts"]["meta"])} for index, p in enumerate(parts[:8])],
                    "tool_policy": policy.model_dump(),
                    "context_contract": {"version": CONTEXT_VERSION,
                        "precedence": ["current_message", "explicit_filters", "session", "preferences", "defaults"],
@@ -211,6 +271,10 @@ class ContextCompiler:
                                    "retrieval_expansions": "previous_model_recall_expansion",
                                    "conversation_focus": "completed_user_goal_independent_of_pagination"},
                        "recent_message_count": len(previous)}}
+        if user_goal is not None:
+            context["user_goal"] = dict(user_goal)
+        if completion is not None:
+            context["completion"] = dict(completion)
         if requery_origin:
             context["requery_origin"] = requery_origin
         if filter_catalog is not None:
