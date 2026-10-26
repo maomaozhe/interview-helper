@@ -90,10 +90,12 @@ def test_exhausted_tool_budget_keeps_evidence_but_does_not_commit_a_successful_a
             AgentEvent.run_id == turn.id, AgentEvent.kind == "completed")))
 
 
-def test_modern_model_callback_cannot_omit_a_user_goal(tmp_path):
+@pytest.mark.parametrize("prompt_version", ["query_agent_v16", "query_agent_v17", "query_agent_v18"])
+def test_modern_model_callback_cannot_omit_a_user_goal(tmp_path, prompt_version):
     database, _, _ = seed_corpus()
     app = create_app(database, Settings(database_url="sqlite+pysqlite:///:memory:",
-        snapshot_root=tmp_path / "snapshots", internal_agent_token="synthetic-internal"))
+        snapshot_root=tmp_path / "snapshots", internal_agent_token="synthetic-internal",
+        query_prompt_version=prompt_version))
     run = app.state.query_service.begin(QueryRequest(message="分析题库数量", request_id="missing-modern-goal"))
     response = TestClient(app).post(f"/internal/agent/runs/{run.id}/tools/get_question_count",
         headers={"Authorization": "Bearer synthetic-internal"}, json=QuerySpec(action="COUNT").model_dump(mode="json"))

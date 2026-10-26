@@ -52,8 +52,13 @@ test("the pinned Pi exposes the complete frozen tool menu without contract drift
   list.description=list.description.replace(/ All engineering\/system-design questions use semantic_task=ENGINEERING_DESIGN.*$/,"");
   const count=legacyMenu.find(tool=>tool.name==="get_question_count");
   assert.ok(count.description.includes("For a SYNTHESIS user_goal, this is evidence only"));
-  count.description=count.description.replace(/ to restate counts for a DIRECT_RESULT goal\..*$/,
-    " to restate counts. Use final=false only when the user explicitly also requests analysis, advice or an explanation.");
+  assert.ok(count.description.includes("Only a pure total question about that one scope"));
+  assert.ok(count.description.includes("requires SYNTHESIS from the first step"));
+  // v17 narrows the single-COUNT optimization; the captured old menu stays
+  // immutable. Normalize only that declared prose change, then hash the full
+  // historical tool (including every parameter and constraint) as before.
+  count.description=count.description.replace(/ \(appearances\) for ONE filter scope\..*$/,
+    " (appearances). For a direct total question, including asking both numbers, call only this tool once with final=true; do not call STATS for appearances or ANSWER to restate counts. Use final=false only when the user explicitly also requests analysis, advice or an explanation.");
   assert.deepEqual(legacyMenu.map(tool=>({name:tool.name,
     sha256:createHash("sha256").update(JSON.stringify(tool)).digest("hex")})),before.tools);
   assert.deepEqual(requests,[{url:"/internal/agent/runs/contract-before/tools/list_questions",

@@ -20,7 +20,7 @@ from interview_intelligence.resources import resource_path
 def test_default_prompt_delivers_broad_example_and_narrow_object_rules():
     version = Settings().query_prompt_version
     prompt = resource_path(f"prompts/{version}.md").read_text(encoding="utf-8")
-    assert version == "query_agent_v16"
+    assert version == "query_agent_v18"
     assert "是题型示例" in prompt
     assert "明确“只要排行榜”才限定" in prompt
     assert "“排行榜如何设计”是解答" in prompt

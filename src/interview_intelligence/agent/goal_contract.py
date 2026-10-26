@@ -21,7 +21,12 @@ TERMINAL_STATUSES = {"COMPLETE", "CLARIFICATION", "WRITE_COMMITTED"}
 
 class UserGoal(StrictModel):
     objective: str = Field(min_length=1, max_length=800)
-    response_mode: Literal["DIRECT_RESULT", "SYNTHESIS"] = "SYNTHESIS"
+    response_mode: Literal["DIRECT_RESULT", "SYNTHESIS"] = Field(default="SYNTHESIS", description=(
+        "Choose from the entire user objective before selecting a tool. DIRECT_RESULT is only for one "
+        "authoritative result that alone satisfies every requested outcome in one filter scope. "
+        "Multiple scopes, a list plus separate totals, comparisons, explanations or analysis require "
+        "SYNTHESIS: gather all needed evidence, then submit ANSWER. A COUNT or LIST action does not "
+        "by itself imply DIRECT_RESULT."))
 
 
 def bind_goal(run, proposal: UserGoal | None, *, structured=False):

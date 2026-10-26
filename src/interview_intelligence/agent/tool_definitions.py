@@ -63,9 +63,12 @@ TOOL_DEFINITIONS = {'list_questions': {'actions': ['LIST', 'NEXT', 'CLARIFY'],
                                 'request clears it. When the current goal is COUNT, subject corrections or '
                                 'restatements remain COUNT even after an already-correct count. One COUNT returns '
                                 'both counts.canonical_questions (distinct questions) and counts.occurrences '
-                                '(appearances). For a direct total question, including asking both numbers, call '
-                                'only this tool once with final=true; do not call STATS for appearances or ANSWER '
-                                'to restate counts for a DIRECT_RESULT goal. For a SYNTHESIS user_goal, this is '
+                                '(appearances) for ONE filter scope. Only a pure total question about that one '
+                                'scope can finish with this tool once and final=true. Asking both units in that '
+                                'same scope is still one result; comparing scopes, requesting a list AND totals, '
+                                'or asking for an explanation requires SYNTHESIS from the first step. Do not '
+                                'stop after the first count or replace other requested outcomes with a count. '
+                                'Do not call STATS merely to get appearances. For a SYNTHESIS user_goal, this is '
                                 'evidence only: continue with further authorized reads as needed, then ANSWER. '
                                 'Interpret the conversational objective independently of the tool action.',
                         'replace_properties': {'top_n': {'type': 'null'}}},

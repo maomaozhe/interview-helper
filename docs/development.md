@@ -22,7 +22,7 @@
 | `APP_SIGNING_KEY` / `INTERNAL_AGENT_TOKEN` | 分页签名及内部 Agent 回调鉴权，分别使用随机值。 |
 | `TASK_ANNOTATION_POLICY` | 默认 `VERIFIED`；`KNOWN` 允许明确的临时机器分类，用于开发诊断。 |
 
-`QUERY_PROMPT_VERSION` 默认 `query_agent_v16`，`QUERY_DEADLINE_SECONDS` 默认600秒，`QUERY_MAX_MODEL_CALLS` 默认8次规划/回答，`QUERY_MAX_TOTAL_MODEL_CALLS` 默认24次共享模型调用，`QUERY_MAX_TOKENS` 默认256,000。这些项的 Compose 与 Settings 默认一致；其他开关不能据此类推，例如 Compose 开启 router / Pi，而直接 Settings 默认关闭。普通 Compose 只透传 YAML `environment` 中列出的字段，具体覆盖关系见 [运行配置](reference/runtime-config.md#先确定配置入口)。真实证据重排会增加延迟；耗时以请求回执为准。
+`QUERY_PROMPT_VERSION` 默认 `query_agent_v18`，`QUERY_DEADLINE_SECONDS` 默认600秒，`QUERY_MAX_MODEL_CALLS` 默认8次规划/回答，`QUERY_MAX_TOTAL_MODEL_CALLS` 默认24次共享模型调用，`QUERY_MAX_TOKENS` 默认256,000。这些项的 Compose 与 Settings 默认一致；显式环境版本仍优先。v18的多目标、澄清承接及原题事实/建议边界调整及真实复测范围见[20组诊断记录](plans/2026-10-15-evaluation-readiness.md#20-组真实多轮诊断2026-10-26实施前)。其他开关不能据此类推，例如 Compose 开启 router / Pi，而直接 Settings 默认关闭。普通 Compose 只透传 YAML `environment` 中列出的字段，具体覆盖关系见 [运行配置](reference/runtime-config.md#先确定配置入口)。真实证据重排会增加延迟；耗时以请求回执为准。
 
 长期偏好由用户明确保存。任务分类核验通过草稿和发布版本管理；不要把机器分类的 SQL 范围核对解释成语义分类正确。
 

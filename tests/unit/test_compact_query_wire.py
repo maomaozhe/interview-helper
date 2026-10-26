@@ -34,7 +34,8 @@ def settings_for(tmp_path, prompt="query_agent_v16"):
         query_max_tokens=96000, query_deadline_seconds=180)
 
 
-@pytest.mark.parametrize("prompt,wire", [("query_agent_v16", QUERY_PI_TOOL_WIRE_VERSION), ("query_agent_v13", None)])
+@pytest.mark.parametrize("prompt,wire", [("query_agent_v16", QUERY_PI_TOOL_WIRE_VERSION),
+    ("query_agent_v17", QUERY_PI_TOOL_WIRE_VERSION), ("query_agent_v18", QUERY_PI_TOOL_WIRE_VERSION), ("query_agent_v13", None)])
 def test_public_api_uses_explicit_wire_with_complete_schema_and_preserves_host_answer_evidence(monkeypatch, tmp_path, prompt, wire):
     database = create_database("sqlite+pysqlite:///:memory:")
     settings = settings_for(tmp_path, prompt)

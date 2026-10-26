@@ -2,11 +2,13 @@
 id: runtime-config
 status: current
 scope: workspace
-verified_at: 2026-10-25
+verified_at: 2026-10-26
 sources:
   - path: src/interview_intelligence/mcp_server.py
     symbols: [KnowledgeClient.from_env, create_server, main]
   - path: prompts/query_agent_v16.md
+  - path: prompts/query_agent_v17.md
+  - path: prompts/query_agent_v18.md
   - path: src/interview_intelligence/agent/goal_contract.py
     symbols: [UserGoal, completion_for]
   - path: src/interview_intelligence/config.py
@@ -181,7 +183,7 @@ Jev/Fast Decision 默认关闭，模式默认 `shadow`；模型文件或代码�
 [Pi runtime](../../services/pi-agent/runtime.mjs) 通过主机内部接口请求模型与工具，
 普通 Compose 只给 sidecar 内部 token 和 `AGENT_HOST_URL`，不注入上游 API key。
 模型名称、endpoint、预算由 Python gateway 选择，Pi 输入不能直接覆盖这些值。
-v16 API显式传 `tool_wire_version=query_step_v1`，用一份完整动作schema承载模型步骤，再由Pi分派到原领域工具；该版本减少重复工具声明，保留逐步规划及权限检查。旧提示词不传此字段，仍使用原领域工具菜单；直接JSON规划路径不受影响。`model_wire` 持久事件区分传输版本，不把prompt文件版本当作整个模型请求身份。
+v16–v18 API显式传 `tool_wire_version=query_step_v1`，用一份完整动作schema承载模型步骤，再由Pi分派到原领域工具；该版本减少重复工具声明，保留逐步规划及权限检查。旧提示词不传此字段，仍使用原领域工具菜单；直接JSON规划路径不受影响。`model_wire` 持久事件区分传输版本，不把prompt文件版本当作整个模型请求身份。
 内部认证配置见 [开发说明](../development.md)，部署入口见 [SSH 部署](../deployment-ssh.md)。
 
 多账号模式默认关闭；启用后，查询/重排的提供方选择如下：
@@ -211,7 +213,7 @@ flowchart LR
 | 用途 | 当前默认 | 受支持 / 选中机制 | 权威入口 |
 | --- | --- | --- | --- |
 | 抽取 | `extract_question_v2` | Settings 接受 v2–v6；worker 按该字段构造 prompt 路径 | [config](../../src/interview_intelligence/config.py)、[worker](../../src/interview_intelligence/worker.py) |
-| 查询 | `query_agent_v16` | Settings 接受 v6–v16，普通 Compose 回退值同为 v16，显式环境选择继续优先。v16分离用户目标、工具动作及host完成状态，综合目标可在原预算内多轮取证后ANSWER；旧提示词全部保留 | [model_gateway](../../src/interview_intelligence/agent/model_gateway.py)、[完成契约](../../src/interview_intelligence/agent/goal_contract.py) |
+| 查询 | `query_agent_v18` | Settings 接受 v6–v18，普通 Compose 回退值同为 v18，显式环境选择继续优先。v18保留单范围/单结果的 DIRECT_RESULT 判断，多范围、清单加总量和比较先取齐证据再 ANSWER；澄清选项不成为额外筛选约束，并区分原题事实与模型归纳建议。v16–v18均要求用户目标并使用相同host完成检查；旧提示词全部保留 | [model_gateway](../../src/interview_intelligence/agent/model_gateway.py)、[完成契约](../../src/interview_intelligence/agent/goal_contract.py) |
 | 任务分类 | `task_annotation_v4` | `annotate_tasks` / CLI 默认 v4，模型路径支持 v4–v9，显式 `--prompt-version` 选择 | [task_annotation](../../src/interview_intelligence/agent/task_annotation.py)、[CLI](../../src/interview_intelligence/cli.py) |
 | 去重 | `dedup_judge_v1` | worker 使用 provider 默认；评测 collector 显式支持 v1/v2/v3 | [dedup provider](../../src/interview_intelligence/dedup/provider.py)、[collector](../../eval/collect.py) |
 | 旧搜索规划 | `search_plan_v1` | `SearchPlanner` 固定加载，用于对应兼容服务路径 | [SearchPlanner](../../src/interview_intelligence/agent/planner.py) |
@@ -231,7 +233,7 @@ v2 对应 `dedup_judge_v9_answer_boundary`，v3 对应 `dedup_judge_v10_source_e
 `collection_fingerprint()` 另外记录 prompt hash、guard hash、schema 和复核开关。
 实际响应 `model_revision` 与请求模型别名不同，不能仅凭相同别名断言上游权重一致。
 
-当前工作区查询默认改为 query v16，分离目标、执行和回答完成；2026-10-25经用户授权将默认预算调为规划8次、共享24次/256k/600秒，后续步骤不重置累计用量，Pi接收host剩余调用上界。完整性/复习状态摘要有界保留，零结果可引用本轮合法工具回执作范围分析。10-19记录中的SSH服务为显式 query v15；本机部署及本次预算生效另以本地回执为准；真实两轮专项记录见[本次计划](../plans/2026-10-19-query-goal-completion.md)。重排/范围复核候选仍为 rerank v42 / scope v25，目录筛选版本为 `business_catalog_soft_selection_v1`；旧语义gold未通过，新完整工集和来源证明路径不能从离线契约推定模型质量。10-16 SSH发布的工程全集/分类选择仍为阈值100、rerank v15 / scope v6、r295/i295/a32，其他模型/锁/预算未改。320道SQL工程全集与普通SEARCH至多50候选分页相互独立，实际版本与证据见[SSH发布](../deployment-ssh.md#当前发布版本)及[状态证据](../status/current.md#按问题查看证据)。
+当前工作区查询默认为 query v18，目标模式与澄清承接调整来自 [20 组多轮诊断](../plans/2026-10-15-evaluation-readiness.md#20-组真实多轮诊断2026-10-26实施前)，实际部署及真实复测结果以该记录为准。2026-10-25经用户授权将默认预算调为规划8次、共享24次/256k/600秒，后续步骤不重置累计用量，Pi接收host剩余调用上界。完整性/复习状态摘要有界保留，零结果可引用本轮合法工具回执作范围分析。10-19记录中的SSH服务为显式 query v15；本机部署及本次预算生效另以本地回执为准；真实两轮专项记录见[本次计划](../plans/2026-10-19-query-goal-completion.md)。重排/范围复核候选仍为 rerank v42 / scope v25，目录筛选版本为 `business_catalog_soft_selection_v1`；旧语义gold未通过，新完整工集和来源证明路径不能从离线契约推定模型质量。10-16 SSH发布的工程全集/分类选择仍为阈值100、rerank v15 / scope v6、r295/i295/a32，其他模型/锁/预算未改。320道SQL工程全集与普通SEARCH至多50候选分页相互独立，实际版本与证据见[SSH发布](../deployment-ssh.md#当前发布版本)及[状态证据](../status/current.md#按问题查看证据)。
 候选评测、历史提示词重放与来源审核从 [评测入口分类](../../eval/README.md#入口分类通用评测候选实验与历史复现) 查找，旧报告描述的是当时阶段。
 
 ## 哪些配置文件真正被读取

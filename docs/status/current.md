@@ -2,12 +2,14 @@
 id: current-project-status
 status: current
 scope: workspace-and-scoped-ssh-runtime-evidence
-verified_at: 2026-10-25
+verified_at: 2026-10-26
 runtime_verified: false
 sources:
   - path: src/interview_intelligence/agent/goal_contract.py
     symbols: [UserGoal, completion_for, restore_completion]
   - path: prompts/query_agent_v16.md
+  - path: prompts/query_agent_v17.md
+  - path: prompts/query_agent_v18.md
   - path: docs/plans/2026-10-19-query-goal-completion.md
   - path: src/interview_intelligence/agent/evidence_projection.py
     symbols: [project_row, project_meta]
@@ -65,6 +67,8 @@ sources:
 ---
 
 # 当前工作区状态与证据入口
+
+10-26在隔离本机 API/Pi、实际 Ark 配置和 r400/i400/a30、KNOWN 语料上完成20组/41轮真实多轮开发评测：106次模型调用、941007 token、复习写入0，运行文件/进程及共享Linux锁为 REMOTE_SOURCE_BOUND。独立任务诊断17组完成、3组未完成，明确阻断为澄清停滞和多目标提前结束；原严格分数保留7 PASS/10 FAIL/3 UNKNOWN，有限来源面板和合法执行路径差异没有改成通过。v17修复三组主问题，8组复测另发现建议归因错误；最终v18对原失败、事实/建议边界及范围说明五组/10轮复测完成。三批累计192次调用、1775441 token。语义检索仍有正例漏进池、当前页未覆盖子主题及核验未决，原严格门禁不随任务复核改绿，完整V1质量仍未通过。本机已启用v18，API/worker/Pi运行文件与受测候选一致，数据库/索引ready、Windows首页HTTP200、保活Running；预算沿用8/24/8/256000/600秒，未部署SSH服务。完整依据、测试命令及剩余限制见[20组诊断](../plans/2026-10-15-evaluation-readiness.md#20-组真实多轮诊断2026-10-26实施前)。
 
 10-25本机复杂查询预算已更新并通过健康接口核对：默认8次规划/回答、24次共享模型调用、256000 tokens、600秒，工具上限8次。API、Pi、worker已使用当前工作区镜像，数据库与索引ready，Windows首页HTTP200，保活任务Running；浏览器等待跟随持久run租约。此次运行核对仅覆盖本机配置和服务，不增加真实模型质量结论；SSH环境仍需按各自发布证据判断。调整依据、失败记录及验证命令见[复杂查询预算记录](../plans/2026-10-19-query-goal-completion.md)。下文10-19的未部署说明保留为当次历史结论。
 

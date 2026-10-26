@@ -20,12 +20,12 @@ def model_plan(**values):
     }
 
 
-def test_v16_is_default_and_ships_without_removing_previous_prompts():
+def test_v18_is_default_and_ships_without_removing_previous_prompts():
     root = Path(__file__).parents[2]
     manifest = tomllib.loads((root / "pyproject.toml").read_text(encoding="utf-8"))
     files = manifest["tool"]["hatch"]["build"]["targets"]["wheel"]["force-include"]
-    assert QUERY_AGENT_VERSION == Settings().query_prompt_version == "query_agent_v16"
-    for version in ("query_agent_v9", "query_agent_v10", "query_agent_v11", "query_agent_v12", "query_agent_v13", "query_agent_v14", "query_agent_v15", "query_agent_v16"):
+    assert QUERY_AGENT_VERSION == Settings().query_prompt_version == "query_agent_v18"
+    for version in ("query_agent_v9", "query_agent_v10", "query_agent_v11", "query_agent_v12", "query_agent_v13", "query_agent_v14", "query_agent_v15", "query_agent_v16", "query_agent_v17", "query_agent_v18"):
         assert files[f"prompts/{version}.md"].endswith(f"/{version}.md")
         assert Settings(query_prompt_version=version).query_prompt_version == version
 

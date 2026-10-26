@@ -9,7 +9,7 @@ import httpx
 from pydantic import ValidationError
 
 from interview_intelligence.agent.query_contract import (
-    QuerySpec, QUERY_AGENT_VERSION, QUERY_MODEL_SCHEMA_VERSION, query_model_schema, validate_model_plan,
+    QuerySpec, QUERY_AGENT_VERSION, GOAL_PROMPT_VERSIONS, QUERY_MODEL_SCHEMA_VERSION, query_model_schema, validate_model_plan,
 )
 from interview_intelligence.providers.runtime import current_limits
 from interview_intelligence.resources import resource_path
@@ -183,7 +183,7 @@ class ModelGateway:
             {"role": "user", "content": json.dumps(context, ensure_ascii=False)}],
             "response_format": {"type": "json_schema", "json_schema": {
                 "name": QUERY_MODEL_SCHEMA_VERSION, "strict": False, "schema": query_model_schema(
-                    context.get("tool_policy"), require_user_goal=self.prompt_version == "query_agent_v16")}}},
+                    context.get("tool_policy"), require_user_goal=self.prompt_version in GOAL_PROMPT_VERSIONS)}}},
             emit=emit if self.on_event else None)
         try:
             content = response["choices"][0]["message"]["content"]
@@ -196,7 +196,7 @@ class ModelGateway:
         try:
             if not isinstance(content, str):
                 raise ValueError("QUERY_MODEL_PLAN_CONTENT_INVALID")
-            return validate_model_plan(json.loads(content), require_user_goal=self.prompt_version == "query_agent_v16")
+            return validate_model_plan(json.loads(content), require_user_goal=self.prompt_version in GOAL_PROMPT_VERSIONS)
         except (ValueError, ValidationError) as error:
             if self.on_event:
                 await asyncio.to_thread(self.on_event, run.id, "model_plan_validation_failed", {

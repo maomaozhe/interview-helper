@@ -10,7 +10,8 @@ from interview_intelligence.agent.tool_definitions import ACTION_REQUIRED_FIELDS
 from interview_intelligence.agent.goal_contract import UserGoal
 
 
-QUERY_AGENT_VERSION = "query_agent_v16"
+QUERY_AGENT_VERSION = "query_agent_v18"
+GOAL_PROMPT_VERSIONS = frozenset({"query_agent_v16", "query_agent_v17", "query_agent_v18"})
 QUERY_MODEL_SCHEMA_VERSION = "QuerySpec_v3"
 QUERY_PI_TOOL_WIRE_VERSION = "query_step_v1"
 

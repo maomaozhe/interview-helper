@@ -2,7 +2,7 @@
 id: architecture-query-flow
 status: current
 scope: workspace
-verified_at: 2026-10-25
+verified_at: 2026-10-26
 sources:
   - path: src/interview_intelligence/agent/goal_contract.py
     symbols: [UserGoal, bind_goal, completion_for, restore_completion, evidence_by_ordinal]
@@ -22,6 +22,8 @@ sources:
   - path: src/interview_intelligence/agent/presentation.py
     symbols: [AnswerStream]
   - path: prompts/query_agent_v15.md
+  - path: prompts/query_agent_v17.md
+  - path: prompts/query_agent_v18.md
   - path: src/interview_intelligence/agent/collection_selection.py
     symbols: [CollectionSelection.resolve, CollectionSelection.prepare]
   - path: src/interview_intelligence/analytics/engineering_categories.py
@@ -177,7 +179,7 @@ sequenceDiagram
 
 ## 用户目标、工具执行与回答完成
 
-v16模型协议首先声明独立 `user_goal={objective,response_mode}`：纯列表/数量/分组/分页可以 `DIRECT_RESULT`，核查、解释、分析、比较、建议和解答使用 `SYNTHESIS`。host绑定当前run、请求hash及来源，后续步骤不能改写或降级目标；目标字段不授予筛选、题目ID或复习写入权限。新自然语言入口先规划目标，不走未声明目标的集合/Jev直达路径；结构化UI仍直接执行SQL，旧提示词和typed adapter保留显式legacy兼容。
+v16–v18模型协议首先声明独立 `user_goal={objective,response_mode}`。v17将 `DIRECT_RESULT` 限定为单范围、一份回执即可满足全部交付项；同范围的去重题数与提问次数属于一份计数结果，多公司、多范围、清单加总量及比较/解释等用 `SYNTHESIS`。v18明确将归纳步骤、方案及验证放在模型建议中，不归为原题要求。host绑定当前run、请求hash及来源，后续步骤不能改写或降级目标；目标字段不授予筛选、题目ID或复习写入权限。新自然语言入口先规划目标，不走未声明目标的集合/Jev直达路径；结构化UI仍直接执行SQL，旧提示词和typed adapter保留显式legacy兼容。模式仍由模型按完整语义选择，host的结构性 COMPLETE 不证明全部语义目标正确，真实诊断及复测见[20组记录](../plans/2026-10-15-evaluation-readiness.md#20-组真实多轮诊断2026-10-26实施前)。
 
 每步 `action` 只表达工具操作，`final`只作结束提议。工具执行并提交事实后，host计算 `meta.completion`：综合目标的读取保持 `NEEDS_RESPONSE`，明确继续读取为 `CONTINUE`；`ANSWER`完成为 `COMPLETE`，澄清为 `CLARIFICATION`，已提交复习写入为 `WRITE_COMMITTED`。Pi、`finish`及同请求恢复均按持久completion决定终态，不能从旧plan.final推断新协议已经回答完成。预算耗尽保留partial并失败，不写SUCCEEDED；这些结构检查不证明任意自然语言的目标识别和回答语义正确。
 
@@ -191,7 +193,7 @@ ANSWER可用 `evidence_tool_ordinals` 引用本run已完成工具，序号来自
 
 模型摘要保留有界候选数、资格范围数、返回数、核验状态与 `result_completeness`，明确候选核验完成不等于全库覆盖完成；合法0/false保留，缺失值为未知。至多8个完成工具的简要证据保留，来源长文只留最近3步且可压缩；复习状态至多展示5项，同时保留请求集合的状态汇总、非法数和截断标志。原API完整事实不被摘要替代。工程入口见 [goal_contract](../../src/interview_intelligence/agent/goal_contract.py)，验收记录见 [本次计划](../plans/2026-10-19-query-goal-completion.md)。
 
-v16的Pi模型输入显式采用 `query_step_v1`：把完整QuerySpec共享schema声明一次，避免每个工具重复传FilterSpec。模型仍逐步选择action，Pi按host当前允许action映射原领域工具；动态预算收缩、host执行校验与持久工具身份不变。传输版本通过 `model_wire` 事件记录，旧菜单及JSON fallback保留。schema去除标题/默认值注解不删除类型、必填、枚举、范围或条件约束；重复声明减量不证明上游首输出延迟必然同比下降。延迟应分别核对provider TTFT、本地queue/interval及生成结束时间。
+v16–v18的Pi模型输入显式采用 `query_step_v1`：把完整QuerySpec共享schema声明一次，避免每个工具重复传FilterSpec。模型仍逐步选择action，Pi按host当前允许action映射原领域工具；动态预算收缩、host执行校验与持久工具身份不变。传输版本通过 `model_wire` 事件记录，旧菜单及JSON fallback保留。schema去除标题/默认值注解不删除类型、必填、枚举、范围或条件约束；重复声明减量不证明上游首输出延迟必然同比下降。延迟应分别核对provider TTFT、本地queue/interval及生成结束时间。
 
 入口符号：[app.js::agentQuery](../../src/interview_intelligence/web/assets/app.js)、
 [api.py::conversation_message / execute_query](../../src/interview_intelligence/api.py)、
@@ -217,11 +219,11 @@ v16的Pi模型输入显式采用 `query_step_v1`：把完整QuerySpec共享schem
 默认提示词把精确类别榜单交给 LIST，按主题、公司或轮次看分布交给 STATS；单一大类的内部知识点分布使用 `topic_level=L2`。
 “工程系统设计题，类似设计排行榜”普通找题按宽类别 SEARCH，例子不是每题的必需对象；明确“所有/全部/完整工程系统设计题”使用 `LIST + semantic_task=ENGINEERING_DESIGN`，不受 SEARCH 的 50 候选上限限制。“只要排行榜”保留具体对象的检索范围，“排行榜如何设计”则生成 ANSWER。
 `coding_focus=ENGINEERING` 表示工程编程任务，不能代替系统设计类别；题型偏好可以参与软召回，用户显式筛选仍须保留。
-这些是 [默认规划提示词](../../prompts/query_agent_v16.md) 的行为约定，实际计划还要经过 host 校验，不等于每个模型请求都已正确执行。宽工程设计包含符合任务要求的传统工程及 Agent/AI 应用，也可包含有建设目标的组件、机制和工作流；纯概念、算法求解和既有项目复述不能仅凭标签纳入。
+这些是 [默认规划提示词](../../prompts/query_agent_v18.md) 的行为约定，实际计划还要经过 host 校验，不等于每个模型请求都已正确执行。澄清选项属于助手建议，不形成新增筛选要求；用户已经给出可执行的新范围时，不应因未选旧选项继续追问。宽工程设计包含符合任务要求的传统工程及 Agent/AI 应用，也可包含有建设目标的组件、机制和工作流；纯概念、算法求解和既有项目复述不能仅凭标签纳入。
 
 [query_scope::guard_plan](../../src/interview_intelligence/agent/query_scope.py) 从用户原话及可信续问恢复相关性目标，模型扩展只用于召回；无对应用户授权不能添加 `ALGORITHM_PROBLEM` 或 `ENGINEERING_DESIGN`。完整工程设计请求及其 COUNT/STATS 续问由 host 恢复对应 SQL task；其他自然“场景/设计题”不能直接等同旧 `SCENARIO/SYSTEM_DESIGN` 标签，普通找题仍可转语义 SEARCH，缺少可靠全集的其他总数或全库排名请求仍须澄清。显式 UI 和文字指定的分类标签保留，不能用有限候选替代全库事实。回执 `meta.user_scope_policy` 保留提案、实际范围与来源。
 
-Python直出计划的模型schema为`QuerySpec_v3`，v16另要求非空user_goal；非LIST/NEXT/COUNT/STATS动作的`semantic_task`只能为空，SEARCH同时要求非空查询、每页至多50、`top_n=null`。Pi使用动作专属工具字段，旧提示词仍可走旧typed字段兼容。模型可见schema不代替主机严格校验：冲突计划在工具之前失败，不静默删条件或改动作。私有`model_response`先留原计划，公开错误使用稳定`QUERY_MODEL_PLAN_INVALID`，不会带出Pydantic的原始input。
+Python直出计划的模型schema为`QuerySpec_v3`，v16–v18另要求非空user_goal；非LIST/NEXT/COUNT/STATS动作的`semantic_task`只能为空，SEARCH同时要求非空查询、每页至多50、`top_n=null`。Pi使用动作专属工具字段，旧提示词仍可走旧typed字段兼容。模型可见schema不代替主机严格校验：冲突计划在工具之前失败，不静默删条件或改动作。私有`model_response`先留原计划，公开错误使用稳定`QUERY_MODEL_PLAN_INVALID`，不会带出Pydantic的原始input。
 
 可信 UI 筛选另以 `query_scope_intent.explicit_filters` 记录，旧会话可回退到 `list_explicit_filters`；模型推断条件不能转成 UI 来源。续问 COUNT/STATS 保留这些条件，当前显式变更优先。用户指定前 N（1–1000）与每页 N（1–100）时分别控制集合上限和页大小，超界澄清，不静默截断；未指定前 N 的完整请求使用 `top_n=null`。分组 NEXT 恢复原 `group_by/topic_level`，避免将公司数说成去重题数。
 
@@ -369,7 +371,7 @@ SEARCH 的 `frequency` 先核验最多 50 个候选，再按候选在当前 SQL 
 COUNT 始终统计完整匹配范围，并应用当前用户的 `review_statuses`，没有个人状态的题按 UNSEEN 处理。
 明确问“前 N 题中有多少”时，应读取 LIST 的 `pagination.result_total`；`returned` 只是本页条数，`pagination.total` 是截取 Top N 前的总量。
 “前 40 题中未掌握”使用 `review_order=AFTER_TOP_N`，“未掌握的前 40 题”使用 `BEFORE_TOP_N`，两者不能交换。
-规则入口是 [query_agent_v15](../../prompts/query_agent_v15.md)，计数事实入口是 [count_questions](../../src/interview_intelligence/analytics/counts.py)。
+规则入口是 [query_agent_v18](../../prompts/query_agent_v18.md)，计数事实入口是 [count_questions](../../src/interview_intelligence/analytics/counts.py)。
 相关故障及历史验收见 [意图与状态复盘](../retrospectives/2026-10-08-query-intent-state.md)、[宽范围窄化复盘](../retrospectives/2026-10-08-query-scope-narrowing.md)；当前预算与版本只在 [运行配置](../reference/runtime-config.md) 维护。
 
 ## 幂等、快照与执行所有权

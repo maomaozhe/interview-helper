@@ -26,7 +26,7 @@ from interview_intelligence.analytics.stats import query_question_stats
 from interview_intelligence.analytics.scope import sign_scope, verify_scope
 from interview_intelligence.agent.service import AgentService
 from interview_intelligence.agent.planner import SearchPlanner
-from interview_intelligence.agent.query_contract import QueryRequest, QuerySpec, ListQueryRequest, StructuredQueryRequest, TOOL_ACTIONS, QUERY_AGENT_VERSION, QUERY_MODEL_SCHEMA_VERSION, QUERY_PI_TOOL_WIRE_VERSION, query_model_schema, validate_model_plan
+from interview_intelligence.agent.query_contract import QueryRequest, QuerySpec, ListQueryRequest, StructuredQueryRequest, TOOL_ACTIONS, QUERY_AGENT_VERSION, GOAL_PROMPT_VERSIONS, QUERY_MODEL_SCHEMA_VERSION, QUERY_PI_TOOL_WIRE_VERSION, query_model_schema, validate_model_plan
 from interview_intelligence.agent.goal_contract import restore_completion
 from interview_intelligence.agent.query_service import QueryService, QueryRun
 from interview_intelligence.agent.model_gateway import ModelGateway, completion_sse
@@ -307,7 +307,7 @@ def create_app(database=None, settings: Settings | None = None, retriever=None, 
                              "model_attempts": 0, **run.call_timings})
             # Typed/legacy adapters retain collection shortcuts. Modern natural
             # language declares its response goal before selecting evidence.
-            collection_plan = (None if settings.query_prompt_version == "query_agent_v16" else
+            collection_plan = (None if settings.query_prompt_version in GOAL_PROMPT_VERSIONS else
                                query_service.complete_collection_plan(run))
             if collection_plan is not None:
                 tool = {"COUNT": "get_question_count", "SEARCH": "search_questions"}.get(
@@ -321,7 +321,7 @@ def create_app(database=None, settings: Settings | None = None, retriever=None, 
             context = await asyncio.to_thread(query_service.model_context, run)
             plan_started = time.perf_counter()
             selected_jev = jev if not settings.multi_tenant_enabled else None
-            plan = await asyncio.to_thread(selected_jev.plan, run, context) if selected_jev and settings.query_prompt_version != "query_agent_v16" else None
+            plan = await asyncio.to_thread(selected_jev.plan, run, context) if selected_jev and settings.query_prompt_version not in GOAL_PROMPT_VERSIONS else None
             if selected_jev and settings.jev_decision_mode == "shadow":
                 run.decision["candidate_spec"] = plan.model_dump(mode="json") if plan else None
                 plan = None
@@ -336,7 +336,7 @@ def create_app(database=None, settings: Settings | None = None, retriever=None, 
                 if not settings.internal_agent_token:
                     raise ValueError("MODEL_CONFIGURATION_INCOMPLETE")
                 wire = ({"tool_wire_version": QUERY_PI_TOOL_WIRE_VERSION}
-                        if settings.query_prompt_version == "query_agent_v16" else {})
+                        if settings.query_prompt_version in GOAL_PROMPT_VERSIONS else {})
                 run.model_wire_version = wire.get("tool_wire_version")
                 await asyncio.to_thread(query_service.journal.event, run.id, "model_wire", {
                     "version": wire.get("tool_wire_version", "domain_tools_v1"), "runtime": "pi",
@@ -347,7 +347,7 @@ def create_app(database=None, settings: Settings | None = None, retriever=None, 
                         headers={"Authorization": f"Bearer {settings.internal_agent_token}"},
                         json={"run_id": run.id, "conversation_id": run.conversation_id, "context": context,
                               **wire,
-                              "schema": query_model_schema(require_user_goal=settings.query_prompt_version == "query_agent_v16"),
+                              "schema": query_model_schema(require_user_goal=settings.query_prompt_version in GOAL_PROMPT_VERSIONS),
                               "max_model_calls": max(0, min(settings.query_max_model_calls - run.model_calls,
                                   run.limits.max_calls - run.limits.calls)),
                               "prompt": resource_path(f"prompts/{settings.query_prompt_version}.md").read_text(encoding="utf-8"),
@@ -468,7 +468,7 @@ def create_app(database=None, settings: Settings | None = None, retriever=None, 
     @app.post("/internal/agent/runs/{run_id}/tools/{tool_name}")
     async def pi_tool(request: Request, run_id: str, tool_name: str):
         run = internal_run(request, run_id)
-        plan = validate_model_plan(await request.json(), require_user_goal=settings.query_prompt_version == "query_agent_v16")
+        plan = validate_model_plan(await request.json(), require_user_goal=settings.query_prompt_version in GOAL_PROMPT_VERSIONS)
         trace_token = model_request_id.set(run.request.request_id)
         run_token = query_run_context.set(run)
         try:
